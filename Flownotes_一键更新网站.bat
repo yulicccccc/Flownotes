@@ -29,9 +29,9 @@ if not exist "node\node.exe" (
 :: Setup local path to use portable node
 set PATH=%~dp0node;%PATH%
 
-:: 3. Run wrangler deploy
-echo [3/3] Deploying to Cloudflare Pages...
-call .\node\npx.cmd --yes wrangler pages deploy public --project-name flownotes
+:: 3. Run wrangler deploy directly to production branch
+echo [3/3] Deploying to Cloudflare Pages (Production)...
+call .\node\npx.cmd --yes wrangler pages deploy public --project-name flownotes --branch main
 
 echo.
 echo ===================================================
