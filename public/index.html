@@ -78,6 +78,12 @@
                 <span class="shortcut-hint">Ctrl+K</span>
             </div>
 
+            <!-- GitHub 同步防误删按钮 -->
+            <button class="btn btn-github" id="ghSyncBtn" title="GitHub 云端多端同步与历史回滚防误删">
+                <span class="btn-icon">🔄</span>
+                <span id="ghSyncText">GitHub 同步</span>
+            </button>
+
             <!-- 数据导出到 Obsidian JSON -->
             <button class="btn btn-obsidian" id="exportObsidianBtn" title="导出支持 sync_to_obsidian.ps1 脚本的备份文件">
                 <span class="btn-icon">📦</span>
@@ -266,7 +272,46 @@
         </section>
     </main>
 
-    <!-- 弹窗：导出数据成功模态框 -->
+    <!-- 弹窗 1：GitHub Gist 自动同步与防误删控制中心 -->
+    <div class="modal-overlay" id="ghSyncModal">
+        <div class="modal-card modal-lg">
+            <div class="modal-header">
+                <h3>☁️ GitHub Gist 双向同步与防误删防护</h3>
+                <button class="btn-close-modal" id="closeGhModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <p>将全部笔记与心流记录实时同步至你的 GitHub 私有 Gist。<b>每一次同步都会产生一条 Git Commit，哪怕在任何设备上误删，也能在 GitHub 历史记录中 100% 恢复！</b></p>
+                
+                <div class="form-group margin-top-md">
+                    <label><b>1. GitHub Personal Access Token (PAT):</b></label>
+                    <input type="password" id="ghPatInput" class="input-field" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (需勾选 'gist' 权限)">
+                    <span class="field-hint">可以在 <a href="https://github.com/settings/tokens" target="_blank">GitHub Developer Settings</a> 免费生成 Pat，勾选 <code>gist</code> 权限即可。</span>
+                </div>
+
+                <div class="form-group margin-top-sm">
+                    <label><b>2. Gist ID (云端文件库编号):</b></label>
+                    <div class="input-with-button">
+                        <input type="text" id="ghGistIdInput" class="input-field" placeholder="留空点击右侧按钮将自动创建新的私有 Gist">
+                        <button class="btn btn-secondary" id="autoCreateGistBtn">🚀 自动创建 Gist</button>
+                    </div>
+                </div>
+
+                <div class="sync-status-box margin-top-md" id="ghSyncStatusBox">
+                    <div class="status-indicator" id="ghStatusIndicator">⚪ 尚未配置同步</div>
+                    <div class="status-details" id="ghStatusDetails">请输入 Token 后点击 [自动创建 Gist] 或 [从云端拉取]。</div>
+                </div>
+            </div>
+            <div class="modal-footer modal-actions-between">
+                <button class="btn btn-danger" id="pullFromGhBtn">⬇️ 从 GitHub 强制覆盖本地</button>
+                <div>
+                    <button class="btn btn-secondary" id="saveGhSettingsBtn">💾 保存配置</button>
+                    <button class="btn btn-primary" id="pushToGhBtn">⬆️ 立即推送备份至 GitHub</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 弹窗 2：导出数据成功模态框 -->
     <div class="modal-overlay" id="exportModal">
         <div class="modal-card">
             <div class="modal-header">

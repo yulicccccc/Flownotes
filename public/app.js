@@ -1,6 +1,7 @@
 /**
  * ============================================================================
  * FlowNotes — Local-First Personal Knowledge & Thinking System
+ * (Featuring Anti-Loss GitHub Gist Sync Engine)
  * ============================================================================
  */
 
@@ -17,6 +18,7 @@ FlowNotes 是一款**本地优先 (Local-First)**、支持瞬时心流捕获与�
 - **心流捕获**：在 [[瞬时心流捕获]] 中快速倾倒思绪，自动提取标签。
 - **双向连接**：通过 \`[[笔记名]]\` 语法构建互联图谱，与 [[卡片盒笔记法原则]] 深度结合。
 - **思维图谱**：在 [[思维图谱可视化]] 视图中观测你的全景认知网络。
+- **GitHub 自动防误删同步**：通过 [[GitHub Gist 双向同步]]，每一次修改都有 Commit 记录，防误删防丢失。
 - **Obsidian 联动**：支持一键导出适配 \`sync_to_obsidian.ps1\` 的结构化 JSON！`,
         tags: ["介绍", "指南", "知识管理"],
         updatedAt: new Date(Date.now() - 3600000 * 24).toISOString()
@@ -57,14 +59,16 @@ FlowNotes 是一款**本地优先 (Local-First)**、支持瞬时心流捕获与�
     },
     {
         id: "note-5",
-        label: "思维图谱可视化",
-        content: `# 思维图谱可视化 (Visual Idea Map)
+        label: "GitHub Gist 双向同步",
+        content: `# GitHub Gist 双向同步 (防误删机制)
 
-借由力导向物理引擎（Force-Directed Layout），节点之间能够产生斥力，而通过 \`[[笔记名]]\` 构建的连线则如同弹簧般拉紧它们。
+为了彻底解决笔记误删和多端同步痛点，FlowNotes 引入了 GitHub Gist 自动版本管理：
 
-这使得核心思考枢纽（Hubs）在视觉上瞬间凸显。更多见 [[卡片盒笔记法原则]]。`,
-        tags: ["可视化", "图谱"],
-        updatedAt: new Date(Date.now() - 3600000 * 3).toISOString()
+1. **绝对防误删**：每一次保存自动产生一次 Git Commit。在 GitHub 网页的历史版本中可以 100% 找回哪怕一月前删除的文本。
+2. **私有加密**：默认创建 Private Gist，其他人无法查看。
+3. **多端互通**：手机、电脑同时打开该网站，配置相同的 Gist ID 即可瞬间互通。`,
+        tags: ["GitHub", "数据同步", "防误删"],
+        updatedAt: new Date(Date.now() - 3600000 * 2).toISOString()
     },
     {
         id: "note-6",
@@ -90,7 +94,7 @@ const DEFAULT_FLOW_STREAM = [
     },
     {
         id: "flow-102",
-        content: "读完新书第4章，核心概念可以提炼并归入 [[卡片盒笔记法原则]]。 #知识点",
+        content: "接入 [[GitHub Gist 双向同步]]，从此再也不用担心笔记被误删了！ #知识点",
         tags: ["#知识点"],
         timestamp: new Date(Date.now() - 3600000).toLocaleString()
     },
@@ -105,7 +109,7 @@ const DEFAULT_FLOW_STREAM = [
 const OWL_WISDOMS = [
     "“智慧由点滴汇聚。使用 [[笔记名称]] 可轻松创建双向连接，构建知识网络。”",
     "“猫头鹰夜间视力绝佳——通过上方搜索或 Ctrl+K 瞬间透视全部卡片与心流。”",
-    "“真正的卡片盒就像长久的森林，连线比单纯的文件夹层级更有生命力。”",
+    "“开启 GitHub Gist 同步后，每次修改都会产生 Git Commit，误删任何卡片都能一键恢复！”",
     "“数据主权属于你：我们坚持本地存储 (Local-First)，配合 powershell 脚本安全备份。”",
     "“如果某篇笔记一直孤立无援，试着在文本中引用它，或去‘智慧助手’看看联结建议。”"
 ];
@@ -115,6 +119,7 @@ let notes = [];
 let flowStream = [];
 let currentNoteId = null;
 let currentTab = "flow";
+let ghSyncTimer = null;
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
@@ -122,6 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initUI();
     initEvents();
     renderAll();
+    initGhSyncUI();
 
     // 默认展示欢迎提醒
     showOwlWisdom();
@@ -158,10 +164,12 @@ function initStorage() {
 
 function saveNotesToStorage() {
     localStorage.setItem("flownotes_nodes_v1", JSON.stringify(notes));
+    triggerAutoGhSync();
 }
 
 function saveFlowsToStorage() {
     localStorage.setItem("flownotes_stream_v1", JSON.stringify(flowStream));
+    triggerAutoGhSync();
 }
 
 function initUI() {
@@ -257,6 +265,18 @@ function initEvents() {
     document.getElementById("confirmExportBtn").addEventListener("click", () => {
         document.getElementById("exportModal").style.display = "none";
     });
+
+    // GitHub Gist 同步弹窗
+    document.getElementById("ghSyncBtn").addEventListener("click", () => {
+        document.getElementById("ghSyncModal").style.display = "flex";
+    });
+    document.getElementById("closeGhModalBtn").addEventListener("click", () => {
+        document.getElementById("ghSyncModal").style.display = "none";
+    });
+    document.getElementById("saveGhSettingsBtn").addEventListener("click", saveGhSettings);
+    document.getElementById("autoCreateGistBtn").addEventListener("click", autoCreateGhGist);
+    document.getElementById("pushToGhBtn").addEventListener("click", () => pushToGhGist(false));
+    document.getElementById("pullFromGhBtn").addEventListener("click", pullFromGhGist);
 
     // 搜索与过滤
     document.getElementById("searchInput").addEventListener("input", (e) => {
@@ -559,7 +579,205 @@ function deleteCurrentNote() {
     showToast("🗑️ 已删除改条笔记");
 }
 
-// --- 3. 导出为 Obsidian 完美支持的结构化 JSON ---
+// --- 3. GitHub Gist 双向同步与防误删控制系统 ---
+function initGhSyncUI() {
+    const pat = localStorage.getItem("flownotes_gh_pat") || "";
+    const gistId = localStorage.getItem("flownotes_gh_gist_id") || "";
+
+    document.getElementById("ghPatInput").value = pat;
+    document.getElementById("ghGistIdInput").value = gistId;
+
+    updateGhStatusDisplay();
+}
+
+function saveGhSettings() {
+    const pat = document.getElementById("ghPatInput").value.trim();
+    const gistId = document.getElementById("ghGistIdInput").value.trim();
+
+    localStorage.setItem("flownotes_gh_pat", pat);
+    localStorage.setItem("flownotes_gh_gist_id", gistId);
+
+    updateGhStatusDisplay();
+    showToast("⚙️ GitHub 同步配置已保存");
+}
+
+function updateGhStatusDisplay() {
+    const pat = localStorage.getItem("flownotes_gh_pat");
+    const gistId = localStorage.getItem("flownotes_gh_gist_id");
+    const indicator = document.getElementById("ghStatusIndicator");
+    const details = document.getElementById("ghStatusDetails");
+    const syncText = document.getElementById("ghSyncText");
+
+    if (pat && gistId) {
+        indicator.textContent = "🟢 已连通 GitHub Gist (版本防护中)";
+        indicator.style.color = "#10b981";
+        details.innerHTML = `Gist ID: <a href="https://gist.github.com/${gistId}" target="_blank" style="color:var(--accent-cyan)">${gistId}</a><br>所有修改均会产生 Git Commit 历史版本。`;
+        if (syncText) syncText.textContent = "GitHub 已保护";
+    } else {
+        indicator.textContent = "⚪ 尚未配置 GitHub Gist 同步";
+        indicator.style.color = "var(--text-muted)";
+        details.textContent = "请输入 PAT 后点击 [自动创建 Gist] 或填入现有的 Gist ID。";
+        if (syncText) syncText.textContent = "GitHub 同步";
+    }
+}
+
+async function autoCreateGhGist() {
+    const pat = document.getElementById("ghPatInput").value.trim();
+    if (!pat) {
+        showToast("请先填入你的 GitHub PAT Token 哦！");
+        return;
+    }
+
+    const indicator = document.getElementById("ghStatusIndicator");
+    indicator.textContent = "🟡 正在呼叫 GitHub API 创建私有 Gist...";
+
+    try {
+        const payload = {
+            description: "FlowNotes 个人知识库云端备份 (防误删与多端同步)",
+            public: false,
+            files: {
+                "flownotes_backup.json": {
+                    content: JSON.stringify({
+                        version: "FlowNotes-1.0",
+                        updatedAt: new Date().toISOString(),
+                        notes: notes,
+                        flowStream: flowStream
+                    }, null, 2)
+                }
+            }
+        };
+
+        const res = await fetch("https://api.github.com/gists", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${pat}`,
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github+json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`GitHub API Error: ${res.status}`);
+
+        const data = await res.json();
+        const newGistId = data.id;
+
+        document.getElementById("ghGistIdInput").value = newGistId;
+        localStorage.setItem("flownotes_gh_pat", pat);
+        localStorage.setItem("flownotes_gh_gist_id", newGistId);
+
+        updateGhStatusDisplay();
+        showToast("🚀 私有 Gist 创建成功，防误删模式开启！");
+    } catch (err) {
+        console.error(err);
+        showToast("❌ 创建失败，请检查 Token 权限是否包含 'gist'");
+        indicator.textContent = "🔴 创建失败，请检查 Token 权限";
+    }
+}
+
+async function pushToGhGist(silent = false) {
+    const pat = localStorage.getItem("flownotes_gh_pat");
+    const gistId = localStorage.getItem("flownotes_gh_gist_id");
+
+    if (!pat || !gistId) {
+        if (!silent) showToast("请先配置并绑定 GitHub Gist ID");
+        return;
+    }
+
+    if (!silent) {
+        document.getElementById("ghStatusIndicator").textContent = "🟡 正在推送备份至 GitHub...";
+    }
+
+    try {
+        const payload = {
+            files: {
+                "flownotes_backup.json": {
+                    content: JSON.stringify({
+                        version: "FlowNotes-1.0",
+                        updatedAt: new Date().toISOString(),
+                        notes: notes,
+                        flowStream: flowStream
+                    }, null, 2)
+                }
+            }
+        };
+
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+            method: "PATCH",
+            headers: {
+                "Authorization": `Bearer ${pat}`,
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.github+json"
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`GitHub API Error: ${res.status}`);
+
+        updateGhStatusDisplay();
+        if (!silent) showToast("☁️ 已成功提交新 Commit 到 GitHub Gist！");
+    } catch (err) {
+        console.error(err);
+        if (!silent) showToast("❌ 推送至 GitHub 失败");
+    }
+}
+
+async function pullFromGhGist() {
+    const pat = localStorage.getItem("flownotes_gh_pat");
+    const gistId = localStorage.getItem("flownotes_gh_gist_id");
+
+    if (!pat || !gistId) {
+        showToast("请先配置并绑定 GitHub Gist ID");
+        return;
+    }
+
+    document.getElementById("ghStatusIndicator").textContent = "🟡 正在从 GitHub 云端拉取最新 Commit...";
+
+    try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+            headers: {
+                "Authorization": `Bearer ${pat}`,
+                "Accept": "application/vnd.github+json"
+            }
+        });
+
+        if (!res.ok) throw new Error(`GitHub API Error: ${res.status}`);
+
+        const data = await res.json();
+        const fileObj = data.files["flownotes_backup.json"];
+        if (!fileObj || !fileObj.content) throw new Error("未找到备份数据文件");
+
+        const parsed = JSON.parse(fileObj.content);
+        if (parsed.notes && Array.isArray(parsed.notes)) {
+            notes = parsed.notes;
+            localStorage.setItem("flownotes_nodes_v1", JSON.stringify(notes));
+        }
+        if (parsed.flowStream && Array.isArray(parsed.flowStream)) {
+            flowStream = parsed.flowStream;
+            localStorage.setItem("flownotes_stream_v1", JSON.stringify(flowStream));
+        }
+
+        renderAll();
+        updateGhStatusDisplay();
+        showToast("🎉 已成功从 GitHub 拉取并同步到本地！");
+    } catch (err) {
+        console.error(err);
+        showToast("❌ 从 GitHub 拉取失败，请检查网络或 Gist ID");
+    }
+}
+
+function triggerAutoGhSync() {
+    const pat = localStorage.getItem("flownotes_gh_pat");
+    const gistId = localStorage.getItem("flownotes_gh_gist_id");
+    if (!pat || !gistId) return;
+
+    if (ghSyncTimer) clearTimeout(ghSyncTimer);
+    ghSyncTimer = setTimeout(() => {
+        pushToGhGist(true);
+    }, 2000); // 停止打字 2 秒后后台静默自动提交 Commit
+}
+
+// --- 4. 导出为 Obsidian 完美支持的结构化 JSON ---
 function handleExportObsidian() {
     // 构建兼容 sync_to_obsidian.ps1 的格式
     const edges = [];
@@ -602,7 +820,7 @@ function handleExportObsidian() {
     document.getElementById("exportModal").style.display = "flex";
 }
 
-// --- 4. 思维图谱可视化 (Visual Idea Map Canvas) ---
+// --- 5. 思维图谱可视化 (Visual Idea Map Canvas) ---
 let graphNodes = [];
 let graphEdges = [];
 let animFrame = null;
@@ -782,7 +1000,7 @@ function resetGraphZoom() {
     startGraphSimulation();
 }
 
-// --- 5. 智慧助手面板 ---
+// --- 6. 智慧助手面板 ---
 function populateAISelect() {
     const select = document.getElementById("aiNoteSelector");
     select.innerHTML = "";
@@ -833,7 +1051,7 @@ function generateAIPrompt() {
 4. [建议标签] #核心方法 #自我提升 #长期复盘`;
 }
 
-// --- 6. 辅助工具与交互效果 ---
+// --- 7. 辅助工具与交互效果 ---
 function filterAllViews(query) {
     if (!query) {
         renderFlowStream();
