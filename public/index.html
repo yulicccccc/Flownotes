@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowNotes — 个人知识流与双向思维笔记系统</title>
+    <meta name="description" content="流动心流捕获、Markdown 深度编辑、双向链接图谱与 AI 助手于一体的本地优先知识管理系统。">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <!-- 顶部导航栏 -->
+    <header class="navbar">
+        <div class="navbar-left">
+            <div class="logo-group" id="logoGroup" title="点击呼唤智慧猫头鹰提示">
+                <div class="owl-mascot">
+                    <svg viewBox="0 0 100 100" class="owl-svg">
+                        <!-- 猫头鹰身体 -->
+                        <path d="M50 15 C30 15 18 32 18 58 C18 82 30 90 50 90 C70 90 82 82 82 58 C82 32 70 15 50 15 Z" fill="url(#owlGradient)" />
+                        <!-- 猫头鹰耳朵 -->
+                        <path d="M25 22 L15 8 L35 18 Z" fill="#6366f1" />
+                        <path d="M75 22 L85 8 L65 18 Z" fill="#6366f1" />
+                        <!-- 眼睛底座 (金边玻璃) -->
+                        <circle cx="36" cy="45" r="13" fill="#0f172a" stroke="#8b5cf6" stroke-width="2" />
+                        <circle cx="64" cy="45" r="13" fill="#0f172a" stroke="#8b5cf6" stroke-width="2" />
+                        <!-- 瞳孔 (发光发亮) -->
+                        <circle cx="36" cy="45" r="6" fill="#38bdf8" class="owl-eye" />
+                        <circle cx="64" cy="45" r="6" fill="#38bdf8" class="owl-eye" />
+                        <circle cx="38" cy="43" r="2.5" fill="#ffffff" />
+                        <circle cx="66" cy="43" r="2.5" fill="#ffffff" />
+                        <!-- 智慧喙 -->
+                        <polygon points="50,53 45,63 55,63" fill="#f59e0b" />
+                        <!-- 羽毛纹理 -->
+                        <path d="M42 75 Q50 82 58 75" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <path d="M38 68 Q50 75 62 68" stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none" stroke-linecap="round"/>
+                        <defs>
+                            <linearGradient id="owlGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#4f46e5" />
+                                <stop offset="100%" stop-color="#7c3aed" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <h1>FlowNotes</h1>
+                    <span class="badge-local">Local-First</span>
+                </div>
+            </div>
+
+            <!-- 核心导航标签 -->
+            <nav class="nav-tabs">
+                <button class="nav-tab active" data-tab="flow">
+                    <span class="tab-icon">⚡</span>
+                    <span>心流捕获</span>
+                </button>
+                <button class="nav-tab" data-tab="editor">
+                    <span class="tab-icon">📝</span>
+                    <span>深度笔记</span>
+                </button>
+                <button class="nav-tab" data-tab="graph">
+                    <span class="tab-icon">🕸️</span>
+                    <span>思维图谱</span>
+                </button>
+                <button class="nav-tab" data-tab="ai">
+                    <span class="tab-icon">✨</span>
+                    <span>智慧助手</span>
+                </button>
+            </nav>
+        </div>
+
+        <div class="navbar-right">
+            <!-- 全局实时搜索 -->
+            <div class="search-box">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" placeholder="搜索标题、内容、标签或 #双链...">
+                <span class="shortcut-hint">Ctrl+K</span>
+            </div>
+
+            <!-- 数据导出到 Obsidian JSON -->
+            <button class="btn btn-obsidian" id="exportObsidianBtn" title="导出支持 sync_to_obsidian.ps1 脚本的备份文件">
+                <span class="btn-icon">📦</span>
+                <span>导出 Obsidian</span>
+            </button>
+
+            <!-- 主题切换 -->
+            <button class="btn-icon-only" id="themeToggle" title="切换深色/浅色外观">
+                <span id="themeIcon">🌙</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 猫头鹰智慧贴士栏 -->
+    <div class="owl-banner" id="owlBanner">
+        <div class="owl-banner-content">
+            <span class="owl-emoji">🦉</span>
+            <span id="owlMessage">“智慧由点滴汇聚。使用 [[笔记名称]] 可轻松创建双向连接，构建知识网络。”</span>
+        </div>
+        <button class="btn-close-banner" id="closeBannerBtn">×</button>
+    </div>
+
+    <!-- 主工作区 -->
+    <main class="main-container">
+        <!-- 1. 心流捕获面板 (Flow Stream) -->
+        <section class="tab-pane active" id="pane-flow">
+            <div class="flow-container">
+                <div class="flow-input-card">
+                    <div class="input-header">
+                        <h3>⚡ 瞬时心流捕获 (Flow Capture)</h3>
+                        <span class="input-subtitle">灵感闪现即刻记录，支持 Markdown 语法与 #标签</span>
+                    </div>
+                    <textarea id="flowInputText" class="flow-textarea" placeholder="在此输入灵感、会议碎片或思考流... 例如：#架构设计 今天构思了使用 [[思维图谱]] 来增强学习效率。"></textarea>
+                    <div class="flow-actions">
+                        <div class="quick-tags">
+                            <span>快捷标签：</span>
+                            <button class="tag-chip" data-tag="#思考">#思考</button>
+                            <button class="tag-chip" data-tag="#灵感">#灵感</button>
+                            <button class="tag-chip" data-tag="#待办">#待办</button>
+                            <button class="tag-chip" data-tag="#知识点">#知识点</button>
+                        </div>
+                        <button class="btn btn-primary" id="addFlowBtn">
+                            <span>记录心流</span>
+                            <span class="btn-shortcut">Enter</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 历史心流流 -->
+                <div class="flow-stream-header">
+                    <h4>近期流记录 (<span id="flowCount">0</span>)</h4>
+                    <div class="filter-group">
+                        <select id="flowTagFilter" class="select-filter">
+                            <option value="all">全部分类/标签</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flow-list" id="flowList">
+                    <!-- 动态生成的心流卡片 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 深度笔记编辑器面板 (Markdown & Bi-Links) -->
+        <section class="tab-pane" id="pane-editor">
+            <div class="editor-layout">
+                <!-- 左侧笔记目录列表 -->
+                <aside class="sidebar-notes">
+                    <div class="sidebar-header">
+                        <button class="btn btn-primary w-100" id="newNoteBtn">+ 新建深度笔记</button>
+                    </div>
+                    <div class="sidebar-search">
+                        <input type="text" id="noteListFilter" placeholder="筛选当前笔记列表...">
+                    </div>
+                    <div class="notes-list-items" id="notesListItems">
+                        <!-- 动态渲染笔记目录 -->
+                    </div>
+                </aside>
+
+                <!-- 中间编辑区 -->
+                <div class="editor-main">
+                    <div class="editor-top-bar">
+                        <input type="text" id="noteTitleInput" class="note-title-input" placeholder="输入笔记名称...">
+                        <div class="editor-tools">
+                            <button class="btn-tool" id="saveNoteBtn" title="保存当前修改 (Ctrl+S)">💾 保存</button>
+                            <button class="btn-tool btn-danger" id="deleteNoteBtn" title="删除本条笔记">🗑️ 删除</button>
+                        </div>
+                    </div>
+                    <div class="note-meta-bar">
+                        <div class="note-tags-input">
+                            <span>标签:</span>
+                            <input type="text" id="noteTagsInput" placeholder="以逗号或空格分隔标签 例如：知识库, 架构">
+                        </div>
+                        <span class="note-updated-time" id="noteUpdatedTime">刚刚保存</span>
+                    </div>
+                    <div class="editor-body">
+                        <textarea id="noteContentInput" class="markdown-textarea" placeholder="在这里撰写完整的 Markdown 知识笔记...&#10;&#10;使用 [[笔记名]] 创建或链接到另一篇知识卡片。"></textarea>
+                    </div>
+                </div>
+
+                <!-- 右侧双向链接与图谱信息卡 -->
+                <aside class="sidebar-backlinks">
+                    <div class="backlink-section">
+                        <h4>🔗 链入本笔记 (Backlinks)</h4>
+                        <p class="section-desc">以下笔记通过 [[双链]] 引用了当前卡片</p>
+                        <div class="backlinks-list" id="backlinksList">
+                            <!-- 动态加载反向链接 -->
+                        </div>
+                    </div>
+
+                    <div class="backlink-section">
+                        <h4>↗️ 本文链接到 (Outbound)</h4>
+                        <div class="outbound-list" id="outboundList">
+                            <!-- 动态加载正向链接 -->
+                        </div>
+                    </div>
+
+                    <div class="backlink-section">
+                        <h4>🦉 猫头鹰建议链接</h4>
+                        <div class="ai-suggestions-list" id="aiSuggestLinks">
+                            <!-- 本地智能建议关联卡片 -->
+                        </div>
+                    </div>
+                </aside>
+            </div>
+        </section>
+
+        <!-- 3. 思维图谱可视化 (Visual Idea Map) -->
+        <section class="tab-pane" id="pane-graph">
+            <div class="graph-container">
+                <div class="graph-toolbar">
+                    <div class="toolbar-info">
+                        <h3>🕸️ 知识双链思维网络</h3>
+                        <span>拖动节点重新布局，点击节点快速查看笔记全文。</span>
+                    </div>
+                    <div class="toolbar-actions">
+                        <button class="btn btn-secondary" id="resetGraphBtn">重置缩放与位置</button>
+                        <span class="stat-badge">节点数: <b id="statNodes">0</b></span>
+                        <span class="stat-badge">关联数: <b id="statEdges">0</b></span>
+                    </div>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="graphCanvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. 智慧助手 (AI Assistant) -->
+        <section class="tab-pane" id="pane-ai">
+            <div class="ai-container">
+                <div class="ai-hero">
+                    <div class="ai-owl-badge">🦉 AI 知识整理师</div>
+                    <h2>与知识管理猫头鹰协作，发掘笔记之间的深层关联</h2>
+                    <p>无论是使用内置启发式引擎还是挂载你的大模型 API，在这里为你的心流笔记注入灵感。</p>
+                </div>
+
+                <div class="ai-grid">
+                    <!-- 左侧：AI 快捷洞察卡片 -->
+                    <div class="ai-card">
+                        <h3>💡 智能知识库分析</h3>
+                        <p>分析当前所有知识记录，生成连贯的主题综述与孤岛卡片报告。</p>
+                        <div class="ai-report-box" id="aiReportBox">
+                            点击下方按钮分析本地知识库状态。
+                        </div>
+                        <button class="btn btn-primary w-100" id="runAnalysisBtn">立即分析知识结构</button>
+                    </div>
+
+                    <!-- 右侧：AI 提示与扩展工具 -->
+                    <div class="ai-card">
+                        <h3>🌱 知识发散与自省提示器</h3>
+                        <p>依据所选卡片，获得可直接复制的反思思考角度与标签建议。</p>
+                        <div class="form-group">
+                            <label>选择想要深化的笔记:</label>
+                            <select id="aiNoteSelector" class="select-filter w-100">
+                                <!-- 动态选项 -->
+                            </select>
+                        </div>
+                        <div class="ai-prompt-box" id="aiPromptOutput">
+                            请选定一条笔记来生成拓展思考思路...
+                        </div>
+                        <button class="btn btn-secondary w-100" id="generatePromptBtn">生成思考发散角度</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 弹窗：导出数据成功模态框 -->
+    <div class="modal-overlay" id="exportModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3>📦 Obsidian 完美兼容导出完成！</h3>
+                <button class="btn-close-modal" id="closeModalBtn">×</button>
+            </div>
+            <div class="modal-body">
+                <p>你的笔记图谱数据已导出为 <code>obsidian_graph_backup.json</code> 并触发浏览器下载。</p>
+                <div class="code-preview-box">
+                    <p><b>下一步如何导入你的 Obsidian？</b></p>
+                    <ol>
+                        <li>确认文件下载在你的 <code>Downloads</code> 默认路径：<br><code>obsidian_graph_backup.json</code></li>
+                        <li>在你本地的文件夹中直接运行已为你准备好的 powershell 脚本：<br><code>sync_to_obsidian.ps1</code></li>
+                        <li>脚本将自动把 JSON 中的标题、Markdown 内容、以及关联转化为本地 <code>.md</code> 文件！</li>
+                    </ol>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="confirmExportBtn">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通知 Toast -->
+    <div class="toast" id="toast">保存成功</div>
+
+    <script src="app.js"></script>
+</body>
+</html>
