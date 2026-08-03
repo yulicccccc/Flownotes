@@ -28,6 +28,7 @@ if not exist "node\node.exe" (
 
 :: Setup local path to use portable node
 set PATH=%~dp0node;%PATH%
+set CLOUDFLARE_ACCOUNT_ID=c7507f82f5078e81f58c2fcc1e7bfbdb
 
 :: 3. Run wrangler deploy directly to production branch
 echo [3/3] Deploying to Cloudflare Pages (Production)...

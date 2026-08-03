@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 个人知识流与双向思维笔记系统</title>
+    <title>FlowNotes — 个人知识流与双向思维笔记系统 (XMind 级快捷键全配版)</title>
     <meta name="description" content="流动心流捕获、Markdown 深度编辑、双向链接图谱与 AI 助手于一体的本地优先知识管理系统。">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="index.css">
 </head>
 <body>
@@ -17,22 +18,16 @@
             <div class="logo-group" id="logoGroup" title="点击呼唤智慧猫头鹰提示">
                 <div class="owl-mascot">
                     <svg viewBox="0 0 100 100" class="owl-svg">
-                        <!-- 猫头鹰身体 -->
                         <path d="M50 15 C30 15 18 32 18 58 C18 82 30 90 50 90 C70 90 82 82 82 58 C82 32 70 15 50 15 Z" fill="url(#owlGradient)" />
-                        <!-- 猫头鹰耳朵 -->
                         <path d="M25 22 L15 8 L35 18 Z" fill="#6366f1" />
                         <path d="M75 22 L85 8 L65 18 Z" fill="#6366f1" />
-                        <!-- 眼睛底座 (金边玻璃) -->
                         <circle cx="36" cy="45" r="13" fill="#0f172a" stroke="#8b5cf6" stroke-width="2" />
                         <circle cx="64" cy="45" r="13" fill="#0f172a" stroke="#8b5cf6" stroke-width="2" />
-                        <!-- 瞳孔 (发光发亮) -->
                         <circle cx="36" cy="45" r="6" fill="#38bdf8" class="owl-eye" />
                         <circle cx="64" cy="45" r="6" fill="#38bdf8" class="owl-eye" />
                         <circle cx="38" cy="43" r="2.5" fill="#ffffff" />
                         <circle cx="66" cy="43" r="2.5" fill="#ffffff" />
-                        <!-- 智慧喙 -->
                         <polygon points="50,53 45,63 55,63" fill="#f59e0b" />
-                        <!-- 羽毛纹理 -->
                         <path d="M42 75 Q50 82 58 75" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none" stroke-linecap="round"/>
                         <path d="M38 68 Q50 75 62 68" stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none" stroke-linecap="round"/>
                         <defs>
@@ -45,23 +40,23 @@
                 </div>
                 <div class="logo-text">
                     <h1>FlowNotes</h1>
-                    <span class="badge-local">Local-First</span>
+                    <span class="badge-local" id="currentMapBadge" style="cursor:pointer;" title="点击打开图谱组织器切换导图项目">🧠 默认思维导图</span>
                 </div>
             </div>
 
             <!-- 核心导航标签 -->
             <nav class="nav-tabs">
-                <button class="nav-tab active" data-tab="flow">
+                <button class="nav-tab active" data-tab="graph">
+                    <span class="tab-icon">🕸️</span>
+                    <span>思维图谱工作台</span>
+                </button>
+                <button class="nav-tab" data-tab="flow">
                     <span class="tab-icon">⚡</span>
                     <span>心流捕获</span>
                 </button>
                 <button class="nav-tab" data-tab="editor">
                     <span class="tab-icon">📝</span>
-                    <span>深度笔记</span>
-                </button>
-                <button class="nav-tab" data-tab="graph">
-                    <span class="tab-icon">🕸️</span>
-                    <span>思维图谱</span>
+                    <span>双链笔记库</span>
                 </button>
                 <button class="nav-tab" data-tab="ai">
                     <span class="tab-icon">✨</span>
@@ -101,15 +96,147 @@
     <div class="owl-banner" id="owlBanner">
         <div class="owl-banner-content">
             <span class="owl-emoji">🦉</span>
-            <span id="owlMessage">“智慧由点滴汇聚。使用 [[笔记名称]] 可轻松创建双向连接，构建知识网络。”</span>
+            <span id="owlMessage">“XMind 连招全集：Enter 同级节点 | Tab 子节点 | Ctrl+Z 撤销 | Delete 删除 | F2 重命名 | 方向键漫游”</span>
         </div>
         <button class="btn-close-banner" id="closeBannerBtn">×</button>
     </div>
 
     <!-- 主工作区 -->
-    <main class="main-container">
-        <!-- 1. 心流捕获面板 (Flow Stream) -->
-        <section class="tab-pane active" id="pane-flow">
+    <main class="main-container main-fullbleed">
+        <!-- 1. 思维图谱可视化主工作台 -->
+        <section class="tab-pane active" id="pane-graph">
+            <div class="obsidian-mindmap-workspace">
+                <!-- 左侧 D3 矢量图谱画布容器 -->
+                <div id="graph-container">
+                    <!-- SVG 画布必须在 DOM 最底层，浮动控件在其之上 -->
+                    <svg id="graph-svg"></svg>
+                    <input type="text" id="edit-input" autocomplete="off" spellcheck="false">
+
+                    <div id="nav-controls">
+                        <button class="nav-btn" id="btn-organizer" title="🗂️ 图谱组织器：创建与管理多个思维导图项目">🗂️</button>
+                        <button class="nav-btn" id="btn-toggle-editor" title="展开/收起右侧 Markdown 编辑器">📖</button>
+                        <button class="nav-btn" id="btn-hint" title="显示/隐藏快捷键提示面板">💡</button>
+                        <button class="nav-btn" id="btn-undo" title="撤销 (Ctrl + Z)">↩️</button>
+                        <button class="nav-btn" id="btn-redo" title="重做 (Ctrl + Y)">↪️</button>
+                        <button class="nav-btn" id="btn-outline" title="节点目录大纲">☰</button>
+                        <button class="nav-btn" id="btn-articles" title="AI 文章合成库">📝</button>
+                        <button class="nav-btn" id="btn-search" title="搜索 / 快速打开 (Ctrl+K)">🔎</button>
+                        <button class="nav-btn" id="btn-relation" title="虚线关联 (按 L)">↔</button>
+                        <button class="nav-btn" id="btn-graph" title="自由力导力学网络 (按 G)">✦</button>
+                        <button class="nav-btn" id="btn-layout" title="整理为 XMind 树状清晰结构 (按 M)">🧭</button>
+                        <button class="nav-btn" id="btn-fit" title="全景适配视图">⛶</button>
+                        <button class="nav-btn" id="btn-zoom-out" title="缩小 view">-</button>
+                        <button class="nav-btn" id="btn-zoom-in" title="放大 view">+</button>
+                    </div>
+
+                    <div id="io-controls">
+                        <button class="io-btn" id="btn-export" title="导出 JSON 备份">⬇️ 导出 JSON</button>
+                        <button class="io-btn" id="btn-import" title="导入 JSON 数据">⬆️ 导入 JSON</button>
+                        <button class="io-btn" id="btn-pull" title="从 GitHub 私有 Gist 拉取">↙️ 拉取</button>
+                        <button class="io-btn" id="btn-sync" title="立即同步到 GitHub Gist">💾 同步</button>
+                        <button class="io-btn" id="btn-password" title="配置 GitHub 个人授权 Token 与私有 Gist 存储库 ID">🔐 密钥</button>
+                        <span class="sync-status" id="sync-status" data-state="local">🟢 本地已保存 (Gist 已连通)</span>
+                        <input type="file" id="file-input" accept=".json" style="display: none;">
+                    </div>
+
+                    <!-- 可关闭的快捷键提示浮窗 -->
+                    <div id="hint">
+                        <div class="hint-header">
+                            <span>⚡ XMind 级思维操作连招</span>
+                            <button class="hint-close-btn" id="btn-close-hint" title="关闭提示">×</button>
+                        </div>
+                        <div class="hint-body" id="hint-body">
+                            1. <b>Enter</b> 建同级节点 | <b>Tab</b> 建分支子节点<br>
+                            2. <b>Ctrl+← / Ctrl+→ / Ctrl+/</b> 折叠与展开分支<br>
+                            3. <b>双击空白</b> 建独立主题 | <b>Delete</b> 删除节点<br>
+                            4. <b>Ctrl+Z / Ctrl+Y</b> 撤销/重做 | <b>F2</b> 重命名<br>
+                            5. <b>方向键 ↑↓←→</b> 键盘漫游 | <b>Alt+↑/↓</b> 节点调序
+                        </div>
+                    </div>
+
+                    <!-- 🗂️ 图谱组织器 Panel -->
+                    <aside id="organizer-panel" hidden>
+                        <div class="outline-header">
+                            <span class="outline-title">🗂️ 思维图谱管理库 (Organizer)</span>
+                            <button class="outline-close" id="btn-organizer-close" title="关闭">×</button>
+                        </div>
+                        <div class="organizer-creator">
+                            <div style="display:flex; gap:6px; margin-bottom:8px;">
+                                <select id="newMapIconSelect" style="width:75px; background:var(--input-bg); color:var(--text-color); border:1px solid var(--panel-border); border-radius:4px; padding:4px;">
+                                    <option value="💼">💼 工作面试</option>
+                                    <option value="📚">📚 课程学习</option>
+                                    <option value="🧠">🧠 思考研讨</option>
+                                    <option value="💡">💡 创意灵感</option>
+                                    <option value="📝">📝 个人项目</option>
+                                    <option value="🎯">🎯 目标规划</option>
+                                </select>
+                                <input id="newMapTitleInput" type="text" autocomplete="off" placeholder="输入新图谱名称 (如: 面试课)..." style="flex:1; background:var(--input-bg); color:var(--text-color); border:1px solid var(--panel-border); border-radius:4px; padding:4px 8px; font-size:12px; outline:none;">
+                            </div>
+                            <button id="btnCreateMap" class="btn btn-primary" style="width:100%; height:28px; padding:0; font-size:12px; font-weight:bold;">+ 新建思维图谱</button>
+                        </div>
+                        <div id="organizerMapList" style="flex:1; overflow-y:auto; padding:10px 8px; display:flex; flex-direction:column; gap:8px;"></div>
+                    </aside>
+
+                    <!-- 大纲树抽屉 -->
+                    <aside id="outline-panel" hidden>
+                        <div class="outline-header">
+                            <span class="outline-title">🌳 节点大纲树</span>
+                            <button class="outline-close" id="btn-outline-close" title="关闭">×</button>
+                        </div>
+                        <input id="outline-filter" type="search" autocomplete="off" spellcheck="false" placeholder="筛选节点目录...">
+                        <div id="outline-tree"></div>
+                    </aside>
+
+                    <!-- AI 文章库抽屉 -->
+                    <aside id="article-library-panel" hidden>
+                        <div class="outline-header">
+                            <span class="outline-title">📚 AI 合成长文章库</span>
+                            <button class="outline-close" id="btn-articles-close" title="关闭">×</button>
+                        </div>
+                        <input id="article-library-filter" type="search" autocomplete="off" spellcheck="false" placeholder="筛选文章...">
+                        <div id="article-library-list"></div>
+                    </aside>
+                </div>
+
+                <!-- 右侧深度 Markdown 编辑面板 -->
+                <div id="editor-panel">
+                    <div id="editor-header">
+                        <input id="title-input" type="text" autocomplete="off" spellcheck="false" value="未选择节点" disabled>
+                    </div>
+
+                    <div id="format-toolbar">
+                        <button class="format-btn" data-format="heading" title="一级标题 (Ctrl+1)">H1</button>
+                        <span class="format-separator"></span>
+                        <button class="format-btn" data-format="bold" title="粗体 (Ctrl+B)">B</button>
+                        <button class="format-btn" data-format="italic" title="斜体 (Ctrl+I)">I</button>
+                        <button class="format-btn" data-format="strike" title="删除线 (Ctrl+Shift+X)">S</button>
+                        <button class="format-btn" data-format="underline" title="下划线 (Ctrl+U)">U</button>
+                        <button class="format-btn" data-format="highlight" title="高亮 (Ctrl+Shift+H)">==</button>
+                        <button class="format-btn" data-format="code" title="行内代码 (Ctrl+E)">&lt;&gt;</button>
+                        <span class="format-separator"></span>
+                        <button class="format-btn" data-format="quote" title="引用">&gt;</button>
+                        <button class="format-btn" data-format="bullet" title="无序列表">-</button>
+                        <button class="format-btn" data-format="task" title="任务列表">[ ]</button>
+                        <button class="format-btn" data-format="link" title="链接 (Ctrl+K)">↗</button>
+                        <input id="md-color" type="color" value="#ff6b6b" title="文字颜色">
+                        <button class="format-btn" data-format="color" title="应用文字颜色 (Ctrl+Shift+C)">A</button>
+                        <span class="format-separator"></span>
+                        <button class="format-btn" data-preview-mode="live" title="实时编辑">✎</button>
+                        <button class="format-btn" data-preview-mode="edit" title="Markdown 源码">#</button>
+                        <button class="format-btn" data-preview-mode="preview" title="预览">◧</button>
+                    </div>
+
+                    <div id="note-workspace" data-preview-mode="live">
+                        <div id="rich-editor" contenteditable="true" spellcheck="true"></div>
+                        <textarea id="md-textarea" placeholder="在这里使用 Markdown 记录你的思考...&#10;&#10;使用 [[笔记名]] 快速引用关联卡片。"></textarea>
+                        <div id="preview-panel" class="preview-content"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 心流捕获面板 -->
+        <section class="tab-pane" id="pane-flow">
             <div class="flow-container">
                 <div class="flow-input-card">
                     <div class="input-header">
@@ -132,7 +259,6 @@
                     </div>
                 </div>
 
-                <!-- 历史心流流 -->
                 <div class="flow-stream-header">
                     <h4>近期流记录 (<span id="flowCount">0</span>)</h4>
                     <div class="filter-group">
@@ -142,16 +268,13 @@
                     </div>
                 </div>
 
-                <div class="flow-list" id="flowList">
-                    <!-- 动态生成的心流卡片 -->
-                </div>
+                <div class="flow-list" id="flowList"></div>
             </div>
         </section>
 
-        <!-- 2. 深度笔记编辑器面板 (Markdown & Bi-Links) -->
+        <!-- 3. 双链笔记库列表面板 -->
         <section class="tab-pane" id="pane-editor">
             <div class="editor-layout">
-                <!-- 左侧笔记目录列表 -->
                 <aside class="sidebar-notes">
                     <div class="sidebar-header">
                         <button class="btn btn-primary w-100" id="newNoteBtn">+ 新建深度笔记</button>
@@ -159,12 +282,9 @@
                     <div class="sidebar-search">
                         <input type="text" id="noteListFilter" placeholder="筛选当前笔记列表...">
                     </div>
-                    <div class="notes-list-items" id="notesListItems">
-                        <!-- 动态渲染笔记目录 -->
-                    </div>
+                    <div class="notes-list-items" id="notesListItems"></div>
                 </aside>
 
-                <!-- 中间编辑区 -->
                 <div class="editor-main">
                     <div class="editor-top-bar">
                         <input type="text" id="noteTitleInput" class="note-title-input" placeholder="输入笔记名称...">
@@ -185,54 +305,24 @@
                     </div>
                 </div>
 
-                <!-- 右侧双向链接与图谱信息卡 -->
                 <aside class="sidebar-backlinks">
                     <div class="backlink-section">
                         <h4>🔗 链入本笔记 (Backlinks)</h4>
-                        <p class="section-desc">以下笔记通过 [[双链]] 引用了当前卡片</p>
-                        <div class="backlinks-list" id="backlinksList">
-                            <!-- 动态加载反向链接 -->
-                        </div>
+                        <div class="backlinks-list" id="backlinksList"></div>
                     </div>
-
                     <div class="backlink-section">
                         <h4>↗️ 本文链接到 (Outbound)</h4>
-                        <div class="outbound-list" id="outboundList">
-                            <!-- 动态加载正向链接 -->
-                        </div>
+                        <div class="outbound-list" id="outboundList"></div>
                     </div>
-
                     <div class="backlink-section">
                         <h4>🦉 猫头鹰建议链接</h4>
-                        <div class="ai-suggestions-list" id="aiSuggestLinks">
-                            <!-- 本地智能建议关联卡片 -->
-                        </div>
+                        <div class="ai-suggestions-list" id="aiSuggestLinks"></div>
                     </div>
                 </aside>
             </div>
         </section>
 
-        <!-- 3. 思维图谱可视化 (Visual Idea Map) -->
-        <section class="tab-pane" id="pane-graph">
-            <div class="graph-container">
-                <div class="graph-toolbar">
-                    <div class="toolbar-info">
-                        <h3>🕸️ 知识双链思维网络</h3>
-                        <span>拖动节点重新布局，点击节点快速查看笔记全文。</span>
-                    </div>
-                    <div class="toolbar-actions">
-                        <button class="btn btn-secondary" id="resetGraphBtn">重置缩放与位置</button>
-                        <span class="stat-badge">节点数: <b id="statNodes">0</b></span>
-                        <span class="stat-badge">关联数: <b id="statEdges">0</b></span>
-                    </div>
-                </div>
-                <div class="canvas-wrapper">
-                    <canvas id="graphCanvas"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- 4. 智慧助手 (AI Assistant) -->
+        <!-- 4. 智慧助手 -->
         <section class="tab-pane" id="pane-ai">
             <div class="ai-container">
                 <div class="ai-hero">
@@ -242,29 +332,21 @@
                 </div>
 
                 <div class="ai-grid">
-                    <!-- 左侧：AI 快捷洞察卡片 -->
                     <div class="ai-card">
                         <h3>💡 智能知识库分析</h3>
                         <p>分析当前所有知识记录，生成连贯的主题综述与孤岛卡片报告。</p>
-                        <div class="ai-report-box" id="aiReportBox">
-                            点击下方按钮分析本地知识库状态。
-                        </div>
+                        <div class="ai-report-box" id="aiReportBox">点击下方按钮分析本地知识库状态。</div>
                         <button class="btn btn-primary w-100" id="runAnalysisBtn">立即分析知识结构</button>
                     </div>
 
-                    <!-- 右侧：AI 提示与扩展工具 -->
                     <div class="ai-card">
                         <h3>🌱 知识发散与自省提示器</h3>
                         <p>依据所选卡片，获得可直接复制的反思思考角度与标签建议。</p>
                         <div class="form-group">
                             <label>选择想要深化的笔记:</label>
-                            <select id="aiNoteSelector" class="select-filter w-100">
-                                <!-- 动态选项 -->
-                            </select>
+                            <select id="aiNoteSelector" class="select-filter w-100"></select>
                         </div>
-                        <div class="ai-prompt-box" id="aiPromptOutput">
-                            请选定一条笔记来生成拓展思考思路...
-                        </div>
+                        <div class="ai-prompt-box" id="aiPromptOutput">请选定一条笔记来生成拓展思考思路...</div>
                         <button class="btn btn-secondary w-100" id="generatePromptBtn">生成思考发散角度</button>
                     </div>
                 </div>
@@ -272,7 +354,47 @@
         </section>
     </main>
 
-    <!-- 弹窗 1：GitHub Gist 自动同步与防误删控制中心 -->
+    <!-- Quick Open 模态框 -->
+    <div id="quick-open" hidden>
+        <div class="quick-card">
+            <input id="quick-input" type="search" autocomplete="off" spellcheck="false" placeholder="搜索标题、正文或双链 (Enter 选择)...">
+            <div id="quick-results"></div>
+        </div>
+    </div>
+
+    <!-- 右键大纲菜单 -->
+    <div id="outline-context-menu" hidden>
+        <button class="context-action" data-outline-action="focus-node">聚焦这个节点</button>
+        <button class="context-action" data-outline-action="start-relation">从此节点拉虚线</button>
+        <button class="context-action" data-outline-action="clear-node-relations">删除此节点虚线</button>
+    </div>
+
+    <!-- AI 文章合成弹窗 Modal -->
+    <div id="article-modal" hidden>
+        <div class="article-card">
+            <div class="article-header">
+                <span class="article-title" id="article-title">生成文章</span>
+                <button class="article-close" id="btn-article-close" title="关闭">×</button>
+            </div>
+            <div class="article-body">
+                <textarea id="article-output" spellcheck="true"></textarea>
+                <div class="article-chat-panel">
+                    <div id="article-chat-log"></div>
+                    <textarea id="article-chat-input" spellcheck="true" placeholder="输入修改意见或想讨论的问题..."></textarea>
+                    <div class="article-chat-actions">
+                        <button class="article-action" id="btn-article-ask">讨论</button>
+                        <button class="article-action" id="btn-article-rewrite">按意见改写</button>
+                    </div>
+                </div>
+            </div>
+            <div class="article-actions">
+                <button class="article-action" id="btn-article-copy">复制文章</button>
+                <button class="article-action" id="btn-article-download">下载会话 MD</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- GitHub Gist 弹窗 -->
     <div class="modal-overlay" id="ghSyncModal">
         <div class="modal-card modal-lg">
             <div class="modal-header">
@@ -284,21 +406,20 @@
                 
                 <div class="form-group margin-top-md">
                     <label><b>1. GitHub Personal Access Token (PAT):</b></label>
-                    <input type="password" id="ghPatInput" class="input-field" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx (需勾选 'gist' 权限)">
-                    <span class="field-hint">可以在 <a href="https://github.com/settings/tokens" target="_blank">GitHub Developer Settings</a> 免费生成 Pat，勾选 <code>gist</code> 权限即可。</span>
+                    <input type="password" id="ghPatInput" class="input-field" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
                 </div>
 
                 <div class="form-group margin-top-sm">
-                    <label><b>2. Gist ID (云端文件库编号):</b></label>
+                    <label><b>2. Gist ID:</b></label>
                     <div class="input-with-button">
-                        <input type="text" id="ghGistIdInput" class="input-field" placeholder="留空点击右侧按钮将自动创建新的私有 Gist">
+                        <input type="text" id="ghGistIdInput" class="input-field" placeholder="Gist ID">
                         <button class="btn btn-secondary" id="autoCreateGistBtn">🚀 自动创建 Gist</button>
                     </div>
                 </div>
 
                 <div class="sync-status-box margin-top-md" id="ghSyncStatusBox">
-                    <div class="status-indicator" id="ghStatusIndicator">⚪ 尚未配置同步</div>
-                    <div class="status-details" id="ghStatusDetails">请输入 Token 后点击 [自动创建 Gist] 或 [从云端拉取]。</div>
+                    <div class="status-indicator" id="ghStatusIndicator">⚪ 状态读取中...</div>
+                    <div class="status-details" id="ghStatusDetails">已绑定你的 GitHub 私有 Gist。</div>
                 </div>
             </div>
             <div class="modal-footer modal-actions-between">
@@ -311,7 +432,7 @@
         </div>
     </div>
 
-    <!-- 弹窗 2：导出数据成功模态框 -->
+    <!-- 导出 Obsidian Modal -->
     <div class="modal-overlay" id="exportModal">
         <div class="modal-card">
             <div class="modal-header">
@@ -320,14 +441,6 @@
             </div>
             <div class="modal-body">
                 <p>你的笔记图谱数据已导出为 <code>obsidian_graph_backup.json</code> 并触发浏览器下载。</p>
-                <div class="code-preview-box">
-                    <p><b>下一步如何导入你的 Obsidian？</b></p>
-                    <ol>
-                        <li>确认文件下载在你的 <code>Downloads</code> 默认路径：<br><code>obsidian_graph_backup.json</code></li>
-                        <li>在你本地的文件夹中直接运行已为你准备好的 powershell 脚本：<br><code>sync_to_obsidian.ps1</code></li>
-                        <li>脚本将自动把 JSON 中的标题、Markdown 内容、以及关联转化为本地 <code>.md</code> 文件！</li>
-                    </ol>
-                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn btn-primary" id="confirmExportBtn">知道了</button>
@@ -335,7 +448,6 @@
         </div>
     </div>
 
-    <!-- 通知 Toast -->
     <div class="toast" id="toast">保存成功</div>
 
     <script src="app.js"></script>
