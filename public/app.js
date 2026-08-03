@@ -1170,7 +1170,7 @@ function initEvents() {
 
     richEditor.addEventListener("input", () => {
         if (!selectedNode) return;
-        selectedNode.content = cleanHTMLSpill(richEditor.innerText || richEditor.textContent);
+        selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
         mdTextarea.value = selectedNode.content;
         saveGraphToStorage();
     });
@@ -1450,7 +1450,7 @@ function applyFormatting(format) {
 
         // 同步 richEditor 内容到 mdTextarea 与 selectedNode
         if (selectedNode) {
-            selectedNode.content = cleanHTMLSpill(richEditor.innerText || richEditor.textContent);
+            selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
             document.getElementById("md-textarea").value = selectedNode.content;
             saveGraphToStorage(false);
         }
@@ -1466,6 +1466,7 @@ function renderAll() {
 function cleanHTMLSpill(text) {
     if (!text) return "";
     return text
+        .replace(/<font color=["']?(.*?)["']?>(.*?)<\/font>/gi, '<span style="color:$1">$2</span>')
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<b>(.*?)<\/b>/gi, "**$1**")
         .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
@@ -1473,21 +1474,77 @@ function cleanHTMLSpill(text) {
         .replace(/<em>(.*?)<\/em>/gi, "*$1*");
 }
 
+function htmlToSafeMarkdown(html) {
+    if (!html) return "";
+    // 将 <font color="X"> 或 <span style="color:X"> 转换为标准的 <span style="color:X">
+    let converted = html
+        .replace(/<font color=["']?(.*?)["']?>(.*?)<\/font>/gi, '<span style="color:$1">$2</span>')
+        .replace(/<div><br><\/div>/gi, "\n")
+        .replace(/<div>(.*?)<\/div>/gi, "\n$1")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<b>(.*?)<\/b>/gi, "**$1**")
+        .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
+        .replace(/<i>(.*?)<\/i>/gi, "*$1*")
+        .replace(/<em>(.*?)<\/em>/gi, "*$1*");
+
+    // 提取 Safe HTML：只允许 <u>, <span> 等样式保留，移除多余 DOM 外壳
+    const div = document.createElement("div");
+    div.innerHTML = converted;
+    
+    // 递归获取文本和允许的 HTML 格式
+    function serializeNode(node) {
+        if (node.nodeType === 3) {
+            return node.textContent;
+        }
+        if (node.nodeType === 1) {
+            const tag = node.tagName.toLowerCase();
+            const inner = Array.from(node.childNodes).map(serializeNode).join("");
+            if (tag === "span" && node.style && node.style.color) {
+                return `<span style="color:${node.style.color}">${inner}</span>`;
+            }
+            if (tag === "u") return `<u>${inner}</u>`;
+            if (tag === "strong" || tag === "b") return `**${inner}**`;
+            if (tag === "em" || tag === "i") return `*${inner}*`;
+            if (tag === "del" || tag === "s" || tag === "strike") return `~~${inner}~~`;
+            if (tag === "mark") return `==${inner}==`;
+            if (tag === "code") return '`' + inner + '`';
+            return inner;
+        }
+        return "";
+    }
+
+    return Array.from(div.childNodes).map(serializeNode).join("").replace(/&nbsp;/g, " ");
+}
+
 function renderMarkdownToHTML(text) {
     if (!text) return "";
     let cleaned = cleanHTMLSpill(text);
-    let html = escapeHTML(cleaned);
     
+    // 保护 <span style="color:..."> 和 <u> 标签不被 escapeHTML 破坏
+    const spans = [];
+    let protectedText = cleaned.replace(/<span style=["']color:\s*(.*?)["']?>(.*?)<\/span>/gi, (match, color, content) => {
+        spans.push(`<span style="color:${color}">${content}</span>`);
+        return `___SPAN_HOLDER_${spans.length - 1}___`;
+    }).replace(/<u>(.*?)<\/u>/gi, (match, content) => {
+        spans.push(`<u>${content}</u>`);
+        return `___SPAN_HOLDER_${spans.length - 1}___`;
+    });
+
+    let html = escapeHTML(protectedText);
+
+    // 还原 Markdown 语法
     html = html
-        .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gi, "<u>$1</u>")
-        .replace(/&lt;span style=&quot;(.*?)&quot;&gt;(.*?)&lt;\/span&gt;/gi, '<span style="$1">$2</span>')
-        .replace(/&lt;mark&gt;(.*?)&lt;\/mark&gt;/gi, "<mark>$1</mark>")
         .replace(/==(.*?)==/g, "<mark style='background:#fef08a; color:#854d0e; padding:0 4px; border-radius:2px;'>$1</mark>")
         .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
         .replace(/\*(.*?)\*/g, "<em>$1</em>")
         .replace(/~~(.*?)~~/g, "<del>$1</del>")
         .replace(/`(.*?)`/g, "<code style='background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;'>$1</code>")
         .replace(/\n/g, "<br>");
+
+    // 还原受保护的颜色 span 与 u 标签
+    spans.forEach((spanHtml, i) => {
+        html = html.replace(`___SPAN_HOLDER_${i}___`, spanHtml);
+    });
 
     return html;
 }
