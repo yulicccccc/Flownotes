@@ -437,6 +437,40 @@ body {
 .node-group:hover .node-circle { transform: scale(1.12); }
 .node-group.multi-selected .node-circle { stroke: var(--accent-cyan) !important; stroke-width: 4px !important; }
 
+/* ⭐ 划重点 / 核心关注节点 (Focus Node) 特效 */
+@keyframes focusGlowPulse {
+    0% {
+        r: 28px;
+        opacity: 0.9;
+        stroke-width: 3px;
+    }
+    50% {
+        r: 34px;
+        opacity: 0.45;
+        stroke-width: 6px;
+    }
+    100% {
+        r: 28px;
+        opacity: 0.9;
+        stroke-width: 3px;
+    }
+}
+
+.focus-glow-ring {
+    fill: none;
+    stroke: #fbbf24;
+    stroke-width: 3px;
+    animation: focusGlowPulse 2.2s infinite ease-in-out;
+    filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.85));
+    pointer-events: none;
+}
+
+#btn-toggle-focus.active {
+    background: rgba(251, 191, 36, 0.25) !important;
+    border-color: #fbbf24 !important;
+    box-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+}
+
 @keyframes rewirePulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.58; }

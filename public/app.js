@@ -442,27 +442,58 @@ function renderPositions() {
         .attr("transform", d => `translate(${d.x},${d.y})`);
 }
 
-// 轻量级：只刷新节点视觉样式（选中高亮等），不重启仿真
+// 轻量级：只刷新节点视觉样式（选中高亮、重点发光等），不重启仿真
 function refreshNodeStyles() {
     if (!nodeElements) return;
     nodeElements.each(function(d) {
         const group = d3.select(this);
         const r = d.parentId === null ? 22 : 16;
         const isSelected = selectedNodeIds.has(d.id);
+        const isFocus = !!d.isFocus;
 
         group.select(".node-circle")
             .attr("r", r)
             .style("fill", getNodeColor(d))
-            .style("stroke", isSelected ? "#fff" : "rgba(255,255,255,0.3)")
-            .style("stroke-width", isSelected ? "4px" : "2px");
+            .style("stroke", isSelected ? "#fff" : (isFocus ? "#fbbf24" : "rgba(255,255,255,0.3)"))
+            .style("stroke-width", isSelected ? "4px" : (isFocus ? "3px" : "2px"));
 
         group.select(".node-label")
             .attr("dy", (r + 15) + "px")
-            .text(d.label)
-            .style("fill", isSelected ? "var(--node-text-selected)" : "var(--node-text)")
-            .style("font-weight", isSelected ? "bold" : "normal");
+            .text((isFocus ? "⭐ " : "") + d.label)
+            .style("fill", isSelected ? "var(--node-text-selected)" : (isFocus ? "#fef08a" : "var(--node-text)"))
+            .style("font-weight", isSelected || isFocus ? "bold" : "normal");
+
+        group.select(".focus-glow-ring")
+            .style("display", isFocus ? "block" : "none")
+            .attr("r", r + 10);
+
+        group.select(".focus-star-label")
+            .style("display", isFocus ? "block" : "none")
+            .attr("transform", `translate(${-(r + 14)}, ${-(r / 2)})`);
+
+        // 动态刷新折叠/展开 Badge 标志
+        const descCount = getDescendantCount(d.id);
+        const badge = group.select(".node-fold-badge");
+        if (descCount > 0) {
+            badge.style("display", "block")
+                .attr("transform", `translate(${r + 6}, ${-r / 2})`);
+            badge.select(".fold-circle")
+                .attr("r", 9)
+                .style("fill", d.collapsed ? "#ef4444" : "rgba(255,255,255,0.25)")
+                .style("stroke", "#fff")
+                .style("stroke-width", "1px");
+            badge.select(".fold-text")
+                .text(d.collapsed ? `+${descCount}` : "−")
+                .style("fill", "#fff")
+                .style("font-size", "10px")
+                .style("font-weight", "bold");
+        } else {
+            badge.style("display", "none");
+        }
 
         group.classed("multi-selected", isSelected);
+        group.classed("is-focus-node", isFocus);
+        group.classed("is-collapsed", !!d.collapsed);
     });
 }
 
@@ -502,8 +533,18 @@ function updateD3Graph() {
                     event.stopPropagation();
                     renameSelectedNode(d);
                 });
+
+            // ⭐ 划重点金光动态呼吸外圈
+            g.append("circle").attr("class", "focus-glow-ring").style("display", "none");
+
             g.append("circle").attr("class", "node-circle");
             g.append("text").attr("class", "node-label").attr("text-anchor", "middle");
+
+            // ⭐ 划重点左上角小星号 Badge
+            const focusStar = g.append("text").attr("class", "focus-star-label")
+                .text("⭐")
+                .style("font-size", "14px")
+                .style("display", "none");
 
             // 节点折叠 / 展开徽章点按 Badge
             const badge = g.append("g").attr("class", "node-fold-badge")
@@ -520,47 +561,8 @@ function updateD3Graph() {
         update => update
     );
 
-    // 每次渲染都更新 ALL 节点属性（包含折叠徽章样式）
-    nodeElements.each(function(d) {
-        const group = d3.select(this);
-        const r = d.parentId === null ? 22 : 16;
-        const isSelected = selectedNodeIds.has(d.id);
-
-        group.select(".node-circle")
-            .attr("r", r)
-            .style("fill", getNodeColor(d))
-            .style("stroke", isSelected ? "#fff" : "rgba(255,255,255,0.3)")
-            .style("stroke-width", isSelected ? "4px" : "2px");
-
-        group.select(".node-label")
-            .attr("dy", (r + 15) + "px")
-            .text(d.label)
-            .style("fill", isSelected ? "var(--node-text-selected)" : "var(--node-text)")
-            .style("font-weight", isSelected ? "bold" : "normal");
-
-        // 动态刷新折叠/展开 Badge 标志
-        const descCount = getDescendantCount(d.id);
-        const badge = group.select(".node-fold-badge");
-        if (descCount > 0) {
-            badge.style("display", "block")
-                .attr("transform", `translate(${r + 6}, ${-r / 2})`);
-            badge.select(".fold-circle")
-                .attr("r", 9)
-                .style("fill", d.collapsed ? "#ef4444" : "rgba(255,255,255,0.25)")
-                .style("stroke", "#fff")
-                .style("stroke-width", "1px");
-            badge.select(".fold-text")
-                .text(d.collapsed ? `+${descCount}` : "−")
-                .style("fill", "#fff")
-                .style("font-size", "10px")
-                .style("font-weight", "bold");
-        } else {
-            badge.style("display", "none");
-        }
-
-        group.classed("multi-selected", isSelected);
-        group.classed("is-collapsed", !!d.collapsed);
-    });
+    // 每次渲染都更新 ALL 节点属性（包含折叠徽章与重点发光样式）
+    refreshNodeStyles();
 
     // 更新仿真
     simulation.nodes(visibleNodes);
@@ -868,6 +870,31 @@ function toggleNodeFold(targetNode) {
     else foldNodeBranch(targetNode);
 }
 
+// --- ⭐ 划重点 / 核心关注节点 (Focus Node) ---
+function toggleNodeFocus(targetNode) {
+    if (!targetNode || typeof targetNode !== "object" || !targetNode.id) {
+        targetNode = selectedNode;
+    }
+    if (!targetNode) return;
+
+    targetNode.isFocus = !targetNode.isFocus;
+    saveGraphToStorage();
+    refreshNodeStyles();
+    renderEditor();
+    renderSidebarNotesList();
+
+    const focusBtn = document.getElementById("btn-toggle-focus");
+    if (focusBtn) {
+        focusBtn.classList.toggle("active", !!targetNode.isFocus);
+    }
+
+    if (targetNode.isFocus) {
+        showToast(`⭐ 已将 [[${targetNode.label}]] 划为核心重点节点`);
+    } else {
+        showToast(`✨ 已取消 [[${targetNode.label}]] 的重点标记`);
+    }
+}
+
 // 3. Delete / Backspace：删除选中节点及其子分支
 function deleteSelectedNode() {
     if (!selectedNode) return;
@@ -1056,6 +1083,12 @@ function initEvents() {
     // 撤销 / 重做按钮
     document.getElementById("btn-undo").addEventListener("click", undo);
     document.getElementById("btn-redo").addEventListener("click", redo);
+
+    // ⭐ 划重点按钮
+    const btnFocus = document.getElementById("btn-toggle-focus");
+    if (btnFocus) {
+        btnFocus.addEventListener("click", () => toggleNodeFocus(selectedNode));
+    }
 
     // 编辑器侧边栏开关
     const toggleEdBtn = document.getElementById("btn-toggle-editor");
@@ -1267,6 +1300,13 @@ function initEvents() {
             return;
         }
 
+        // 6.5. F 键 / Ctrl+Shift+F：划重点 / 设为核心关注节点
+        if ((e.key === "f" || e.key === "F") || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "f" || e.key === "F"))) {
+            e.preventDefault();
+            toggleNodeFocus(selectedNode);
+            return;
+        }
+
         // 7. XMind 分支折叠 / 展开连招: Ctrl + LeftArrow (折叠), Ctrl + RightArrow (展开), Ctrl + / (切换)
         if ((e.ctrlKey || e.metaKey) && (e.key === "/" || e.code === "Slash")) {
             e.preventDefault();
@@ -1457,6 +1497,7 @@ function renderEditor() {
     const mdTextarea = document.getElementById("md-textarea");
     const richEditor = document.getElementById("rich-editor");
     const previewPanel = document.getElementById("preview-panel");
+    const focusBtn = document.getElementById("btn-toggle-focus");
 
     if (selectedNode) {
         // 自动净化清洗之前残留的 HTML 污染
@@ -1468,11 +1509,20 @@ function renderEditor() {
         mdTextarea.value = cleanContent;
         richEditor.innerHTML = renderMarkdownToHTML(cleanContent);
         previewPanel.innerHTML = renderMarkdownToHTML(cleanContent);
+
+        if (focusBtn) {
+            focusBtn.disabled = false;
+            focusBtn.classList.toggle("active", !!selectedNode.isFocus);
+        }
     } else {
         titleInput.value = "未选择节点";
         titleInput.disabled = true;
         mdTextarea.value = "";
         richEditor.innerHTML = "";
+        if (focusBtn) {
+            focusBtn.disabled = true;
+            focusBtn.classList.remove("active");
+        }
     }
 }
 

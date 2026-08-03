@@ -147,10 +147,11 @@
                         </div>
                         <div class="hint-body" id="hint-body">
                             1. <b>Enter</b> 建同级节点 | <b>Tab</b> 建分支子节点<br>
-                            2. <b>Ctrl+← / Ctrl+→ / Ctrl+/</b> 折叠与展开分支<br>
-                            3. <b>双击空白</b> 建独立主题 | <b>Delete</b> 删除节点<br>
-                            4. <b>Ctrl+Z / Ctrl+Y</b> 撤销/重做 | <b>F2</b> 重命名<br>
-                            5. <b>方向键 ↑↓←→</b> 键盘漫游 | <b>Alt+↑/↓</b> 节点调序
+                            2. <b>F 键</b> ⭐ 划重点 / 亮起脉冲发光圈<br>
+                            3. <b>Ctrl+← / Ctrl+→ / Ctrl+/</b> 折叠与展开分支<br>
+                            4. <b>双击空白</b> 建独立主题 | <b>Delete</b> 删除节点<br>
+                            5. <b>Ctrl+Z / Ctrl+Y</b> 撤销/重做 | <b>F2</b> 重命名<br>
+                            6. <b>方向键 ↑↓←→</b> 键盘漫游 | <b>Alt+↑/↓</b> 节点调序
                         </div>
                     </div>
 
@@ -200,8 +201,9 @@
 
                 <!-- 右侧深度 Markdown 编辑面板 -->
                 <div id="editor-panel">
-                    <div id="editor-header">
-                        <input id="title-input" type="text" autocomplete="off" spellcheck="false" value="未选择节点" disabled>
+                    <div id="editor-header" style="display:flex; align-items:center; gap:8px;">
+                        <input id="title-input" type="text" autocomplete="off" spellcheck="false" value="未选择节点" disabled style="flex:1;">
+                        <button id="btn-toggle-focus" class="format-btn" title="划重点 / 设为核心关注节点 (快捷键 F)" style="width:32px; height:32px; font-size:16px; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0;">⭐</button>
                     </div>
 
                     <div id="format-toolbar">
