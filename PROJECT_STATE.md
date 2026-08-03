@@ -1,14 +1,21 @@
-# Project State: FlowNotes
+# Project State: FlowNotes (v2.2.0)
 
-## Current State
-- Created and deployed a brand-new **FlowNotes Web Application** (`public/index.html`, `public/index.css`, `public/app.js`) to Cloudflare Pages.
-- Implemented rich Space Obsidian dark mode design, Owl Mascot SVG logo, Flow Stream capture, Zettelkasten bidirectional markdown editor, and 2D force-directed Visual Idea Map canvas.
-- Integrated one-click JSON export (`obsidian_graph_backup.json`) fully compatible with local PowerShell script `sync_to_obsidian.ps1`.
-- Created automated Cloudflare Pages deployment script `Flownotes_一键更新网站.bat` using portable node junction (`.\node\npx.cmd`).
-- Successfully deployed to Cloudflare Pages:
-  - Production URL: https://flownotes-eze.pages.dev
-  - Alias URL: https://master.flownotes-eze.pages.dev
+## Current Version & Status
+- **Current Version**: `v2.2.0`
+- **Latest Release**: Multi-Map Organizer, Obsidian Jelly Physics Engine, XMind Typing Flow & Branch Folding
+- **Live Staging & Production**: https://flownotes-eze.pages.dev
+- **GitHub Repository**: https://github.com/yulicccccc/Flownotes
 
-## Next Steps
-- User can visit the live Cloudflare Pages URL to experience FlowNotes.
-- User can test exporting `obsidian_graph_backup.json` from the web UI and executing `sync_to_obsidian.ps1` to sync notes to their local Obsidian vault.
+## Finalized & Locked Features
+1. **Multi-Map Organizer (🗂️ 图谱组织器)**: Support creating, switching, renaming, duplicating, and deleting multiple independent mindmaps with metadata manifests.
+2. **XMind Clean Tree Default + Obsidian Jelly Q-Bounce Mode**: Default tidy XMind tree view with one-click toggle to 360° symmetric jelly physics (`forceCollide` + `forceCenter`).
+3. **XMind Shortcuts & Branch Folding**:
+   - `Tab` (Child), `Enter` (Sibling), `Delete` (Delete), `F2` (Rename), Arrows (Navigate).
+   - `Ctrl+←` (Fold Branch), `Ctrl+→` (Unfold Branch), `Ctrl+/` (Toggle Fold).
+   - Visual collapse badges with hidden node count (`+N`).
+4. **Typing Combo Flow**: Automatic title focus and text selection upon node creation (`Tab`/`Enter` continuous typing without touching mouse).
+5. **Anti-Loss GitHub Gist Sync**: Gist backup with 8s rate-limit protection and total card count validation.
+6. **Obsidian Integration**: Export script compatibility (`sync_to_obsidian.ps1`).
+
+## Version History Log
+- Tracked in `CHANGELOG.md`.
