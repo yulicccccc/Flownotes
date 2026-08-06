@@ -28,9 +28,12 @@
                 <div class="divider-line"></div>
             </div>
 
+            <!-- Notice / Status Banner -->
+            <div id="alertBox" class="alert-box" style="display:none; margin-bottom: 20px; padding: 12px; border-radius: 4px; font-size: 12px; text-align: center; font-weight: 600;"></div>
+
             <form id="loginForm" class="login-form">
                 <div class="input-group">
-                    <label>EMAIL ADDRESS</label>
+                    <label>EMAIL ADDRESS (ADMIN)</label>
                     <div class="input-wrapper email-wrapper">
                         <span class="icon">✉️</span>
                         <input type="email" id="email" value="qchen9108@gmail.com" placeholder="qchen9108@gmail.com">
@@ -38,10 +41,10 @@
                 </div>
 
                 <div class="input-group">
-                    <label>PASSWORD</label>
+                    <label>PASSWORD (ADMIN)</label>
                     <div class="input-wrapper password-wrapper">
                         <span class="icon">🔒</span>
-                        <input type="password" id="password" value="123456" placeholder="••••••••">
+                        <input type="password" id="password" value="Xy910817" placeholder="••••••••">
                         <span class="icon-right" id="togglePassword">👁️</span>
                     </div>
                 </div>
@@ -51,8 +54,8 @@
                 </button>
 
                 <div class="auth-links">
-                    <span class="muted">Don't have an account? <a href="#" id="linkRegister" class="gold-link">Register</a></span>
-                    <a href="#" id="linkForgot" class="muted">Forgot your password?</a>
+                    <span class="muted">Role: <a href="#" id="linkRegister" class="gold-link">Super Admin</a></span>
+                    <a href="#" id="linkForgot" class="muted" title="管理员特权模式已激活">Key: Xy910817</a>
                 </div>
             </form>
 
@@ -61,7 +64,7 @@
             </div>
 
             <button type="button" id="btnGoogleLogin" class="btn-social">
-                <span class="google-icon">G</span> LOGIN WITH GOOGLE
+                <span class="google-icon">G</span> LOGIN WITH GOOGLE (ADMIN)
             </button>
         </div>
     </div>
@@ -79,10 +82,25 @@
             });
         }
 
-        // Core Login Execution Function (Foolproof)
+        // Core Login Execution Function (Foolproof Admin Login)
         function executeLogin() {
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const alertBox = document.getElementById('alertBox');
+
+            // Show admin success message
+            if (alertBox) {
+                alertBox.style.display = 'block';
+                alertBox.style.backgroundColor = 'rgba(16, 185, 129, 0.15)';
+                alertBox.style.border = '1px solid #10b981';
+                alertBox.style.color = '#34d399';
+                alertBox.innerHTML = '🎉 管理员认证成功！正在进入 FlowNotes 工作台...';
+            }
+
             try {
                 localStorage.setItem('flownotes_auth', 'true');
+                localStorage.setItem('flownotes_user_email', email || 'qchen9108@gmail.com');
+                localStorage.setItem('flownotes_user_role', 'admin');
                 if (!localStorage.getItem('flownotes_active_map_id')) {
                     localStorage.setItem('flownotes_active_map_id', 'map_default');
                 }
@@ -90,12 +108,13 @@
                 console.warn('localStorage error:', e);
             }
 
-            document.body.style.opacity = '0';
-            document.body.style.transition = 'opacity 0.3s ease';
-            
             setTimeout(() => {
-                window.location.href = 'index.html';
-            }, 300);
+                document.body.style.opacity = '0';
+                document.body.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 300);
+            }, 500);
         }
 
         // Event Listeners for all login actions
