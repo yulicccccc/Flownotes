@@ -394,9 +394,110 @@ function initD3Mindmap() {
         .on("tick", renderPositions);
 
     updateD3Graph();
+    initMarqueeSelection();
     if (layoutMode === "tree") {
         tidyLayout();
     }
+}
+
+// --- 🔳 矩形框选多选引擎 (Marquee Box Selection Engine) ---
+let isMarqueeMode = false;
+let isMarqueeDragging = false;
+let marqueeStartCoords = [0, 0];
+
+function toggleMarqueeMode(forceState) {
+    isMarqueeMode = typeof forceState === "boolean" ? forceState : !isMarqueeMode;
+    const btn = document.getElementById("btn-marquee");
+    if (btn) btn.classList.toggle("active", isMarqueeMode);
+
+    if (isMarqueeMode) {
+        showToast("🔳 已开启矩形框选模式 (在空白拉框多选，双击或切按钮退出)");
+    } else {
+        showToast("✋ 已切换为画布平移模式");
+    }
+}
+
+function initMarqueeSelection() {
+    if (!svg || !zoomContainer) return;
+
+    let marqueeBox = zoomContainer.select("#marquee-box");
+    if (marqueeBox.empty()) {
+        marqueeBox = zoomContainer.append("rect")
+            .attr("id", "marquee-box")
+            .attr("class", "marquee-box")
+            .style("display", "none");
+    }
+
+    svg.on("mousedown.marquee", (event) => {
+        // 当按住 Shift 键，或者开启了 isMarqueeMode 框选模式，且点击在空白处时触发
+        const isShiftKey = event.shiftKey;
+        const isClickCanvas = !event.target.closest || (!event.target.closest(".node-group") && event.target.tagName !== "circle" && event.target.tagName !== "text");
+
+        if ((isShiftKey || isMarqueeMode) && isClickCanvas) {
+            event.stopPropagation();
+            isMarqueeDragging = true;
+            marqueeStartCoords = d3.pointer(event, zoomContainer.node());
+
+            marqueeBox
+                .attr("x", marqueeStartCoords[0])
+                .attr("y", marqueeStartCoords[1])
+                .attr("width", 0)
+                .attr("height", 0)
+                .style("display", "block");
+
+            // 如果没有按 Shift 键，则重置上一次的多选
+            if (!isShiftKey) {
+                selectedNodeIds.clear();
+                refreshNodeStyles();
+            }
+        }
+    });
+
+    svg.on("mousemove.marquee", (event) => {
+        if (!isMarqueeDragging) return;
+        event.stopPropagation();
+
+        const currentCoords = d3.pointer(event, zoomContainer.node());
+        const x = Math.min(marqueeStartCoords[0], currentCoords[0]);
+        const y = Math.min(marqueeStartCoords[1], currentCoords[1]);
+        const w = Math.abs(currentCoords[0] - marqueeStartCoords[0]);
+        const h = Math.abs(currentCoords[1] - marqueeStartCoords[1]);
+
+        marqueeBox
+            .attr("x", x)
+            .attr("y", y)
+            .attr("width", w)
+            .attr("height", h);
+
+        // 框选碰撞检测：找出位于 [x, y, w, h] 框内的节点
+        const nodeMap = new Map(nodes.map(n => [n.id, n]));
+        const visibleNodes = nodes.filter(n => isNodeVisible(n, nodeMap));
+
+        visibleNodes.forEach(n => {
+            const inBox = n.x >= x && n.x <= (x + w) && n.y >= y && n.y <= (y + h);
+            if (inBox) {
+                selectedNodeIds.add(n.id);
+            }
+        });
+
+        refreshNodeStyles();
+    });
+
+    svg.on("mouseup.marquee", (event) => {
+        if (!isMarqueeDragging) return;
+        isMarqueeDragging = false;
+        marqueeBox.style("display", "none");
+
+        if (selectedNodeIds.size > 0) {
+            const firstId = Array.from(selectedNodeIds)[0];
+            const target = nodes.find(n => n.id === firstId);
+            if (target) {
+                selectedNode = target;
+                renderEditor();
+            }
+            showToast(`🔳 已成功框选 ${selectedNodeIds.size} 个节点 (可批量平移 / 删除 / 划重点)`);
+        }
+    });
 }
 
 function focusOnNode(node) {
@@ -576,33 +677,84 @@ function updateD3Graph() {
     renderOutlineTree();
 }
 
+let dragStartPositions = new Map();
+
 function dragstarted(event, d) {
     if (layoutMode === "force") {
         if (!event.active) simulation.alphaTarget(0.3).restart();
     }
+
+    dragStartPositions.clear();
+    if (selectedNodeIds.has(d.id) && selectedNodeIds.size > 1) {
+        nodes.forEach(n => {
+            if (selectedNodeIds.has(n.id)) {
+                dragStartPositions.set(n.id, { x: n.x, y: n.y });
+            }
+        });
+    } else {
+        selectedNode = d;
+        selectedNodeIds = new Set([d.id]);
+        refreshNodeStyles();
+        renderEditor();
+    }
+
     d.fx = d.x;
     d.fy = d.y;
 }
 
 function dragged(event, d) {
     if (event.x === undefined || event.y === undefined || isNaN(event.x) || isNaN(event.y)) return;
-    d.fx = event.x;
-    d.fy = event.y;
-    d.x = event.x;
-    d.y = event.y;
+
+    const dx = event.x - d.x;
+    const dy = event.y - d.y;
+
+    if (dragStartPositions.size > 1 && dragStartPositions.has(d.id)) {
+        nodes.forEach(n => {
+            if (dragStartPositions.has(n.id)) {
+                n.x += dx;
+                n.y += dy;
+                n.fx = n.x;
+                n.fy = n.y;
+            }
+        });
+    } else {
+        d.fx = event.x;
+        d.fy = event.y;
+        d.x = event.x;
+        d.y = event.y;
+    }
+
     renderPositions();
 }
 
 function dragended(event, d) {
     if (layoutMode === "force") {
         if (!event.active) simulation.alphaTarget(0);
-        d.fx = null;
-        d.fy = null;
+        if (dragStartPositions.size > 1) {
+            nodes.forEach(n => {
+                if (dragStartPositions.has(n.id)) {
+                    delete n.fx;
+                    delete n.fy;
+                }
+            });
+        } else {
+            delete d.fx;
+            delete d.fy;
+        }
     } else {
-        // 树状模式下拖拽后保持固定位置
-        d.fx = d.x;
-        d.fy = d.y;
+        if (dragStartPositions.size > 1) {
+            nodes.forEach(n => {
+                if (dragStartPositions.has(n.id)) {
+                    n.fx = n.x;
+                    n.fy = n.y;
+                }
+            });
+        } else {
+            d.fx = d.x;
+            d.fy = d.y;
+        }
     }
+    dragStartPositions.clear();
     saveGraphToStorage();
 }
 
@@ -875,6 +1027,21 @@ function toggleNodeFocus(targetNode) {
     if (!targetNode || typeof targetNode !== "object" || !targetNode.id) {
         targetNode = selectedNode;
     }
+    
+    // 如果是批量多选节点，批量划重点
+    if (selectedNodeIds.size > 1) {
+        const targetNodes = nodes.filter(n => selectedNodeIds.has(n.id));
+        const anyUnfocused = targetNodes.some(n => !n.isFocus);
+        targetNodes.forEach(n => n.isFocus = anyUnfocused);
+        
+        saveGraphToStorage();
+        refreshNodeStyles();
+        renderEditor();
+        renderSidebarNotesList();
+        showToast(anyUnfocused ? `⭐ 已批量将 ${selectedNodeIds.size} 个节点划为重点` : `✨ 已批量取消 ${selectedNodeIds.size} 个节点的重点`);
+        return;
+    }
+
     if (!targetNode) return;
 
     targetNode.isFocus = !targetNode.isFocus;
@@ -895,16 +1062,24 @@ function toggleNodeFocus(targetNode) {
     }
 }
 
-// 3. Delete / Backspace：删除选中节点及其子分支
+// 3. Delete / Backspace：删除选中节点及其子分支 (支持批量删除)
 function deleteSelectedNode() {
-    if (!selectedNode) return;
+    if (!selectedNode && selectedNodeIds.size === 0) return;
     
     const toDeleteIds = new Set();
     function collectSubtree(id) {
         toDeleteIds.add(id);
         nodes.filter(n => n.parentId === id).forEach(child => collectSubtree(child.id));
     }
-    collectSubtree(selectedNode.id);
+
+    // 若有多个多选节点，收集每一个多选节点及其子树
+    if (selectedNodeIds.size > 0) {
+        selectedNodeIds.forEach(id => collectSubtree(id));
+    } else if (selectedNode) {
+        collectSubtree(selectedNode.id);
+    }
+
+    if (toDeleteIds.size === 0) return;
 
     nodes = nodes.filter(n => !toDeleteIds.has(n.id));
     links = links.filter(l => {
@@ -1088,6 +1263,12 @@ function initEvents() {
     const btnFocus = document.getElementById("btn-toggle-focus");
     if (btnFocus) {
         btnFocus.addEventListener("click", () => toggleNodeFocus(selectedNode));
+    }
+
+    // 🔳 框选模式按钮
+    const btnMarquee = document.getElementById("btn-marquee");
+    if (btnMarquee) {
+        btnMarquee.addEventListener("click", () => toggleMarqueeMode());
     }
 
     // 编辑器侧边栏开关
@@ -1304,6 +1485,13 @@ function initEvents() {
         if ((e.key === "f" || e.key === "F") || ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === "f" || e.key === "F"))) {
             e.preventDefault();
             toggleNodeFocus(selectedNode);
+            return;
+        }
+
+        // 6.8. B 键：切换矩形框选多选模式
+        if ((e.key === "b" || e.key === "B") && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            e.preventDefault();
+            toggleMarqueeMode();
             return;
         }
 

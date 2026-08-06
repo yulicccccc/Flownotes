@@ -4,6 +4,16 @@
 
 ---
 
+## 🚀 [v2.4.0] - 2026-08-06
+
+### 🌟 核心亮点 (Highlights)
+- **🔳 画布矩形框选多选节点系统 (Marquee Box Selection)**：支持按住 **`Shift` + 鼠标左键** 拖拽，或点击顶部工具栏 **`🔳 框选`** 按钮 (按 `B` 键秒切)，在画布空白处圈选多个节点。
+- **✨ 批量协同平移 (Batch Drag)**：框选多选节点后，拖拽其中任意一个节点，所有选中的节点保持相对距离**协同平移**。
+- **💥 批量快捷联动 (Batch Actions)**：支持一键批量删除 (`Delete`)、批量划重点 (`F`) 以及批量建立双链关系 (`L`)！
+- **📜 需求规范写入 PRD.md**：将框选多选系统正式提炼锁入项目的核心 [`PRD.md`](file:///c:/Users/qchen/OneDrive%20-%20Professional%20Compounding%20Centers%20of%20America,%20Inc/Documents/Flownotes/PRD.md) 中。
+
+---
+
 ## 🐛 [v2.3.1] - 2026-08-03
 
 ### 🐛 Bug 修复 (Fixed)

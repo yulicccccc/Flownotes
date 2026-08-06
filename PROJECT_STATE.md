@@ -1,8 +1,8 @@
-# Project State: FlowNotes (v2.2.0)
+# Project State: FlowNotes (v2.4.0)
 
 ## Current Version & Status
-- **Current Version**: `v2.2.0`
-- **Latest Release**: Multi-Map Organizer, Obsidian Jelly Physics Engine, XMind Typing Flow & Branch Folding
+- **Current Version**: `v2.4.0`
+- **Latest Release**: Marquee Box Multi-Selection Engine, Focus Node Glowing Special Effects, Multi-Map Organizer
 - **Live Staging & Production**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
 

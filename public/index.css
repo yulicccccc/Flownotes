@@ -471,6 +471,22 @@ body {
     box-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
 }
 
+/* 🔳 矩形框选多选盒 (Marquee Selection Box) 样式 */
+.marquee-box {
+    fill: rgba(56, 189, 248, 0.16);
+    stroke: #38bdf8;
+    stroke-width: 1.5px;
+    stroke-dasharray: 4 4;
+    pointer-events: none;
+    transition: opacity 0.1s;
+}
+
+#btn-marquee.active {
+    background: rgba(56, 189, 248, 0.25) !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+}
+
 @keyframes rewirePulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.58; }
