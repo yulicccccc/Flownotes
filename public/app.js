@@ -1654,32 +1654,28 @@ function renderAll() {
 function cleanHTMLSpill(text) {
     if (!text) return "";
     return text
-        .replace(/<font color=["']?(.*?)["']?>(.*?)<\/font>/gi, '<span style="color:$1">$2</span>')
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<b>(.*?)<\/b>/gi, "**$1**")
-        .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
-        .replace(/<i>(.*?)<\/i>/gi, "*$1*")
-        .replace(/<em>(.*?)<\/em>/gi, "*$1*");
+        .replace(/<font color=["']?([^"'>]+)["']?>/gi, '<span style="color:$1">')
+        .replace(/<\/font>/gi, '</span>')
+        .replace(/<b>/gi, "**").replace(/<\/b>/gi, "**")
+        .replace(/<strong>/gi, "**").replace(/<\/strong>/gi, "**")
+        .replace(/<i>/gi, "*").replace(/<\/i>/gi, "*")
+        .replace(/<em>/gi, "*").replace(/<\/em>/gi, "*");
 }
 
 function htmlToSafeMarkdown(html) {
     if (!html) return "";
-    // 将 <font color="X"> 或 <span style="color:X"> 转换为标准的 <span style="color:X">
-    let converted = html
-        .replace(/<font color=["']?(.*?)["']?>(.*?)<\/font>/gi, '<span style="color:$1">$2</span>')
-        .replace(/<div><br><\/div>/gi, "\n")
-        .replace(/<div>(.*?)<\/div>/gi, "\n$1")
-        .replace(/<br\s*\/?>/gi, "\n")
-        .replace(/<b>(.*?)<\/b>/gi, "**$1**")
-        .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
-        .replace(/<i>(.*?)<\/i>/gi, "*$1*")
-        .replace(/<em>(.*?)<\/em>/gi, "*$1*");
-
-    // 提取 Safe HTML：只允许 <u>, <span> 等样式保留，移除多余 DOM 外壳
-    const div = document.createElement("div");
-    div.innerHTML = converted;
     
-    // 递归获取文本和允许的 HTML 格式
+    // 预处理块级换行，避免 div 包裹导致的换行丢失
+    let preProcessed = html
+        .replace(/<div><br><\/div>/gi, "\n")
+        .replace(/<p><br><\/p>/gi, "\n")
+        .replace(/<div>/gi, "\n<div>")
+        .replace(/<p>/gi, "\n<p>")
+        .replace(/<br\s*\/?>/gi, "\n");
+
+    const div = document.createElement("div");
+    div.innerHTML = preProcessed;
+    
     function serializeNode(node) {
         if (node.nodeType === 3) {
             return node.textContent;
@@ -1687,21 +1683,38 @@ function htmlToSafeMarkdown(html) {
         if (node.nodeType === 1) {
             const tag = node.tagName.toLowerCase();
             const inner = Array.from(node.childNodes).map(serializeNode).join("");
-            if (tag === "span" && node.style && node.style.color) {
-                return `<span style="color:${node.style.color}">${inner}</span>`;
+            
+            let result = inner;
+            
+            if (tag === "strong" || tag === "b") result = `**${result}**`;
+            if (tag === "em" || tag === "i") result = `*${result}*`;
+            if (tag === "del" || tag === "s" || tag === "strike") result = `~~${result}~~`;
+            if (tag === "u") result = `<u>${result}</u>`;
+            if (tag === "code") result = `\`${result}\``;
+            
+            if (tag === "mark" || (node.style && node.style.backgroundColor)) {
+                result = `==${result}==`;
             }
-            if (tag === "u") return `<u>${inner}</u>`;
-            if (tag === "strong" || tag === "b") return `**${inner}**`;
-            if (tag === "em" || tag === "i") return `*${inner}*`;
-            if (tag === "del" || tag === "s" || tag === "strike") return `~~${inner}~~`;
-            if (tag === "mark") return `==${inner}==`;
-            if (tag === "code") return '`' + inner + '`';
-            return inner;
+            
+            let color = "";
+            if (tag === "font" && node.color) {
+                color = node.color;
+            } else if (node.style && node.style.color) {
+                color = node.style.color;
+            }
+            
+            if (color) {
+                result = `<span style="color:${color}">${result}</span>`;
+            }
+            
+            return result;
         }
         return "";
     }
 
-    return Array.from(div.childNodes).map(serializeNode).join("").replace(/&nbsp;/g, " ");
+    let markdown = Array.from(div.childNodes).map(serializeNode).join("");
+    markdown = markdown.replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trimStart();
+    return markdown;
 }
 
 function renderMarkdownToHTML(text) {
@@ -1709,30 +1722,30 @@ function renderMarkdownToHTML(text) {
     let cleaned = cleanHTMLSpill(text);
     
     // 保护 <span style="color:..."> 和 <u> 标签不被 escapeHTML 破坏
-    const spans = [];
-    let protectedText = cleaned.replace(/<span style=["']color:\s*(.*?)["']?>(.*?)<\/span>/gi, (match, color, content) => {
-        spans.push(`<span style="color:${color}">${content}</span>`);
-        return `___SPAN_HOLDER_${spans.length - 1}___`;
-    }).replace(/<u>(.*?)<\/u>/gi, (match, content) => {
-        spans.push(`<u>${content}</u>`);
-        return `___SPAN_HOLDER_${spans.length - 1}___`;
-    });
+    // 我们只替换标签本身，不替换内容，从而完美支持嵌套！
+    let protectedText = cleaned
+        .replace(/<span style=["']color:\s*([^"'>]+)["']?>/gi, '___SPAN_START_$1___')
+        .replace(/<\/span>/gi, '___SPAN_END___')
+        .replace(/<u>/gi, '___U_START___')
+        .replace(/<\/u>/gi, '___U_END___');
 
     let html = escapeHTML(protectedText);
 
-    // 还原 Markdown 语法
+    // 还原 Markdown 语法 (支持跨行匹配)
     html = html
-        .replace(/==(.*?)==/g, "<mark style='background:#fef08a; color:#854d0e; padding:0 4px; border-radius:2px;'>$1</mark>")
-        .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*(.*?)\*/g, "<em>$1</em>")
-        .replace(/~~(.*?)~~/g, "<del>$1</del>")
-        .replace(/`(.*?)`/g, "<code style='background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;'>$1</code>")
+        .replace(/==([\s\S]*?)==/g, "<mark style='background:#fef08a; color:#854d0e; padding:0 4px; border-radius:2px;'>$1</mark>")
+        .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([\s\S]*?)\*/g, "<em>$1</em>")
+        .replace(/~~([\s\S]*?)~~/g, "<del>$1</del>")
+        .replace(/`([\s\S]*?)`/g, "<code style='background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;'>$1</code>")
         .replace(/\n/g, "<br>");
 
     // 还原受保护的颜色 span 与 u 标签
-    spans.forEach((spanHtml, i) => {
-        html = html.replace(`___SPAN_HOLDER_${i}___`, spanHtml);
-    });
+    html = html
+        .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
+        .replace(/___SPAN_END___/g, '</span>')
+        .replace(/___U_START___/g, '<u>')
+        .replace(/___U_END___/g, '</u>');
 
     return html;
 }
