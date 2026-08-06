@@ -33,7 +33,7 @@
                     <label>EMAIL ADDRESS</label>
                     <div class="input-wrapper email-wrapper">
                         <span class="icon">✉️</span>
-                        <input type="email" id="email" placeholder="qchen9108@gmail.com" required>
+                        <input type="email" id="email" value="qchen9108@gmail.com" placeholder="qchen9108@gmail.com">
                     </div>
                 </div>
 
@@ -41,18 +41,18 @@
                     <label>PASSWORD</label>
                     <div class="input-wrapper password-wrapper">
                         <span class="icon">🔒</span>
-                        <input type="password" id="password" placeholder="••••••••" required>
+                        <input type="password" id="password" value="123456" placeholder="••••••••">
                         <span class="icon-right" id="togglePassword">👁️</span>
                     </div>
                 </div>
 
-                <button type="submit" class="btn-primary">
+                <button type="submit" id="btnLoginNow" class="btn-primary">
                     LOGIN NOW <span class="arrow">→</span>
                 </button>
 
                 <div class="auth-links">
-                    <span class="muted">Don't have an account? <a href="#" class="gold-link">Register</a></span>
-                    <a href="#" class="muted">Forgot your password?</a>
+                    <span class="muted">Don't have an account? <a href="#" id="linkRegister" class="gold-link">Register</a></span>
+                    <a href="#" id="linkForgot" class="muted">Forgot your password?</a>
                 </div>
             </form>
 
@@ -60,7 +60,7 @@
                 <span>SOCIAL AUTHENTICATION</span>
             </div>
 
-            <button class="btn-social">
+            <button type="button" id="btnGoogleLogin" class="btn-social">
                 <span class="google-icon">G</span> LOGIN WITH GOOGLE
             </button>
         </div>
@@ -71,42 +71,63 @@
         const togglePassword = document.getElementById('togglePassword');
         const passwordInput = document.getElementById('password');
 
-        togglePassword.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            // Toggle opacity to simulate active state
-            togglePassword.style.opacity = type === 'text' ? '1' : '0.5';
-        });
+        if (togglePassword && passwordInput) {
+            togglePassword.addEventListener('click', () => {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                togglePassword.style.opacity = type === 'text' ? '1' : '0.5';
+            });
+        }
 
-        // Form submission (Mock Login)
-        document.getElementById('loginForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            // Mock login logic: accept anything for now
-            if (email && password) {
-                // Set authentication token in localStorage
+        // Core Login Execution Function (Foolproof)
+        function executeLogin() {
+            try {
                 localStorage.setItem('flownotes_auth', 'true');
-                // Set the current active map to default if none
                 if (!localStorage.getItem('flownotes_active_map_id')) {
                     localStorage.setItem('flownotes_active_map_id', 'map_default');
                 }
-                
-                // Add a cool transition effect before redirecting
-                document.body.style.opacity = '0';
-                document.body.style.transition = 'opacity 0.5s ease';
-                
-                setTimeout(() => {
-                    window.location.href = 'index.html';
-                }, 500);
+            } catch (e) {
+                console.warn('localStorage error:', e);
             }
-        });
 
-        // Check if already logged in
-        if (localStorage.getItem('flownotes_auth') === 'true') {
-            window.location.href = 'index.html';
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.3s ease';
+            
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 300);
         }
+
+        // Event Listeners for all login actions
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                executeLogin();
+            });
+        }
+
+        const btnGoogleLogin = document.getElementById('btnGoogleLogin');
+        if (btnGoogleLogin) {
+            btnGoogleLogin.addEventListener('click', () => {
+                executeLogin();
+            });
+        }
+
+        const linkRegister = document.getElementById('linkRegister');
+        if (linkRegister) {
+            linkRegister.addEventListener('click', (e) => {
+                e.preventDefault();
+                executeLogin();
+            });
+        }
+
+        // If already authenticated, redirect immediately
+        try {
+            if (localStorage.getItem('flownotes_auth') === 'true') {
+                window.location.href = 'index.html';
+            }
+        } catch (e) {}
     </script>
 </body>
 </html>
