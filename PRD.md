@@ -4,6 +4,9 @@
 A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes) deployed on Cloudflare Pages, with D3.js interactive graph workspace, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Authentication System (`public/login.html`)**:
+  - Golden-themed UI mockup implemented as requested.
+  - Basic mock authentication check (`flownotes_auth` in `localStorage`) protecting the workspace `index.html`.
 - **Mindmap-First Visual Workspace (`public/`)**:
   - D3.js SVG Mindmap canvas with D3 force simulation and XMind Tidy Tree layout engine (`🧭` / `M` key).
   - **Full XMind Keyboard Shortcuts Suite (XMind 级快捷键全集)**:
