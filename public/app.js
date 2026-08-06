@@ -1415,6 +1415,17 @@ function initEvents() {
     // 主题
     document.getElementById("themeToggle").addEventListener("click", toggleTheme);
 
+    // 退出登录
+    const btnLogout = document.getElementById("btnLogout");
+    if (btnLogout) {
+        btnLogout.addEventListener("click", () => {
+            if (confirm("确定要退出登录吗？")) {
+                localStorage.removeItem("flownotes_auth");
+                window.location.href = "login.html";
+            }
+        });
+    }
+
     // 全局快捷键处理 (XMind 连招全集)
     document.addEventListener("keydown", (e) => {
         const isEditing = document.activeElement.tagName === "TEXTAREA" || 

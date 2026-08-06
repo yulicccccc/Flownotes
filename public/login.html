@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowNotes - Authentication</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="login.css">
+</head>
+<body>
+    <div class="login-container">
+        <!-- Logo Section -->
+        <div class="logo-section">
+            <svg class="wavy-logo" viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 15 Q20 5 30 15 T50 15 T70 15 T90 15" stroke="#c19b6c" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <path d="M10 25 Q20 15 30 25 T50 25 T70 25 T90 25" stroke="#c19b6c" stroke-width="4" fill="none" stroke-linecap="round"/>
+                <path d="M10 35 Q20 25 30 35 T50 35 T70 35 T90 35" stroke="#c19b6c" stroke-width="4" fill="none" stroke-linecap="round"/>
+            </svg>
+            <h1 class="logo-text">FLOW NOTE</h1>
+        </div>
+
+        <!-- Auth Card -->
+        <div class="auth-card">
+            <div class="card-header">
+                <h2>AUTHENTICATION</h2>
+                <div class="divider-line"></div>
+            </div>
+
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <label>EMAIL ADDRESS</label>
+                    <div class="input-wrapper email-wrapper">
+                        <span class="icon">✉️</span>
+                        <input type="email" id="email" placeholder="qchen9108@gmail.com" required>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label>PASSWORD</label>
+                    <div class="input-wrapper password-wrapper">
+                        <span class="icon">🔒</span>
+                        <input type="password" id="password" placeholder="••••••••" required>
+                        <span class="icon-right" id="togglePassword">👁️</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary">
+                    LOGIN NOW <span class="arrow">→</span>
+                </button>
+
+                <div class="auth-links">
+                    <span class="muted">Don't have an account? <a href="#" class="gold-link">Register</a></span>
+                    <a href="#" class="muted">Forgot your password?</a>
+                </div>
+            </form>
+
+            <div class="social-divider">
+                <span>SOCIAL AUTHENTICATION</span>
+            </div>
+
+            <button class="btn-social">
+                <span class="google-icon">G</span> LOGIN WITH GOOGLE
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Password visibility toggle
+        const togglePassword = document.getElementById('togglePassword');
+        const passwordInput = document.getElementById('password');
+
+        togglePassword.addEventListener('click', () => {
+            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+            passwordInput.setAttribute('type', type);
+            // Toggle opacity to simulate active state
+            togglePassword.style.opacity = type === 'text' ? '1' : '0.5';
+        });
+
+        // Form submission (Mock Login)
+        document.getElementById('loginForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            // Mock login logic: accept anything for now
+            if (email && password) {
+                // Set authentication token in localStorage
+                localStorage.setItem('flownotes_auth', 'true');
+                // Set the current active map to default if none
+                if (!localStorage.getItem('flownotes_active_map_id')) {
+                    localStorage.setItem('flownotes_active_map_id', 'map_default');
+                }
+                
+                // Add a cool transition effect before redirecting
+                document.body.style.opacity = '0';
+                document.body.style.transition = 'opacity 0.5s ease';
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+            }
+        });
+
+        // Check if already logged in
+        if (localStorage.getItem('flownotes_auth') === 'true') {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
