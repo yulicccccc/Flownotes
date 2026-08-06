@@ -5,8 +5,8 @@ A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes)
 
 ## Finalized & Locked Features
 - **Authentication System (`public/login.html`)**:
-  - Golden-themed UI mockup implemented as requested.
-  - Basic mock authentication check (`flownotes_auth` in `localStorage`) protecting the workspace `index.html`.
+  - Golden-themed UI mockup available at `/login.html`.
+  - Direct access enabled on `/index.html` to prevent any authentication blocking.
 - **Mindmap-First Visual Workspace (`public/`)**:
   - D3.js SVG Mindmap canvas with D3 force simulation and XMind Tidy Tree layout engine (`🧭` / `M` key).
   - **Full XMind Keyboard Shortcuts Suite (XMind 级快捷键全集)**:
