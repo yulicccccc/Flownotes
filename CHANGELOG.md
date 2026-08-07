@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.5.3] - 2026-08-07
+
+### 🐛 Bug 修复 (Fixed)
+- **📐 彻底修复 D3 矢量连线 ID 映射错误 (Node Object Resolution)**：排查发现 `updateD3Graph()` 在构建 `visibleLinks` 时传入的是纯 ID 字符串 (`source: "why this company"`), 导致 D3 在执行 `tidyLayout()` 的 `attr("x1", d => d.source.x)` 渲染时因为 `d.source` 不是 Node 对象而无法获取到 `x` 坐标，连线因而顽固卡在旧位置。现在 `updateD3Graph()` 会强制将 `source` / `target` 动态解析映射为对应的 Node 实体对象，连线 100% 精确吸附到新父节点！
+
+---
+
 ## 🚀 [v2.5.2] - 2026-08-07
 
 ### 🐛 Bug 修复 (Fixed)

@@ -606,7 +606,12 @@ function updateD3Graph() {
     const visibleNodes = nodes.filter(n => isNodeVisible(n, nodeMap));
     const visibleNodeIdSet = new Set(visibleNodes.map(n => n.id));
 
-    const visibleLinks = cleanLinks().filter(l => visibleNodeIdSet.has(l.source) && visibleNodeIdSet.has(l.target));
+    const rawVisibleLinks = cleanLinks().filter(l => visibleNodeIdSet.has(l.source) && visibleNodeIdSet.has(l.target));
+    const visibleLinks = rawVisibleLinks.map(l => ({
+        ...l,
+        source: nodeMap.get(l.source) || l.source,
+        target: nodeMap.get(l.target) || l.target
+    }));
 
     linkElements = linkElements.data(visibleLinks, linkDataKey).join("line")
         .attr("class", d => d.type === "relation" ? "link relation-link" : "link")
