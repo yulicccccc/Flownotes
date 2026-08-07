@@ -773,6 +773,25 @@ function dragged(event, d) {
     renderPositions();
 }
 
+function setNodeParent(nodeId, newParentId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    // 1. 更新节点的 parentId
+    node.parentId = newParentId;
+
+    // 2. 移除旧的树状连线 (保留 relation 双链)
+    links = links.filter(l => !(cleanNodeId(l.target) === nodeId && l.type !== "relation"));
+
+    // 3. 添加全新的树状父子连线
+    if (newParentId) {
+        links.push({
+            source: newParentId,
+            target: nodeId
+        });
+    }
+}
+
 function dragended(event, d) {
     if (layoutMode === "force") {
         if (!event.active) simulation.alphaTarget(0);
@@ -784,13 +803,14 @@ function dragended(event, d) {
         const newParentId = dropCandidateTargetNode.id;
 
         if (oldParentId !== newParentId) {
-            d.parentId = newParentId;
+            setNodeParent(d.id, newParentId);
             showToast(`已将节点 "${d.label}" 挂载为 "${dropCandidateTargetNode.label}" 的子节点`);
             
             // 解除固定定位，让新分支重新优雅排布
             delete d.fx;
             delete d.fy;
 
+            sanitizeGraph();
             updateD3Graph();
 
             if (layoutMode === "tree") {

@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.5.2] - 2026-08-07
+
+### 🐛 Bug 修复 (Fixed)
+- **🔗 修复拖拽重组连线残缺与挂载归属错误 (`setNodeParent`)**：修复了 Drag-to-Reparent 时只修改了 `node.parentId` 但未同步跟新底层全局 `links` 数组的严重 Bug。现在 `setNodeParent` 会自动剔除旧的树状连线，并追加全新的 `{ source: newParentId, target: nodeId }` 关系连线。拖拽松开后，连线会 100% 正确吸附并指向新父节点！
+
+---
+
 ## 🚀 [v2.5.1] - 2026-08-07
 
 ### 🌟 核心亮点 (Highlights)
