@@ -25,6 +25,7 @@ A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes)
     - `Ctrl + ←` / `Ctrl + →` / `Ctrl + /`: 分支折叠 / 展开 / 切换 (Fold & Unfold branches).
     - `F` / `Ctrl + Shift + F`: ⭐ 划重点 / 设为核心关注节点并触发脉冲金光呼吸环 (Toggle Focus Node).
     - `Shift + 左键拖拽 / 🔳 框选`: 画布矩形框选多选节点 (Marquee Box Selection for batch node operations).
+    - **Drag-to-Reparent (拖拽靠近自动吸附重组父子分支关系)**: Drag any single node close to another node (< 75px) to show animated cyan/gold pulse pre-warning ring (`dropTargetPulse`) and automatically re-parent it upon mouse release!
   - Side Markdown editor panel (`#editor-panel`) with Live Edit, Markdown Source, and Preview mode, complete with `📖` toggle button.
   - **Full Rich Text List & Formatting Controls (列表管理与格式擦除控件)**:
     - `-`: Toggle Unordered Bullet List (`<ul><li>`).

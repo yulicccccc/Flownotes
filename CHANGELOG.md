@@ -2,6 +2,14 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.5.1] - 2026-08-07
+
+### 🌟 核心亮点 (Highlights)
+- **🧲 节点拖拽靠近自动吸附重组 (Drag-to-Reparent)**：重新激活并升级了节点拖拽重组功能！拖拽任意节点靠近另一个目标节点（距离 < 75px）时，目标节点会亮起**蓝色/金色虚线呼吸脉冲光圈 (`dropTargetPulse`)** 预警。松开鼠标即可自动将该节点挂载为目标节点的子分支，XMind 树状布局会自动重新优雅整齐排布！
+- **🛡️ 死循环防护 (Cycle Guard)**：内置防环链判断，禁止将父节点拖拽挂载到其自身的子孙节点下。
+
+---
+
 ## 🚀 [v2.5.0] - 2026-08-07
 
 ### 🌟 核心亮点 (Highlights)

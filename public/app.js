@@ -678,6 +678,23 @@ function updateD3Graph() {
 }
 
 let dragStartPositions = new Map();
+let dropCandidateTargetNode = null;
+
+function isNodeDescendantOf(nodeId, ancestorId) {
+    if (!nodeId || !ancestorId || nodeId === ancestorId) return true;
+    const nodeById = new Map(nodes.map(n => [n.id, n]));
+    let curr = nodeById.get(nodeId);
+    while (curr && curr.parentId) {
+        if (curr.parentId === ancestorId) return true;
+        curr = nodeById.get(curr.parentId);
+    }
+    return false;
+}
+
+function clearDropCandidateHighlight() {
+    d3.selectAll(".node-group").classed("drop-target-highlight", false);
+    dropCandidateTargetNode = null;
+}
 
 function dragstarted(event, d) {
     if (layoutMode === "force") {
@@ -685,6 +702,8 @@ function dragstarted(event, d) {
     }
 
     dragStartPositions.clear();
+    clearDropCandidateHighlight();
+
     if (selectedNodeIds.has(d.id) && selectedNodeIds.size > 1) {
         nodes.forEach(n => {
             if (selectedNodeIds.has(n.id)) {
@@ -717,11 +736,38 @@ function dragged(event, d) {
                 n.fy = n.y;
             }
         });
+        clearDropCandidateHighlight();
     } else {
         d.fx = event.x;
         d.fy = event.y;
         d.x = event.x;
         d.y = event.y;
+
+        // 实时检测靠近目标父节点 (Drag to Reparent 吸附预警)
+        let nearestNode = null;
+        let minDist = 75; // 75px 吸附触发距离阈值
+
+        nodes.forEach(n => {
+            if (n.id === d.id) return;
+            // 不能挂载到自己的子孙节点上 (防止死循环)
+            if (isNodeDescendantOf(n.id, d.id)) return;
+
+            const dist = Math.hypot(d.x - n.x, d.y - n.y);
+            if (dist < minDist) {
+                minDist = dist;
+                nearestNode = n;
+            }
+        });
+
+        if (nearestNode !== dropCandidateTargetNode) {
+            clearDropCandidateHighlight();
+            if (nearestNode) {
+                dropCandidateTargetNode = nearestNode;
+                d3.selectAll(".node-group")
+                  .filter(n => n.id === nearestNode.id)
+                  .classed("drop-target-highlight", true);
+            }
+        }
     }
 
     renderPositions();
@@ -730,30 +776,56 @@ function dragged(event, d) {
 function dragended(event, d) {
     if (layoutMode === "force") {
         if (!event.active) simulation.alphaTarget(0);
-        if (dragStartPositions.size > 1) {
-            nodes.forEach(n => {
-                if (dragStartPositions.has(n.id)) {
-                    delete n.fx;
-                    delete n.fy;
-                }
-            });
-        } else {
+    }
+
+    // 如果触发了 Drag-to-Reparent (拖拽靠近重新指定父节点)
+    if (dropCandidateTargetNode && dragStartPositions.size <= 1) {
+        const oldParentId = d.parentId;
+        const newParentId = dropCandidateTargetNode.id;
+
+        if (oldParentId !== newParentId) {
+            d.parentId = newParentId;
+            showToast(`已将节点 "${d.label}" 挂载为 "${dropCandidateTargetNode.label}" 的子节点`);
+            
+            // 解除固定定位，让新分支重新优雅排布
             delete d.fx;
             delete d.fy;
+
+            if (layoutMode === "tree") {
+                tidyLayout();
+            } else {
+                updateGraph();
+            }
         }
     } else {
-        if (dragStartPositions.size > 1) {
-            nodes.forEach(n => {
-                if (dragStartPositions.has(n.id)) {
-                    n.fx = n.x;
-                    n.fy = n.y;
-                }
-            });
+        if (layoutMode === "force") {
+            if (dragStartPositions.size > 1) {
+                nodes.forEach(n => {
+                    if (dragStartPositions.has(n.id)) {
+                        delete n.fx;
+                        delete n.fy;
+                    }
+                });
+            } else {
+                delete d.fx;
+                delete d.fy;
+            }
         } else {
-            d.fx = d.x;
-            d.fy = d.y;
+            if (dragStartPositions.size > 1) {
+                nodes.forEach(n => {
+                    if (dragStartPositions.has(n.id)) {
+                        n.fx = n.x;
+                        n.fy = n.y;
+                    }
+                });
+            } else {
+                d.fx = d.x;
+                d.fy = d.y;
+            }
         }
     }
+
+    clearDropCandidateHighlight();
     dragStartPositions.clear();
     saveGraphToStorage();
 }

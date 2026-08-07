@@ -437,6 +437,21 @@ body {
 .node-group:hover .node-circle { transform: scale(1.12); }
 .node-group.multi-selected .node-circle { stroke: var(--accent-cyan) !important; stroke-width: 4px !important; }
 
+/* 拖拽靠近吸附目标父节点高亮 (Drag-to-Reparent) */
+.node-group.drop-target-highlight .node-circle {
+    stroke: #38bdf8 !important;
+    stroke-width: 5px !important;
+    stroke-dasharray: 4 2;
+    animation: dropTargetPulse 0.8s infinite ease-in-out;
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.9));
+}
+
+@keyframes dropTargetPulse {
+    0% { stroke: #38bdf8; stroke-width: 4px; transform: scale(1.1); }
+    50% { stroke: #fbbf24; stroke-width: 6px; transform: scale(1.22); }
+    100% { stroke: #38bdf8; stroke-width: 4px; transform: scale(1.1); }
+}
+
 /* ⭐ 划重点 / 核心关注节点 (Focus Node) 特效 */
 @keyframes focusGlowPulse {
     0% {
