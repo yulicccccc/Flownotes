@@ -1565,6 +1565,52 @@ function initEvents() {
     });
 }
 
+function toggleTextareaLinePrefix(textarea, prefix) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    let lineEnd = value.indexOf("\n", end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const selectedLines = value.substring(lineStart, lineEnd).split("\n");
+    const isAllPrefixed = selectedLines.every(l => l.trim().startsWith(prefix.trim()) || /^[•·▪⁃‣\-\*]/.test(l.trim()));
+
+    const newLines = selectedLines.map((line, i) => {
+        const clean = line.replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]*/, "").replace(/^[ \t]*\d+\.[ \t]*/, "");
+        if (isAllPrefixed) {
+            return clean;
+        } else {
+            const p = prefix === "1. " ? `${i + 1}. ` : prefix;
+            return clean ? `${p}${clean}` : line;
+        }
+    });
+
+    const newText = newLines.join("\n");
+    textarea.setRangeText(newText, lineStart, lineEnd, "select");
+    textarea.focus();
+}
+
+function clearTextareaFormatAndLists(textarea) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const value = textarea.value;
+
+    const lineStart = value.lastIndexOf("\n", start - 1) + 1;
+    let lineEnd = value.indexOf("\n", end);
+    if (lineEnd === -1) lineEnd = value.length;
+
+    const selectedText = value.substring(lineStart, lineEnd);
+    const cleaned = selectedText
+        .replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]*/gm, "")
+        .replace(/^[ \t]*\d+\.[ \t]*/gm, "")
+        .replace(/<[^>]+>/g, "");
+
+    textarea.setRangeText(cleaned, lineStart, lineEnd, "select");
+    textarea.focus();
+}
+
 function applyFormatting(format) {
     const mdTextarea = document.getElementById("md-textarea");
     const richEditor = document.getElementById("rich-editor");
@@ -1586,7 +1632,18 @@ function applyFormatting(format) {
             case "code": before = "`"; after = "`"; break;
             case "heading": before = "# "; after = ""; break;
             case "quote": before = "> "; after = ""; break;
-            case "bullet": before = "- "; after = ""; break;
+            case "bullet":
+                toggleTextareaLinePrefix(mdTextarea, "- ");
+                if (selectedNode) { selectedNode.content = mdTextarea.value; saveGraphToStorage(false); }
+                return;
+            case "ordered":
+                toggleTextareaLinePrefix(mdTextarea, "1. ");
+                if (selectedNode) { selectedNode.content = mdTextarea.value; saveGraphToStorage(false); }
+                return;
+            case "clear":
+                clearTextareaFormatAndLists(mdTextarea);
+                if (selectedNode) { selectedNode.content = mdTextarea.value; saveGraphToStorage(false); }
+                return;
             case "task": before = "- [ ] "; after = ""; break;
             case "link": before = "["; after = "](url)"; break;
             case "color":
@@ -1640,6 +1697,24 @@ function applyFormatting(format) {
             case "bullet":
                 document.execCommand("insertUnorderedList");
                 break;
+            case "ordered":
+                document.execCommand("insertOrderedList");
+                break;
+            case "clear":
+                document.execCommand("removeFormat");
+                const selClear = window.getSelection();
+                if (selClear && selClear.rangeCount > 0) {
+                    let node = selClear.getRangeAt(0).commonAncestorContainer;
+                    if (node.nodeType === 3) node = node.parentNode;
+                    const li = node.closest ? node.closest("li") : null;
+                    if (li) {
+                        document.execCommand("insertUnorderedList");
+                    }
+                    if (richEditor) {
+                        richEditor.innerHTML = richEditor.innerHTML.replace(/[•·▪⁃‣]/g, "");
+                    }
+                }
+                break;
             case "link":
                 const url = prompt("请输入链接 URL:", "https://");
                 if (url) document.execCommand("createLink", false, url);
@@ -1670,7 +1745,8 @@ function cleanHTMLSpill(text) {
         .replace(/<b>/gi, "**").replace(/<\/b>/gi, "**")
         .replace(/<strong>/gi, "**").replace(/<\/strong>/gi, "**")
         .replace(/<i>/gi, "*").replace(/<\/i>/gi, "*")
-        .replace(/<em>/gi, "*").replace(/<\/em>/gi, "*");
+        .replace(/<em>/gi, "*").replace(/<\/em>/gi, "*")
+        .replace(/^[ \t]*[•·▪⁃‣][ \t]*/gm, "- ");
 }
 
 function htmlToSafeMarkdown(html) {
@@ -1689,12 +1765,37 @@ function htmlToSafeMarkdown(html) {
     
     function serializeNode(node) {
         if (node.nodeType === 3) {
-            return node.textContent;
+            return node.textContent.replace(/^[ \t]*[•·▪⁃‣][ \t]*/gm, "- ");
         }
         if (node.nodeType === 1) {
             const tag = node.tagName.toLowerCase();
-            const inner = Array.from(node.childNodes).map(serializeNode).join("");
             
+            if (tag === "ul") {
+                const items = Array.from(node.childNodes).map(child => {
+                    const text = serializeNode(child).trim();
+                    if (!text) return "";
+                    const cleanText = text.replace(/^[•·▪⁃‣\-\*][ \t]*/, "");
+                    return `- ${cleanText}`;
+                }).filter(Boolean).join("\n");
+                return `\n${items}\n`;
+            }
+            
+            if (tag === "ol") {
+                let idx = 1;
+                const items = Array.from(node.childNodes).map(child => {
+                    const text = serializeNode(child).trim();
+                    if (!text) return "";
+                    const cleanText = text.replace(/^(\d+\.|[•·▪⁃‣\-\*])[ \t]*/, "");
+                    return `${idx++}. ${cleanText}`;
+                }).filter(Boolean).join("\n");
+                return `\n${items}\n`;
+            }
+            
+            const inner = Array.from(node.childNodes).map(serializeNode).join("");
+            if (tag === "li") {
+                return inner.trim();
+            }
+
             let result = inner;
             
             if (tag === "strong" || tag === "b") result = `**${result}**`;
@@ -1742,7 +1843,35 @@ function renderMarkdownToHTML(text) {
 
     let html = escapeHTML(protectedText);
 
-    // 还原 Markdown 语法 (支持跨行匹配)
+    // 解析 Markdown 列表 (包含粘贴的实心圆点 • 和数字序号 1.)
+    const lines = html.split('\n');
+    let inUl = false, inOl = false;
+    let listProcessed = [];
+
+    lines.forEach(line => {
+        const isBullet = /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
+        const isOrdered = /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
+
+        if (isBullet) {
+            if (inOl) { listProcessed.push("</ol>"); inOl = false; }
+            if (!inUl) { listProcessed.push("<ul>"); inUl = true; }
+            listProcessed.push(`<li>${isBullet[1]}</li>`);
+        } else if (isOrdered) {
+            if (inUl) { listProcessed.push("</ul>"); inUl = false; }
+            if (!inOl) { listProcessed.push("<ol>"); inOl = true; }
+            listProcessed.push(`<li>${isOrdered[2]}</li>`);
+        } else {
+            if (inUl) { listProcessed.push("</ul>"); inUl = false; }
+            if (inOl) { listProcessed.push("</ol>"); inOl = false; }
+            listProcessed.push(line);
+        }
+    });
+    if (inUl) listProcessed.push("</ul>");
+    if (inOl) listProcessed.push("</ol>");
+
+    html = listProcessed.join('\n');
+
+    // 还原 Markdown 其它内联语法
     html = html
         .replace(/==([\s\S]*?)==/g, "<mark style='background:#fef08a; color:#854d0e; padding:0 4px; border-radius:2px;'>$1</mark>")
         .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
@@ -1756,7 +1885,15 @@ function renderMarkdownToHTML(text) {
         .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
         .replace(/___SPAN_END___/g, '</span>')
         .replace(/___U_START___/g, '<u>')
-        .replace(/___U_END___/g, '</u>');
+        .replace(/<\/u>/gi, '</u>');
+
+    // 清理 <br> 紧随 list 标签后的多余换行
+    html = html
+        .replace(/<\/ul><br>/gi, "</ul>")
+        .replace(/<\/ol><br>/gi, "</ol>")
+        .replace(/<\/li><br>/gi, "</li>")
+        .replace(/<ul><br>/gi, "<ul>")
+        .replace(/<ol><br>/gi, "<ol>");
 
     return html;
 }

@@ -26,6 +26,11 @@ A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes)
     - `F` / `Ctrl + Shift + F`: ⭐ 划重点 / 设为核心关注节点并触发脉冲金光呼吸环 (Toggle Focus Node).
     - `Shift + 左键拖拽 / 🔳 框选`: 画布矩形框选多选节点 (Marquee Box Selection for batch node operations).
   - Side Markdown editor panel (`#editor-panel`) with Live Edit, Markdown Source, and Preview mode, complete with `📖` toggle button.
+  - **Full Rich Text List & Formatting Controls (列表管理与格式擦除控件)**:
+    - `-`: Toggle Unordered Bullet List (`<ul><li>`).
+    - `1.`: Toggle Ordered Numbered List (`<ol><li>`).
+    - `🧹`: One-click Clear Formatting & Remove Lists / Bullet Symbols.
+    - Automatic paste normalization for Word/Web bullet symbols (`•`, `·`, `▪`).
 - **🗂️ Multi-Map Organizer (多图谱组织器)**:
   - Support creating, switching, renaming, duplicating, and deleting multiple independent mindmap projects with metadata manifests (`flownotes_maps_manifest`).
 - **GitHub Gist Anti-Loss Sync & Data Protection Guardrail**:

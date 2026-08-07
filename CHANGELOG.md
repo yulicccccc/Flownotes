@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.5.0] - 2026-08-07
+
+### 🌟 核心亮点 (Highlights)
+- **🔢 完整无序/有序列表控件 (Lists Engine)**：编辑器工具栏新增 **有序列表 `1.`** 与 **无序列表 `-`** 按钮，支持一键切换与互相转换。
+- **🧹 一键清除格式与列表 (Clear Format & Lists)**：工具栏新增 **`🧹` 清除格式** 按钮！无论从 Word、网页或外部复制过来的怪异实心圆点 (`•`)、多余列表标签或 HTML 样式，点击 `🧹` 即可瞬间强力擦除，恢复干净纯文本！
+- **📋 复制粘贴自动清洗 (Smart List Normalization)**：优化了 `htmlToSafeMarkdown` 和 `cleanHTMLSpill`，自动将剪贴板复制过来的特殊列表符号 (`•`, `·`, `▪`) 智能归一化为标准的 Markdown 列表与 HTML `<ul>`/`<ol>`，彻底解决复制粘贴后格式删不掉的问题。
+
 ---
 
 ## 🚀 [v2.4.1] - 2026-08-06
