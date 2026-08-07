@@ -41,4 +41,4 @@ A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes)
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `Flownotes_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.5.4_flownotes-eze.pages.dev_一键更新网站.bat`.
