@@ -2,6 +2,13 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.5.4] - 2026-08-07
+
+### 🌟 架构重构与 Bug 终极解决 (Architectural Refactor & Ultimate Fix)
+- **🔥 以 `node.parentId` 为树状连线的单一权威真理来源 (Single Source of Truth)**：重构了 `cleanLinks()` 函数，彻底杜绝了节点结构与 `links` 连线数据双端不同步的隐患。现在所有的树状连线 100% 实时根据每一个 Node 的 `parentId` 动态生成。无论节点经历拖拽挂载、折叠展开、跨级微调或本地数据加载，连线都绝对不可能再连接错父节点！
+
+---
+
 ## 🚀 [v2.5.3] - 2026-08-07
 
 ### 🐛 Bug 修复 (Fixed)

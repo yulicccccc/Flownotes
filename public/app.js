@@ -278,23 +278,41 @@ function linkDataKey(link) {
         : `tree:${s}->${t}`;
 }
 
-// 辅助：清理 links 为干净的 {source, target, type?} 对象
+// 辅助：清理与构建 100% 权威的 links 连线数组 (父子连线以 node.parentId 为唯一真理来源)
 function cleanLinks() {
-    return links.map(l => {
-        const link = { source: cleanNodeId(l.source), target: cleanNodeId(l.target) };
-        if (l.type === "relation") link.type = "relation";
-        return link;
+    const treeLinks = [];
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+    // 1. 唯一真理来源：根据每个节点的 parentId 精确生成树状连线
+    nodes.forEach(n => {
+        if (n.parentId && nodeMap.has(n.parentId)) {
+            treeLinks.push({
+                source: cleanNodeId(n.parentId),
+                target: cleanNodeId(n.id)
+            });
+        }
     });
+
+    // 2. 包含保留用户自定义的 relation 关系虚线
+    const relationLinks = (links || [])
+        .filter(l => l && l.type === "relation")
+        .map(l => ({
+            source: cleanNodeId(l.source),
+            target: cleanNodeId(l.target),
+            type: "relation"
+        }));
+
+    return [...treeLinks, ...relationLinks];
 }
 
 // 辅助：启动时清理孤儿链接 + 去重
 function sanitizeGraph() {
     const nodeIds = new Set(nodes.map(n => n.id));
-    // 清理 parentId
+    // 清理孤立的 parentId
     nodes.forEach(n => {
         if (n.parentId && !nodeIds.has(n.parentId)) n.parentId = null;
     });
-    // 清理孤儿链接 + 去重
+    // 去重并更新全局 links
     const seenLinks = new Set();
     links = cleanLinks().filter(l => {
         if (!nodeIds.has(l.source) || !nodeIds.has(l.target) || l.source === l.target) return false;
@@ -782,19 +800,11 @@ function setNodeParent(nodeId, newParentId) {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    // 1. 更新节点的 parentId
+    // 1. 更新节点的 parentId 唯一真理来源
     node.parentId = newParentId;
 
-    // 2. 移除旧的树状连线 (保留 relation 双链)
-    links = links.filter(l => !(cleanNodeId(l.target) === nodeId && l.type !== "relation"));
-
-    // 3. 添加全新的树状父子连线
-    if (newParentId) {
-        links.push({
-            source: newParentId,
-            target: nodeId
-        });
-    }
+    // 2. 重排全局 links
+    sanitizeGraph();
 }
 
 function dragended(event, d) {

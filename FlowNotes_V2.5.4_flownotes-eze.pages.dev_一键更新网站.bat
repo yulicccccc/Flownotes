@@ -1,6 +1,6 @@
 @echo off
 echo ===================================================
-echo   FlowNotes V2.5.3 - Auto Deploy to Cloudflare
+echo   FlowNotes V2.5.4 - Auto Deploy to Cloudflare
 echo ===================================================
 echo.
 
