@@ -791,6 +791,8 @@ function dragended(event, d) {
             delete d.fx;
             delete d.fy;
 
+            updateD3Graph();
+
             if (layoutMode === "tree") {
                 tidyLayout();
             } else {
