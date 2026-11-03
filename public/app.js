@@ -37,6 +37,10 @@ const OWL_WISDOMS = [
 let nodes = [];
 let links = [];
 let flowStream = [];
+let inkStrokes = [];
+let inkLayer = null;
+let isInkDrawMode = false;
+let currentInkTool = "red"; // "red" | "green" | "highlighter" | "sky" | "eraser"
 let selectedNode = null;
 let selectedNodeIds = new Set();
 let layoutMode = "free"; // 默认使用自由空间白板模式 ("free"，允许笔记放到一坨自由摆放)，按 M 键可一键整理为 XMind 树状结构
@@ -203,7 +207,7 @@ let historyRedoStack = [];
 const MAX_HISTORY = 50;
 
 function pushHistory() {
-    const snapshot = JSON.stringify({ nodes, links });
+    const snapshot = JSON.stringify({ nodes, links, inkStrokes });
     if (historyStack.length === 0 || historyStack[historyStack.length - 1] !== snapshot) {
         historyStack.push(snapshot);
         if (historyStack.length > MAX_HISTORY) historyStack.shift();
@@ -239,6 +243,7 @@ function restoreSnapshot(snapshotStr) {
         const data = JSON.parse(snapshotStr);
         nodes = data.nodes || [];
         links = data.links || [];
+        inkStrokes = Array.isArray(data.inkStrokes) ? data.inkStrokes : [];
         saveGraphToStorage(false);
         if (layoutMode === "tree") tidyLayout();
         else updateD3Graph();
@@ -256,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.1.3 loaded — Long-Press Left Mouse / Touch Hand-Pan (🖐️) & Immediate-Drag Marquee Coexistence");
+    console.log("[FlowNotes] v3.2.0 loaded — Complete XMind + OneNote Muscle-Memory & Freehand Ink Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -264,6 +269,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initIntuitiveActionBarsAndContextMenu();
     initClipboardPaste();
     initV31Enhancements();
+    initV32XMindOneNoteSuite();
     renderAll();
     initGhSyncUI();
     initPwaAndLifecycleSync();
@@ -400,12 +406,14 @@ function loadMapData(mapId) {
         nodes = data.nodes || [];
         links = data.links || [];
         flowStream = data.flowStream || [];
+        inkStrokes = Array.isArray(data.inkStrokes) ? data.inkStrokes : [];
         allMapsMemoryCache[mapId] = data;
         sanitizeGraph();
     } else {
         nodes = [...DEFAULT_NODES];
         links = [...DEFAULT_LINKS];
         flowStream = [...DEFAULT_FLOW_STREAM];
+        inkStrokes = [];
         sanitizeGraph();
     }
 
@@ -424,7 +432,8 @@ function saveGraphToStorage(recordHistory = true) {
     const currentData = {
         nodes: nodes,
         links: cleanLinks(),
-        flowStream: flowStream
+        flowStream: flowStream,
+        inkStrokes: inkStrokes
     };
     allMapsMemoryCache[activeMapId] = currentData;
     safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
@@ -595,15 +604,17 @@ function initD3Mindmap() {
         .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
         .attr("fill", "rgba(56, 189, 248, 0.95)");
 
-    // 链接层与箭头关系词层在节点层下面（z-order 正确）
+    // 链接层与箭头关系词层在节点层下面（z-order 正确），OneNote 手绘圈注层在最上层 (默认 pointer-events: none 不遮挡卡片点击)
     linkElements = zoomContainer.append("g").attr("class", "link-layer").selectAll("line");
     linkLabelElements = zoomContainer.append("g").attr("class", "link-label-layer").selectAll(".link-label-group");
     nodeElements = zoomContainer.append("g").attr("class", "node-layer").selectAll(".node-group");
+    inkLayer = zoomContainer.append("g").attr("class", "ink-layer");
 
     // Zoom: 双指触控缩放平移、按住空格键(Space)+左键拖拽、鼠标中键拖拽交给 d3.zoom；单指触屏与鼠标左键交给“长按变抓手平移(🖐️) + 立即拖拽框选”双模直觉引擎
     zoom = d3.zoom()
         .scaleExtent([0.08, 5])
         .filter((event) => {
+            if (isInkDrawMode && event.type !== "wheel") return false;
             if (event.type === "wheel") return false; // 禁止 D3 默认 wheel zoom
             if (event.type === "touchstart") {
                 return !!(event.touches && event.touches.length >= 2); // 双指捏合缩放交给 d3.zoom，单指长按/框选由直觉引擎接管
@@ -621,6 +632,10 @@ function initD3Mindmap() {
         })
         .on("zoom", (event) => {
             zoomContainer.attr("transform", event.transform);
+            const zoomBtn = document.getElementById("btn-zoom-reset");
+            if (zoomBtn) {
+                zoomBtn.textContent = `${Math.round((event.transform.k || 1) * 100)}%`;
+            }
             updateFloatingActionBarsPosition();
             hideCanvasContextMenu();
         });
@@ -806,7 +821,7 @@ function initMarqueeSelection() {
 
     function startCanvasPointerDown(clientX, clientY, rawEvent, isShiftKey) {
         hideCanvasContextMenu();
-        if (isSpacePressed) return;
+        if (isSpacePressed || isInkDrawMode) return;
 
         const targetEl = rawEvent.target;
         const onNodeOrLink = targetEl && targetEl.closest && (
@@ -1171,7 +1186,13 @@ function refreshNodeStyles() {
             const isCurrentlyEditing = bodyNode && bodyNode.getAttribute("contenteditable") === "true";
 
             if (!isCurrentlyEditing) {
-                const targetHTML = (isFocus ? '<span class="card-focus-star">⭐ </span>' : '') + getCardDisplayHTML(d);
+                const quickTagMap = {
+                    question: '<span class="card-quick-tag-badge tag-question" title="OneNote 存疑问题标签 (Ctrl+3)">❓存疑</span>',
+                    idea: '<span class="card-quick-tag-badge tag-idea" title="OneNote 关键灵感标签 (Ctrl+4)">💡灵感</span>',
+                    done: '<span class="card-quick-tag-badge tag-done" title="OneNote 已验证结论标签 (Ctrl+5)">✅已验证</span>'
+                };
+                const qTagHTML = (d.quickTag && quickTagMap[d.quickTag]) ? quickTagMap[d.quickTag] : "";
+                const targetHTML = (isFocus ? '<span class="card-focus-star">⭐ </span>' : '') + qTagHTML + getCardDisplayHTML(d);
                 if (bodyNode.innerHTML !== targetHTML) {
                     bodyNode.innerHTML = targetHTML;
                 }
@@ -1269,14 +1290,14 @@ function refreshNodeStyles() {
 }
 
 // 在画布卡片上直接原地编辑文字与划词标红/标绿/高亮（无需跳转弹窗）
-function startInlineCardEditById(nodeId, selectAll = false, cursorAtEnd = false) {
+function startInlineCardEditById(nodeId, selectAll = false, cursorAtEnd = false, initialAppendChar = "") {
     if (!nodeElements) return;
     nodeElements.filter(d => d.id === nodeId).each(function(d) {
-        startInlineCardEdit(d, this, selectAll, cursorAtEnd);
+        startInlineCardEdit(d, this, selectAll, cursorAtEnd, initialAppendChar);
     });
 }
 
-function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false) {
+function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false, initialAppendChar = "") {
     if (!d || !groupEl) return;
     if (d.isImage && d.imageUrl) {
         openImageLightbox(d);
@@ -1301,18 +1322,24 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false)
     } else {
         raw = raw.replace(/^#{1,4}\s+/gm, "");
     }
+    if (initialAppendChar) {
+        const isDefaultPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(raw.trim());
+        raw = isDefaultPlaceholder ? initialAppendChar : (raw + initialAppendChar);
+        d.content = raw;
+        d.label = raw.split("\n")[0].slice(0, 42) || "未命名";
+    }
     bodyEl.innerHTML = renderMarkdownToHTML(raw);
     bodyEl.setAttribute("contenteditable", "true");
     cardDiv.classed("is-editing", true);
     bodyEl.focus();
 
-    if (selectAll) {
+    if (selectAll && !initialAppendChar) {
         const range = document.createRange();
         range.selectNodeContents(bodyEl);
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-    } else if (cursorAtEnd) {
+    } else if (cursorAtEnd || initialAppendChar) {
         const range = document.createRange();
         range.selectNodeContents(bodyEl);
         range.collapse(false);
@@ -1379,10 +1406,19 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false)
             toggleTodoOnSelectedCard(d);
             return;
         }
-        if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !isImeComposing) {
-            e.preventDefault();
-            bodyEl.blur();
-            return;
+        if (e.key === "Enter" && !e.isComposing && !isImeComposing) {
+            if (e.altKey) {
+                // XMind 经典：卡片内按 Alt + Enter 插入换行
+                e.preventDefault();
+                document.execCommand("insertLineBreak");
+                syncFromInlineCard();
+                return;
+            }
+            if (!e.shiftKey) {
+                e.preventDefault();
+                bodyEl.blur();
+                return;
+            }
         }
         // 支持在画布卡片内直接使用 Ctrl+Shift+R/G/H/\ 快捷键标色
         if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
@@ -1788,6 +1824,10 @@ function updateD3Graph() {
         renderPositions();
     }
 
+    if (typeof renderInkStrokes === "function") {
+        renderInkStrokes();
+    }
+
     renderOutlineTree();
 }
 
@@ -2154,8 +2194,8 @@ function createChildNode() {
     }, 50);
 }
 
-// 2. Enter 键：新建同级姊妹节点
-function createSiblingNode() {
+// 2. Enter 键：新建同级姊妹节点 (insertBefore=true 时为 Shift+Enter 在上方新建同级节点)
+function createSiblingNode(insertBefore = false) {
     if (!selectedNode) {
         createChildNode();
         return;
@@ -2166,10 +2206,13 @@ function createSiblingNode() {
 
     const siblings = nodes.filter(n => n.parentId === parentId);
     siblings.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const currOrder = selectedNode.order ?? 0;
     const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order ?? 0)) + 1 : 0;
+    const nextOrder = insertBefore ? (currOrder - 0.5) : maxOrder;
 
     const targetX = Number.isFinite(selectedNode.x) ? selectedNode.x : 450;
-    const targetY = (Number.isFinite(selectedNode.y) ? selectedNode.y : 320) + Math.max(68, (selectedNode._cardH || 40) + 32);
+    const deltaY = Math.max(68, (selectedNode._cardH || 40) + 32);
+    const targetY = (Number.isFinite(selectedNode.y) ? selectedNode.y : 320) + (insertBefore ? -deltaY : deltaY);
 
     const newNode = {
         id: newId,
@@ -2181,7 +2224,7 @@ function createSiblingNode() {
         y: targetY,
         fx: targetX,
         fy: targetY,
-        order: maxOrder
+        order: nextOrder
     };
 
     nodes.push(newNode);
@@ -2197,7 +2240,52 @@ function createSiblingNode() {
     else updateD3Graph();
     renderPositions();
     renderEditor();
-    showToast(`✨ 已新增姊妹卡片 [[${newNode.label}]]`);
+    showToast(insertBefore ? `⬆️ 已在上方新增同级卡片 [[${newNode.label}]]` : `✨ 已新增姊妹卡片 [[${newNode.label}]]`);
+
+    setTimeout(() => {
+        startInlineCardEditById(newId, true);
+    }, 50);
+}
+
+// 2.5. Ctrl + Enter / Insert 键：XMind 经典「插入中间父卡片」(Insert Parent Topic)
+function insertParentNode(targetNode = selectedNode) {
+    if (!targetNode) return;
+    const nowTs = Date.now();
+    const newId = `node_${nowTs}`;
+    const oldParentId = targetNode.parentId;
+    const oldParent = oldParentId ? nodes.find(n => n.id === oldParentId) : null;
+
+    const tx = Number.isFinite(targetNode.x) ? targetNode.x : 550;
+    const ty = Number.isFinite(targetNode.y) ? targetNode.y : 320;
+    const newX = oldParent && Number.isFinite(oldParent.x) ? Math.round((oldParent.x + tx) / 2) : (tx - 210);
+    const newY = oldParent && Number.isFinite(oldParent.y) ? Math.round((oldParent.y + ty) / 2) : ty;
+
+    const newParent = {
+        id: newId,
+        label: `父级节点 ${nodes.length + 1}`,
+        parentId: oldParentId,
+        content: `父级节点 ${nodes.length + 1}`,
+        createdAt: Math.max(1000, getNodeCreatedTime(targetNode) - 500),
+        x: newX,
+        y: newY,
+        fx: newX,
+        fy: newY,
+        order: targetNode.order ?? nodes.length
+    };
+
+    targetNode.parentId = newId;
+    nodes.push(newParent);
+    sanitizeGraph();
+
+    selectedNode = newParent;
+    selectedNodeIds = new Set([newId]);
+
+    scheduleSaveGraph(true);
+    if (layoutMode === "tree") tidyLayout();
+    else updateD3Graph();
+    renderPositions();
+    renderEditor();
+    showToast(`➕ 已在【${targetNode.label}】前插入父卡片 [[${newParent.label}]]`);
 
     setTimeout(() => {
         startInlineCardEditById(newId, true);
@@ -2325,28 +2413,49 @@ function toggleNodeFocus(targetNode) {
     }
 }
 
-// 3. Delete / Backspace：如果选中了箭头连线则只断开/删除箭头；如果选中了卡片则删除选中卡片及其子分支
-function deleteSelectedNode() {
+// 3. Delete / Backspace：智能防误删机制 —— 默认仅删除选中的展开卡片（自动保留下级未选中子卡片），仅当分支处于折叠状态 (+N) 或按住 Shift+Delete 时才连同整个下属分支删除！
+function deleteSelectedNode(forceDeleteSubtree = false) {
     if (selectedLink) {
         deleteSelectedLink();
         return;
     }
     if (!selectedNode && selectedNodeIds.size === 0) return;
-    
+
+    const baseIds = selectedNodeIds.size > 0
+        ? new Set(selectedNodeIds)
+        : (selectedNode ? new Set([selectedNode.id]) : new Set());
+    if (baseIds.size === 0) return;
+
     const toDeleteIds = new Set();
     function collectSubtree(id) {
         toDeleteIds.add(id);
         nodes.filter(n => n.parentId === id).forEach(child => collectSubtree(child.id));
     }
 
-    // 若有多个多选节点，收集每一个多选节点及其子树
-    if (selectedNodeIds.size > 0) {
-        selectedNodeIds.forEach(id => collectSubtree(id));
-    } else if (selectedNode) {
-        collectSubtree(selectedNode.id);
-    }
+    baseIds.forEach(id => {
+        const nodeObj = nodes.find(n => n.id === id);
+        if (forceDeleteSubtree || (nodeObj && nodeObj.collapsed)) {
+            collectSubtree(id);
+        } else {
+            toDeleteIds.add(id);
+        }
+    });
 
     if (toDeleteIds.size === 0) return;
+
+    // 对于未被删除的下级子卡片，将其 parentId 平滑继承到被删父卡片的上一级（或转为独立顶层卡片），绝不无故连坐误删！
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    let preservedChildrenCount = 0;
+    nodes.forEach(n => {
+        if (!toDeleteIds.has(n.id) && n.parentId && toDeleteIds.has(n.parentId)) {
+            let up = nodeMap.get(n.parentId);
+            while (up && toDeleteIds.has(up.id)) {
+                up = up.parentId ? nodeMap.get(up.parentId) : null;
+            }
+            n.parentId = up ? up.id : null;
+            preservedChildrenCount++;
+        }
+    });
 
     nodes = nodes.filter(n => !toDeleteIds.has(n.id));
     links = links.filter(l => {
@@ -2363,7 +2472,9 @@ function deleteSelectedNode() {
     else updateD3Graph();
     renderEditor();
     updateFloatingActionBarsPosition();
-    showToast("🗑️ 已删除选中卡片");
+    showToast(preservedChildrenCount > 0
+        ? `🗑️ 已删除选中卡片（自动保留了 ${preservedChildrenCount} 张下级子卡片；按 Shift+Del 可连同分支删除）`
+        : `🗑️ 已删除 ${toDeleteIds.size} 张卡片`);
 }
 
 // 4. F2 / 双击：直接在画布卡片上原地富文本编辑（取代简陋的弹窗 prompt）
@@ -2758,8 +2869,27 @@ function initEvents() {
     // 图谱视图控制按钮 + 触屏/鼠标单手快捷建卡与多选按钮
     document.getElementById("btn-zoom-in").addEventListener("click", () => svg.transition().call(zoom.scaleBy, 1.25));
     document.getElementById("btn-zoom-out").addEventListener("click", () => svg.transition().call(zoom.scaleBy, 0.8));
+    const btnZoomReset = document.getElementById("btn-zoom-reset");
+    if (btnZoomReset) {
+        btnZoomReset.addEventListener("click", () => {
+            if (!svg || !zoom) return;
+            const container = document.getElementById("graph-container");
+            const vw = (container && container.clientWidth) ? container.clientWidth : 900;
+            const vh = (container && container.clientHeight) ? container.clientHeight : 620;
+            const cur = d3.zoomTransform(svg.node());
+            const worldCenterX = (vw / 2 - cur.x) / (cur.k || 1);
+            const worldCenterY = (vh / 2 - cur.y) / (cur.k || 1);
+            const nextT = d3.zoomIdentity.translate(vw / 2 - worldCenterX, vh / 2 - worldCenterY).scale(1);
+            svg.transition().duration(320).call(zoom.transform, nextT);
+            showToast("🔍 已恢复 100% 原始缩放比例");
+        });
+    }
     document.getElementById("btn-fit").addEventListener("click", () => fitCanvasToAllNodes());
     document.getElementById("btn-relation").addEventListener("click", toggleRelationLink);
+    const btnInkDraw = document.getElementById("btn-ink-draw");
+    if (btnInkDraw) {
+        btnInkDraw.addEventListener("click", () => toggleInkDrawMode());
+    }
 
     const btnAddChild = document.getElementById("btn-add-child");
     if (btnAddChild) btnAddChild.addEventListener("click", () => createChildNode());
@@ -2940,6 +3070,10 @@ function initEvents() {
                           document.activeElement.isContentEditable;
 
         if (e.key === "Escape") {
+            if (isInkDrawMode) {
+                toggleInkDrawMode(false);
+                return;
+            }
             const lb = document.getElementById("img-lightbox-modal");
             if (lb && lb.style.display !== "none") {
                 lb.style.display = "none";
@@ -3001,11 +3135,15 @@ function initEvents() {
             }
         }
 
-        // OneNote 经典快捷键：Ctrl + 1 一键切换待办复选框 (To-Do Checkbox)
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "1") {
+        // OneNote 经典快捷键体系：Ctrl + 1~5 一键打标 (1: ☑待办, 2: ⭐重点, 3: ❓存疑, 4: 💡灵感, 5: ✅已验证)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && ["1", "2", "3", "4", "5"].includes(e.key)) {
             if (selectedNode) {
                 e.preventDefault();
-                toggleTodoOnSelectedCard(selectedNode);
+                if (e.key === "1") toggleTodoOnSelectedCard(selectedNode);
+                else if (e.key === "2") toggleNodeFocus(selectedNode);
+                else if (e.key === "3") toggleNodeQuickTag("question", selectedNode);
+                else if (e.key === "4") toggleNodeQuickTag("idea", selectedNode);
+                else if (e.key === "5") toggleNodeQuickTag("done", selectedNode);
                 return;
             }
         }
@@ -3024,15 +3162,33 @@ function initEvents() {
             return;
         }
 
+        // P 键：一键开启/关闭 OneNote 画布自由手绘/荧光笔圈注模式
+        if ((e.key === "p" || e.key === "P") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            e.preventDefault();
+            toggleInkDrawMode();
+            return;
+        }
+
         // OneNote 核心直觉：当点击了画布空白处（无任何选中卡片）时，直接敲键盘打字即刻在鼠标位置生成新卡片并输入！
         if (!selectedNode && selectedNodeIds.size === 0 && !selectedLink && !e.ctrlKey && !e.metaKey && !e.altKey) {
-            const isGlobalShortcutKey = ["b", "B", "m", "M", "g", "G"].includes(e.key);
+            const isGlobalShortcutKey = ["b", "B", "m", "M", "g", "G", "l", "L", "p", "P"].includes(e.key);
             if (!isGlobalShortcutKey && (e.key.length === 1 || e.key === "Process")) {
                 const initChar = e.key === "Process" ? "" : e.key;
                 if (initChar) e.preventDefault();
                 if (typeof window.spawnFreeCardAtCoords === "function") {
                     window.spawnFreeCardAtCoords([lastCanvasMouseCoords.x, lastCanvasMouseCoords.y], initChar);
                 }
+                return;
+            }
+        }
+
+        // XMind 核心直觉：当选中了单张卡片（未处于双击编辑态）时，直接敲键盘打字即刻进入该卡片的原地编辑！
+        if (selectedNode && selectedNodeIds.size === 1 && !selectedLink && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const isGlobalShortcutKey = ["f", "F", "b", "B", "m", "M", "g", "G", "l", "L", "p", "P"].includes(e.key);
+            if (!isGlobalShortcutKey && (e.key.length === 1 || e.key === "Process") && !selectedNode.isImage) {
+                const initChar = e.key === "Process" ? "" : e.key;
+                if (initChar) e.preventDefault();
+                startInlineCardEditById(selectedNode.id, false, true, initChar);
                 return;
             }
         }
@@ -3084,17 +3240,28 @@ function initEvents() {
             return;
         }
 
-        // 4. Enter 键：新建同级节点
+        // 4. Enter 键：新建下方同级节点 | Shift + Enter：新建上方同级节点 | Ctrl + Enter / Insert：插入中间父节点 (XMind 经典连招)
+        if (e.key === "Insert") {
+            e.preventDefault();
+            insertParentNode(selectedNode);
+            return;
+        }
         if (e.key === "Enter") {
             e.preventDefault();
-            createSiblingNode();
+            if (e.ctrlKey || e.metaKey) {
+                insertParentNode(selectedNode);
+            } else if (e.shiftKey) {
+                createSiblingNode(true);
+            } else {
+                createSiblingNode(false);
+            }
             return;
         }
 
-        // 5. Delete / Backspace 键：删除节点及分支
+        // 5. Delete / Backspace 键：默认删除选中卡片（自动保留展开的下级子卡）；按住 Shift+Delete 则连同整个下属分支删除！
         if (e.key === "Delete" || e.key === "Backspace") {
             e.preventDefault();
-            deleteSelectedNode();
+            deleteSelectedNode(!!e.shiftKey);
             return;
         }
 
@@ -3873,20 +4040,22 @@ async function pushToGhGist(silent = false) {
         allMapsData[activeMapId] = {
             nodes: nodes,
             links: cleanLinks(),
-            flowStream: flowStream
+            flowStream: flowStream,
+            inkStrokes: inkStrokes
         };
         allMapsMemoryCache[activeMapId] = allMapsData[activeMapId];
 
         const syncTimestampMs = Date.now();
         const localPayload = JSON.stringify({
-            version: "FlowNotes-MultiMap-2.8",
+            version: "FlowNotes-MultiMap-3.2",
             updatedAtMs: syncTimestampMs,
             activeMapId: activeMapId,
             mapsManifest: mapsManifest,
             allMapsData: allMapsData,
             nodes: nodes,
             links: cleanLinks(),
-            flowStream: flowStream
+            flowStream: flowStream,
+            inkStrokes: inkStrokes
         }, null, 2);
 
         const patchRes = await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -3943,8 +4112,9 @@ function applyParsedBackupData(parsed) {
     } else if (parsed.nodes) {
         nodes = parsed.nodes;
         links = parsed.links || [];
+        inkStrokes = Array.isArray(parsed.inkStrokes) ? parsed.inkStrokes : [];
         sanitizeGraph();
-        allMapsMemoryCache[activeMapId] = { nodes, links: cleanLinks(), flowStream };
+        allMapsMemoryCache[activeMapId] = { nodes, links: cleanLinks(), flowStream, inkStrokes };
     }
 
     const stampMs = parsed.updatedAtMs || Date.now();
@@ -4546,6 +4716,7 @@ function initIntuitiveActionBarsAndContextMenu() {
             <span class="floating-bar-badge" id="multi-select-count-label">已选 2 项</span>
             <button class="floating-bar-btn primary" data-act="connect-parent" title="按创建时间连接有向可折叠箭头（默认先 make 的是父节点，快捷键 L）">➔ 连箭头 (先建为父)</button>
             <button class="floating-bar-btn" data-act="connect-chain" title="按创建时间先后顺序依次串联箭头 (1 ➔ 2 ➔ 3)">⛓️ 顺序串联</button>
+            <button class="floating-bar-btn" data-act="merge-cards" title="OneNote/XMind 风格：将选中的多张卡片按创建顺序无损合并为一页卡片">🧲 合并为一卡</button>
             <button class="floating-bar-btn" data-act="align-v" title="将选中卡片左对齐并垂直等距排齐">📐 垂直排齐</button>
             <button class="floating-bar-btn" data-act="align-h" title="将选中卡片水平对齐并等距排齐">📐 水平排齐</button>
             <div class="card-bg-swatch-row" title="批量为选中卡片设置背景底色标签">
@@ -4569,11 +4740,12 @@ function initIntuitiveActionBarsAndContextMenu() {
                 const act = btn.dataset.act;
                 if (act === "connect-parent") toggleRelationLink();
                 else if (act === "connect-chain") chainConnectSelectedNodes();
+                else if (act === "merge-cards") mergeSelectedNodes();
                 else if (act === "align-v") alignSelectedNodes("vertical");
                 else if (act === "align-h") alignSelectedNodes("horizontal");
                 else if (act === "focus") toggleNodeFocus();
                 else if (act === "duplicate") duplicateSelectedNodes();
-                else if (act === "delete") deleteSelectedNode();
+                else if (act === "delete") deleteSelectedNode(false);
                 updateFloatingActionBarsPosition();
             });
         });
@@ -4594,6 +4766,7 @@ function initIntuitiveActionBarsAndContextMenu() {
         lbar.innerHTML = `
             <span class="floating-bar-badge">🏹 已选中箭头</span>
             <button class="floating-bar-btn primary" data-lact="label" title="在箭头中央添加或修改关系词说明（如：导致、抑制、混杂变量；也可直接双击箭头）">✏️ 写关系词</button>
+            <button class="floating-bar-btn" data-lact="insert-mid" title="在这条箭头正中间插入一张过渡卡片 (A ➔ 新卡片 ➔ B)">➕ 中间插卡片</button>
             <button class="floating-bar-btn" data-lact="reverse" title="调换这条箭头的父子指向（让另一端作为可折叠的父节点）">⇄ 反转父子方向</button>
             <button class="floating-bar-btn danger" data-lact="delete" title="只断开/删除这条箭头，保留两端的文字卡片 (Delete)">✂️ 删除此箭头</button>
         `;
@@ -4605,6 +4778,7 @@ function initIntuitiveActionBarsAndContextMenu() {
                 e.stopPropagation();
                 const act = btn.dataset.lact;
                 if (act === "label") promptEditSelectedLinkLabel();
+                else if (act === "insert-mid") insertNodeOnSelectedLink();
                 else if (act === "reverse") reverseSelectedLink();
                 else if (act === "delete") deleteSelectedLink();
             });
@@ -4937,15 +5111,29 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
         const hasParent = !!targetNode.parentId;
         const hasKids = getDescendantCount(targetNode.id) > 0;
         const isImg = !!(targetNode.isImage && targetNode.imageUrl);
+        const lineCount = String(targetNode.content || "").split("\n").map(s => s.trim()).filter(Boolean).length;
         menu.innerHTML = `
-            <div class="ctx-item" data-cact="edit">${isImg ? "🔍 高清放大查看图片" : "✏️ 编辑卡片文字"} <span class="ctx-kbd">Space / 双击</span></div>
+            <div class="ctx-item" data-cact="edit">${isImg ? "🔍 高清放大查看图片" : "✏️ 编辑卡片文字"} <span class="ctx-kbd">直接打字 / 双击</span></div>
             <div class="ctx-item" data-cact="todo">☑ 切换待办复选框 <span class="ctx-kbd">Ctrl+1</span></div>
             <div class="ctx-item" data-cact="child">➕ 衍生子卡片 <span class="ctx-kbd">Tab</span></div>
             <div class="ctx-item" data-cact="sibling">➕ 新增同级卡片 <span class="ctx-kbd">Enter</span></div>
+            <div class="ctx-item" data-cact="insert-parent">➕ 插入中间父卡片 <span class="ctx-kbd">Ctrl+Enter</span></div>
             ${hasParent ? `<div class="ctx-item" data-cact="promote">⬅️ 提升节点层级 <span class="ctx-kbd">Shift+Tab</span></div>` : ""}
             ${hasKids ? `<div class="ctx-item" data-cact="fold">📁 ${targetNode.collapsed ? "展开" : "折叠"}子分支 <span class="ctx-kbd">Ctrl+/</span></div>` : ""}
+            ${hasKids ? `<div class="ctx-item" data-cact="tidy-branch">📐 仅规整此分支子树 (不改其他卡片)</div>` : ""}
+            ${lineCount >= 2 && !isImg ? `<div class="ctx-item" data-cact="split-lines">✂️ 按行拆分为 ${lineCount - 1} 张子卡片</div>` : ""}
+            ${selectedNodeIds.size >= 2 ? `<div class="ctx-item" data-cact="merge-selected">🧲 合并选中的 ${selectedNodeIds.size} 张卡片为一卡</div>` : ""}
             ${hasParent ? `<div class="ctx-item" data-cact="unlink-parent">✂️ 断开与父卡片的箭头</div>` : ""}
             <div class="ctx-divider"></div>
+            <div class="ctx-swatch-line">
+                <span class="ctx-swatch-label">🏷️ OneNote 标记</span>
+                <div class="card-bg-swatch-row">
+                    <button class="card-bg-swatch" data-qtag="question" title="❓ 存疑/待查证 (Ctrl+3)">❓</button>
+                    <button class="card-bg-swatch" data-qtag="idea" title="💡 关键灵感/假说 (Ctrl+4)">💡</button>
+                    <button class="card-bg-swatch" data-qtag="done" title="✅ 已验证结论 (Ctrl+5)">✅</button>
+                    <button class="card-bg-swatch" data-qtag="" title="🧹 清除标记">🧹</button>
+                </div>
+            </div>
             <div class="ctx-swatch-line">
                 <span class="ctx-swatch-label">🎨 卡片底色</span>
                 <div class="card-bg-swatch-row">
@@ -4958,15 +5146,17 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
                 </div>
             </div>
             <div class="ctx-divider"></div>
-            <div class="ctx-item" data-cact="focus">⭐ ${targetNode.isFocus ? "取消重点" : "设为重点"} <span class="ctx-kbd">F</span></div>
+            <div class="ctx-item" data-cact="focus">⭐ ${targetNode.isFocus ? "取消重点" : "设为重点"} <span class="ctx-kbd">Ctrl+2 / F</span></div>
             <div class="ctx-item" data-cact="copy-subtree-md">📋 复制此分支为 Markdown</div>
             <div class="ctx-item" data-cact="duplicate">🧬 克隆此卡片 <span class="ctx-kbd">Ctrl+D</span></div>
             <div class="ctx-divider"></div>
-            <div class="ctx-item danger" data-cact="delete">🗑️ 删除卡片 <span class="ctx-kbd">Del</span></div>
+            <div class="ctx-item danger" data-cact="delete">🗑️ 仅删此卡片 (保留子卡) <span class="ctx-kbd">Del</span></div>
+            ${hasKids ? `<div class="ctx-item danger" data-cact="delete-subtree">💥 删除整条分支 (含子卡) <span class="ctx-kbd">Shift+Del</span></div>` : ""}
         `;
     } else {
         menu.innerHTML = `
             <div class="ctx-item" data-cact="new-here">✨ 在此处新建自由卡片 <span class="ctx-kbd">双击空白</span></div>
+            <div class="ctx-item" data-cact="ink-draw">🖍️ ${isInkDrawMode ? "退出" : "开启"}画布自由手绘/荧光笔圈注 <span class="ctx-kbd">P</span></div>
             <div class="ctx-item" data-cact="search">🔍 全局搜索卡片/内容 <span class="ctx-kbd">Ctrl+K</span></div>
             <div class="ctx-item" data-cact="select-all">☑️ 全选所有卡片 <span class="ctx-kbd">Ctrl+A</span></div>
             <div class="ctx-divider"></div>
@@ -4980,16 +5170,24 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
     }
 
     menu.style.display = "block";
-    const menuW = menu.offsetWidth || 225;
-    const menuH = menu.offsetHeight || 280;
+    const menuW = menu.offsetWidth || 235;
+    const menuH = menu.offsetHeight || 320;
     menu.style.left = `${Math.min(window.innerWidth - menuW - 10, clientX)}px`;
     menu.style.top = `${Math.min(window.innerHeight - menuH - 10, clientY)}px`;
 
-    menu.querySelectorAll(".card-bg-swatch").forEach(sw => {
+    menu.querySelectorAll(".card-bg-swatch[data-bg]").forEach(sw => {
         sw.addEventListener("click", (e) => {
             e.stopPropagation();
             hideCanvasContextMenu();
             setCardBgColor(sw.dataset.bg || "", targetNode);
+        });
+    });
+
+    menu.querySelectorAll(".card-bg-swatch[data-qtag]").forEach(sw => {
+        sw.addEventListener("click", (e) => {
+            e.stopPropagation();
+            hideCanvasContextMenu();
+            toggleNodeQuickTag(sw.dataset.qtag || "", targetNode, true);
         });
     });
 
@@ -5004,9 +5202,13 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
             }
             else if (act === "todo" && targetNode) toggleTodoOnSelectedCard(targetNode);
             else if (act === "child") createChildNode();
-            else if (act === "sibling") createSiblingNode();
+            else if (act === "sibling") createSiblingNode(false);
+            else if (act === "insert-parent" && targetNode) insertParentNode(targetNode);
             else if (act === "promote") promoteSelectedNode();
             else if (act === "fold" && targetNode) toggleNodeFold(targetNode);
+            else if (act === "tidy-branch" && targetNode) tidySubtreeLayout(targetNode);
+            else if (act === "split-lines" && targetNode) splitCardByLines(targetNode);
+            else if (act === "merge-selected") mergeSelectedNodes();
             else if (act === "unlink-parent" && targetNode) {
                 targetNode.parentId = null;
                 sanitizeGraph();
@@ -5018,12 +5220,14 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
             else if (act === "focus") toggleNodeFocus(targetNode);
             else if (act === "copy-subtree-md" && targetNode) copyOutlineAsMarkdown(targetNode);
             else if (act === "duplicate") duplicateSelectedNodes();
-            else if (act === "delete") deleteSelectedNode();
+            else if (act === "delete") deleteSelectedNode(false);
+            else if (act === "delete-subtree") deleteSelectedNode(true);
             else if (act === "new-here") {
                 if (typeof window.spawnFreeCardAtCoords === "function") {
                     window.spawnFreeCardAtCoords([lastCanvasMouseCoords.x, lastCanvasMouseCoords.y], "");
                 }
             }
+            else if (act === "ink-draw") toggleInkDrawMode();
             else if (act === "search") openQuickSearchModal();
             else if (act === "select-all") selectAllVisibleNodes();
             else if (act === "expand-all") expandOrCollapseAllBranches(false);
@@ -5971,5 +6175,452 @@ function initSecondaryWorkbenches() {
         });
     }
 }
+
+// ============================================================================
+// v3.2.0 XMind + OneNote 终极遗漏交互补完套件：
+// 1. OneNote Ctrl+1~5 完整标记体系 (☑待办 / ⭐重点 / ❓存疑 / 💡灵感 / ✅已验证)
+// 2. 多卡「🧲 一键合并为一页笔记」(mergeSelectedNodes) 与多行卡「✂️ 按行拆分为子卡片」(splitCardByLines)
+// 3. 选中箭头「➕ 中间插卡片」(insertNodeOnSelectedLink) 与局部子树整理「📐 仅规整此分支」(tidySubtreeLayout)
+// 4. OneNote 画布自由手绘/荧光笔圈注图层 (🖍️ #ink-draw-toolbar & inkStrokes)
+// ============================================================================
+
+// 1. OneNote Ctrl + 3/4/5 语义标记切换 (question: ❓存疑, idea: 💡灵感, done: ✅已验证)
+function toggleNodeQuickTag(tagKey = "", singleFallbackNode = null, forceSet = false) {
+    const targetList = selectedNodeIds.size > 0
+        ? nodes.filter(n => selectedNodeIds.has(n.id))
+        : (singleFallbackNode ? [singleFallbackNode] : (selectedNode ? [selectedNode] : []));
+    if (targetList.length === 0) return;
+
+    const tagNames = {
+        question: "❓ 存疑问题 (Ctrl+3)",
+        idea: "💡 关键灵感 (Ctrl+4)",
+        done: "✅ 已验证结论 (Ctrl+5)"
+    };
+
+    const allHaveSame = targetList.every(n => n.quickTag === tagKey);
+    const nextTag = (!tagKey || (!forceSet && allHaveSame)) ? "" : tagKey;
+
+    targetList.forEach(n => {
+        if (nextTag) n.quickTag = nextTag;
+        else delete n.quickTag;
+    });
+
+    refreshNodeStyles();
+    scheduleSaveGraph(true);
+    showToast(nextTag ? `🏷️ 已标记为 ${tagNames[nextTag] || nextTag}` : "🧹 已清除 OneNote 标记");
+}
+
+// 2. OneNote / XMind 风格：将选中的多张卡片按创建顺序无损合并为一张综合卡片
+function mergeSelectedNodes() {
+    const selNodes = nodes.filter(n => selectedNodeIds.has(n.id));
+    if (selNodes.length < 2) {
+        showToast("💡 请先框选或按住 Shift 点选 2 张以上卡片再合并");
+        return;
+    }
+
+    selNodes.sort((a, b) => getNodeCreatedTime(a) - getNodeCreatedTime(b));
+    const primary = selNodes[0];
+    const others = selNodes.slice(1);
+    const otherIds = new Set(others.map(n => n.id));
+
+    const mergedParts = selNodes.map(n => String(n.content || n.label || "").trim()).filter(Boolean);
+    primary.content = mergedParts.join("\n\n");
+    const firstPlain = primary.content.replace(/<[^>]+>/g, "").split("\n").map(s => s.trim()).find(Boolean) || primary.label;
+    primary.label = firstPlain.replace(/^#{1,4}\s+/, "").slice(0, 42) || primary.label;
+
+    // 将被合并卡片的下属子卡片平滑转移到合并后的主卡片下
+    nodes.forEach(n => {
+        if (!otherIds.has(n.id) && n.id !== primary.id && n.parentId && otherIds.has(n.parentId)) {
+            n.parentId = primary.id;
+        }
+    });
+
+    nodes = nodes.filter(n => !otherIds.has(n.id));
+    sanitizeGraph();
+
+    selectedNode = primary;
+    selectedNodeIds = new Set([primary.id]);
+    updateD3Graph();
+    renderPositions();
+    renderEditor();
+    updateFloatingActionBarsPosition();
+    scheduleSaveGraph(true);
+    showToast(`🧲 已将 ${selNodes.length} 张卡片无损合并至【${primary.label}】！`);
+}
+
+// 3. XMind 经典神器：将多行文字卡片一键按行拆分为多张带箭头的子卡片
+function splitCardByLines(targetNode = selectedNode) {
+    if (!targetNode) return;
+    const rawLines = String(targetNode.content || targetNode.label || "")
+        .split("\n")
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    if (rawLines.length < 2) {
+        showToast("💡 当前卡片只有 1 行内容，包含 2 行以上文字即可一键按行拆分为子卡片！");
+        return;
+    }
+
+    const headLine = rawLines[0];
+    const childLines = rawLines.slice(1);
+
+    targetNode.content = headLine;
+    targetNode.label = headLine.replace(/<[^>]+>/g, "").replace(/^#{1,4}\s+/, "").slice(0, 42) || targetNode.label;
+    targetNode.collapsed = false;
+
+    const baseTs = Date.now();
+    const baseX = (Number.isFinite(targetNode.x) ? targetNode.x : 450) + Math.max(240, (targetNode._cardW || 150) + 110);
+    const startY = (Number.isFinite(targetNode.y) ? targetNode.y : 320) - ((childLines.length - 1) * 64) / 2;
+
+    childLines.forEach((lineText, idx) => {
+        const cleanTitle = lineText.replace(/<[^>]+>/g, "").replace(/^[-*•]\s+/, "").slice(0, 42) || `子要点 ${idx + 1}`;
+        const ny = Math.round(startY + idx * 64);
+        nodes.push({
+            id: `split_${baseTs + idx}`,
+            label: cleanTitle,
+            parentId: targetNode.id,
+            content: lineText,
+            createdAt: baseTs + idx,
+            order: nodes.length + idx,
+            x: baseX,
+            y: ny,
+            fx: baseX,
+            fy: ny
+        });
+    });
+
+    sanitizeGraph();
+    updateD3Graph();
+    renderPositions();
+    renderEditor();
+    scheduleSaveGraph(true);
+    showToast(`✂️ 已将多行内容自动拆分为 ${childLines.length} 张子卡片！`);
+}
+
+// 4. 在选中的箭头连线正中间插入一张过渡卡片 (A ➔ 新卡片 ➔ B)
+function insertNodeOnSelectedLink() {
+    if (!selectedLink) return;
+    const sId = cleanNodeId(selectedLink.source);
+    const tId = cleanNodeId(selectedLink.target);
+    const sourceNode = nodes.find(n => n.id === sId);
+    const targetNode = nodes.find(n => n.id === tId);
+    if (!sourceNode || !targetNode) return;
+
+    const nowTs = Date.now();
+    const newId = `mid_${nowTs}`;
+    const midX = Math.round(((Number.isFinite(sourceNode.x) ? sourceNode.x : 350) + (Number.isFinite(targetNode.x) ? targetNode.x : 650)) / 2);
+    const midY = Math.round(((Number.isFinite(sourceNode.y) ? sourceNode.y : 320) + (Number.isFinite(targetNode.y) ? targetNode.y : 320)) / 2);
+
+    const midNode = {
+        id: newId,
+        label: `过渡节点 ${nodes.length + 1}`,
+        parentId: sourceNode.id,
+        content: `过渡节点 ${nodes.length + 1}`,
+        createdAt: Math.max(1000, getNodeCreatedTime(targetNode) - 200),
+        order: nodes.length,
+        x: midX,
+        y: midY,
+        fx: midX,
+        fy: midY
+    };
+
+    if (selectedLink.type === "relation") {
+        links = links.filter(l => !(l.type === "relation" && (
+            (cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId) ||
+            (cleanNodeId(l.source) === tId && cleanNodeId(l.target) === sId)
+        )));
+    }
+    targetNode.parentId = newId;
+    nodes.push(midNode);
+
+    selectedLink = null;
+    selectedNode = midNode;
+    selectedNodeIds = new Set([newId]);
+
+    sanitizeGraph();
+    updateD3Graph();
+    renderPositions();
+    renderEditor();
+    updateFloatingActionBarsPosition();
+    scheduleSaveGraph(true);
+    showToast(`➕ 已在【${sourceNode.label}】与【${targetNode.label}】之间插入过渡卡片`);
+
+    setTimeout(() => {
+        startInlineCardEditById(newId, true);
+    }, 50);
+}
+
+// 5. XMind 局部树状整理：仅规整当前选中父卡片下属的分支子树，绝不打乱画布上其他自由卡片 ("放到一坨") 的位置！
+function tidySubtreeLayout(rootNode = selectedNode) {
+    if (!rootNode) return;
+    rootNode.collapsed = false;
+
+    const childrenByParent = new Map();
+    nodes.forEach(n => childrenByParent.set(n.id, []));
+    nodes.forEach(n => {
+        if (n.parentId && childrenByParent.has(n.parentId)) {
+            const p = nodes.find(x => x.id === n.parentId);
+            if (p && !p.collapsed) {
+                childrenByParent.get(n.parentId).push(n);
+            }
+        }
+    });
+    childrenByParent.forEach(list => list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+
+    const rootX = Number.isFinite(rootNode.x) ? rootNode.x : 320;
+    const rootY = Number.isFinite(rootNode.y) ? rootNode.y : 320;
+    const levelGap = 250;
+    const rowGap = 68;
+    let cursorY = 0;
+    const touched = [];
+
+    function layoutLocal(node, depth) {
+        touched.push(node);
+        const kids = childrenByParent.get(node.id) || [];
+        if (kids.length === 0) {
+            node._localX = rootX + depth * levelGap;
+            node._localY = cursorY;
+            cursorY += rowGap;
+        } else {
+            kids.forEach(k => layoutLocal(k, depth + 1));
+            node._localX = rootX + depth * levelGap;
+            node._localY = (kids[0]._localY + kids[kids.length - 1]._localY) / 2;
+        }
+    }
+
+    layoutLocal(rootNode, 0);
+    const offsetY = rootY - (rootNode._localY || 0);
+    touched.forEach(n => {
+        n.x = Math.round(n._localX);
+        n.y = Math.round(n._localY + offsetY);
+        n.fx = n.x;
+        n.fy = n.y;
+        delete n._localX;
+        delete n._localY;
+    });
+
+    updateD3Graph();
+    renderPositions();
+    scheduleSaveGraph(true);
+    showToast(`📐 已整齐排布【${rootNode.label}】分支下的 ${touched.length - 1} 张子卡片（其他自由卡片位置保持不变）`);
+}
+
+// 6. OneNote 风格：画布自由手绘 / 荧光笔圈注图层 (支持鼠标、触屏与手写笔直接在卡片周围画圈、画大括号、涂荧光笔)
+function initV32XMindOneNoteSuite() {
+    const container = document.getElementById("graph-container");
+    if (!container) return;
+
+    if (!document.getElementById("ink-draw-toolbar")) {
+        const bar = document.createElement("div");
+        bar.id = "ink-draw-toolbar";
+        bar.className = "ink-draw-toolbar";
+        bar.innerHTML = `
+            <span style="font-size:12px; font-weight:700; color:#38bdf8; margin-right:4px;">🖍️ OneNote 画布手绘圈注</span>
+            <button class="ink-tool-btn active" data-itool="red" title="红色圈注笔 (圈重点/画箭头)">🔴 红笔</button>
+            <button class="ink-tool-btn" data-itool="green" title="绿色批注笔">🟢 绿笔</button>
+            <button class="ink-tool-btn" data-itool="highlighter" title="半透明荧光黄马克笔 (涂抹高亮区域)">🟡 荧光笔</button>
+            <button class="ink-tool-btn" data-itool="sky" title="天蓝连接笔">🔵 蓝笔</button>
+            <button class="ink-tool-btn" data-itool="eraser" title="点击任意手绘笔迹即可擦除">🧹 橡皮擦</button>
+            <button class="ink-tool-btn" id="btn-ink-clear-all" title="清空当前画布所有手绘涂鸦">🗑️ 清空</button>
+            <button class="ink-tool-btn" id="btn-ink-done" style="background:rgba(16,185,129,0.25); border-color:#10b981;" title="退出手绘模式 (按 P 或 Esc)">✓ 完成 (Esc)</button>
+        `;
+        container.appendChild(bar);
+
+        bar.addEventListener("mousedown", (e) => e.stopPropagation());
+        bar.addEventListener("touchstart", (e) => e.stopPropagation(), { passive: true });
+
+        bar.querySelectorAll(".ink-tool-btn[data-itool]").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                currentInkTool = btn.dataset.itool || "red";
+                bar.querySelectorAll(".ink-tool-btn[data-itool]").forEach(b => b.classList.remove("active"));
+                btn.classList.add("active");
+                const svgEl = document.getElementById("graph-svg");
+                if (svgEl) {
+                    svgEl.classList.toggle("is-ink-drawing", isInkDrawMode && currentInkTool !== "eraser");
+                    svgEl.classList.toggle("is-ink-erasing", isInkDrawMode && currentInkTool === "eraser");
+                }
+            });
+        });
+
+        const clearBtn = document.getElementById("btn-ink-clear-all");
+        if (clearBtn) {
+            clearBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (inkStrokes.length === 0) return;
+                inkStrokes = [];
+                renderInkStrokes();
+                scheduleSaveGraph(true);
+                showToast("🧹 已清空画布手绘笔迹 (可按 Ctrl+Z 撤销恢复)");
+            });
+        }
+
+        const doneBtn = document.getElementById("btn-ink-done");
+        if (doneBtn) {
+            doneBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                toggleInkDrawMode(false);
+            });
+        }
+    }
+
+    initInkDrawingEvents();
+    renderInkStrokes();
+}
+
+function toggleInkDrawMode(forceState) {
+    isInkDrawMode = typeof forceState === "boolean" ? forceState : !isInkDrawMode;
+    const btn = document.getElementById("btn-ink-draw");
+    const bar = document.getElementById("ink-draw-toolbar");
+    const svgEl = document.getElementById("graph-svg");
+
+    if (btn) btn.classList.toggle("active", isInkDrawMode);
+    if (bar) bar.style.display = isInkDrawMode ? "flex" : "none";
+    if (svgEl) {
+        svgEl.classList.toggle("is-ink-drawing", isInkDrawMode && currentInkTool !== "eraser");
+        svgEl.classList.toggle("is-ink-erasing", isInkDrawMode && currentInkTool === "eraser");
+    }
+
+    showToast(isInkDrawMode
+        ? "🖍️ 已开启 OneNote 画布手绘圈注：可直接在卡片周围画圈、画大括号或涂荧光笔 (按 Esc 或 P 退出)"
+        : "👆 已退出手绘圈注模式，恢复卡片点击与拖拽");
+}
+
+function pointsToSvgPath(pts) {
+    if (!Array.isArray(pts) || pts.length === 0) return "";
+    if (pts.length === 1) {
+        const p = pts[0];
+        return `M ${p[0]} ${p[1]} L ${p[0] + 0.5} ${p[1] + 0.5}`;
+    }
+    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 1; i < pts.length; i++) {
+        const prev = pts[i - 1];
+        const curr = pts[i];
+        const midX = ((prev[0] + curr[0]) / 2).toFixed(1);
+        const midY = ((prev[1] + curr[1]) / 2).toFixed(1);
+        d += ` Q ${prev[0].toFixed(1)} ${prev[1].toFixed(1)} ${midX} ${midY}`;
+    }
+    const last = pts[pts.length - 1];
+    d += ` L ${last[0].toFixed(1)} ${last[1].toFixed(1)}`;
+    return d;
+}
+
+function renderInkStrokes() {
+    if (!inkLayer && zoomContainer) {
+        inkLayer = zoomContainer.select(".ink-layer");
+        if (inkLayer.empty()) {
+            inkLayer = zoomContainer.append("g").attr("class", "ink-layer");
+        }
+    }
+    if (!inkLayer) return;
+
+    const strokePaths = inkLayer.selectAll("path.ink-stroke-path")
+        .data(inkStrokes, d => d.id);
+
+    strokePaths.join(
+        enter => enter.append("path")
+            .attr("class", "ink-stroke-path")
+            .on("click", function(event, d) {
+                if (!isInkDrawMode || currentInkTool !== "eraser") return;
+                event.stopPropagation();
+                inkStrokes = inkStrokes.filter(s => s.id !== d.id);
+                renderInkStrokes();
+                scheduleSaveGraph(true);
+            }),
+        update => update
+    )
+    .attr("d", d => pointsToSvgPath(d.points))
+    .attr("stroke", d => d.color || "#ef4444")
+    .attr("stroke-width", d => d.width || 3.5)
+    .style("opacity", d => d.opacity || 0.9);
+}
+
+function initInkDrawingEvents() {
+    const svgEl = document.getElementById("graph-svg");
+    if (!svgEl) return;
+
+    let activeStroke = null;
+
+    const INK_PRESETS = {
+        red: { color: "#ef4444", width: 3.5, opacity: 0.92 },
+        green: { color: "#10b981", width: 3.5, opacity: 0.92 },
+        highlighter: { color: "#facc15", width: 18, opacity: 0.36 },
+        sky: { color: "#38bdf8", width: 3.5, opacity: 0.92 }
+    };
+
+    function getCanvasPt(clientEvent) {
+        if (!zoomContainer) return [0, 0];
+        return d3.pointer(clientEvent, zoomContainer.node());
+    }
+
+    function onStart(clientEvent, rawEvent) {
+        if (!isInkDrawMode) return;
+        if (currentInkTool === "eraser") return;
+        if (rawEvent && rawEvent.target && rawEvent.target.closest && rawEvent.target.closest("#ink-draw-toolbar")) return;
+        if (rawEvent && rawEvent.cancelable) rawEvent.preventDefault();
+
+        const pt = getCanvasPt(clientEvent);
+        const preset = INK_PRESETS[currentInkTool] || INK_PRESETS.red;
+        activeStroke = {
+            id: `ink_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            color: preset.color,
+            width: preset.width,
+            opacity: preset.opacity,
+            points: [[Math.round(pt[0] * 10) / 10, Math.round(pt[1] * 10) / 10]]
+        };
+        inkStrokes.push(activeStroke);
+        renderInkStrokes();
+    }
+
+    function onMove(clientEvent) {
+        if (!activeStroke || !isInkDrawMode) return;
+        const pt = getCanvasPt(clientEvent);
+        const last = activeStroke.points[activeStroke.points.length - 1];
+        if (!last || Math.hypot(pt[0] - last[0], pt[1] - last[1]) >= 2.2) {
+            activeStroke.points.push([Math.round(pt[0] * 10) / 10, Math.round(pt[1] * 10) / 10]);
+            renderInkStrokes();
+        }
+    }
+
+    function onEnd() {
+        if (!activeStroke) return;
+        activeStroke = null;
+        scheduleSaveGraph(true);
+    }
+
+    svgEl.addEventListener("mousedown", (e) => {
+        if (!isInkDrawMode || e.button !== 0) return;
+        e.stopPropagation();
+        onStart(e, e);
+    }, true);
+
+    window.addEventListener("mousemove", (e) => {
+        if (!activeStroke) return;
+        onMove(e);
+    });
+
+    window.addEventListener("mouseup", () => {
+        if (!activeStroke) return;
+        onEnd();
+    });
+
+    svgEl.addEventListener("touchstart", (e) => {
+        if (!isInkDrawMode || !e.touches || e.touches.length !== 1) return;
+        e.stopPropagation();
+        onStart(e.touches[0], e);
+    }, { passive: false, capture: true });
+
+    window.addEventListener("touchmove", (e) => {
+        if (!activeStroke || !e.touches || e.touches.length !== 1) return;
+        if (e.cancelable) e.preventDefault();
+        onMove(e.touches[0]);
+    }, { passive: false });
+
+    window.addEventListener("touchend", () => {
+        if (!activeStroke) return;
+        onEnd();
+    });
+}
+
 
 

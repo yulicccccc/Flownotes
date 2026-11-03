@@ -1821,3 +1821,124 @@ html[data-theme="light"] .reopen-editor-pill {
     0% { transform: scale(0.4); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
 }
+
+/* ============================================================================
+   v3.2.0 OneNote + XMind 深度直觉补完：
+   1. OneNote Ctrl+1~5 卡片语义角标 (.card-quick-tag-badge)
+   2. OneNote 自由手绘荧光笔/圈注图层 (.ink-stroke-path & #ink-draw-toolbar)
+   ============================================================================ */
+
+.card-quick-tag-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 6px;
+    margin-right: 5px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    vertical-align: middle;
+    line-height: 1.35;
+}
+
+.card-quick-tag-badge.tag-question {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid rgba(239, 68, 68, 0.45);
+}
+
+.card-quick-tag-badge.tag-idea {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fde68a;
+    border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.card-quick-tag-badge.tag-done {
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+    border: 1px solid rgba(16, 185, 129, 0.45);
+}
+
+html[data-theme="light"] .card-quick-tag-badge.tag-question {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+html[data-theme="light"] .card-quick-tag-badge.tag-idea {
+    background: #fef3c7;
+    color: #b45309;
+}
+html[data-theme="light"] .card-quick-tag-badge.tag-done {
+    background: #d1fae5;
+    color: #047857;
+}
+
+.ink-stroke-path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+
+#graph-svg.is-ink-drawing {
+    cursor: crosshair !important;
+}
+
+#graph-svg.is-ink-erasing {
+    cursor: cell !important;
+}
+
+#graph-svg.is-ink-erasing .ink-stroke-path {
+    pointer-events: stroke !important;
+    cursor: pointer !important;
+}
+
+#graph-svg.is-ink-erasing .ink-stroke-path:hover {
+    filter: drop-shadow(0 0 6px #ef4444);
+    opacity: 0.45 !important;
+}
+
+.ink-draw-toolbar {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 45;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+html[data-theme="light"] .ink-draw-toolbar {
+    background: rgba(255, 255, 255, 0.96);
+    border-color: rgba(79, 70, 229, 0.35);
+}
+
+.ink-tool-btn {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(30, 41, 59, 0.8);
+    color: #f1f5f9;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+html[data-theme="light"] .ink-tool-btn {
+    background: #f1f5f9;
+    color: #1e293b;
+}
+
+.ink-tool-btn.active {
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.55);
+    background: rgba(56, 189, 248, 0.22);
+}
+

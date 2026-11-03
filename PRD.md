@@ -1,9 +1,18 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.3)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.2.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Complete XMind + OneNote Deep Muscle-Memory & Freehand Ink Suite (v3.2.0 深度补完 XMind + OneNote 全部核心遗漏交互)**:
+  - **Direct Type-to-Edit on Selected Card (`选中卡片直接打字即刻编辑`) + `Alt+Enter`/`Shift+Enter` Newline**: Selecting any card and typing on the keyboard immediately enters inline editing on that card (replacing default placeholder text or appending); inside inline editing, `Enter` completes editing while `Shift+Enter` or `Alt+Enter` inserts a line break.
+  - **XMind `Ctrl + Enter` / `Insert` Intermediate Parent (`insertParentNode`) + `Shift + Enter` Sibling Above + Arrow Midpoint `➕ 中间插卡片` (`insertNodeOnSelectedLink`)**: Insert a parent card between `A ➔ B` (`A ➔ New ➔ B`) via `Ctrl+Enter` or by clicking any arrow and hitting `➕ 中间插卡片`; press `Shift+Enter` to create a sibling above.
+  - **Smart Safe Delete (`Delete` 保护未折叠子卡片 vs `Shift+Delete` 删除整条分支)**: Pressing `Delete` on an expanded card deletes only that card and preserves its unselected children (re-linking them to the deleted card's parent or top-level); `Shift+Delete` (or deleting a collapsed `+N` card, or right-click `💥 删除整条分支`) deletes the entire subtree.
+  - **OneNote / XMind Card Merge (`🧲 合并为一卡` `mergeSelectedNodes`) & Multi-Line Card Split (`✂️ 按行拆分为子卡片` `splitCardByLines`)**: Multi-select 2+ cards and click `🧲 合并为一卡` to consolidate them; right-click any multi-line card and click `✂️ 按行拆分为子卡片` to turn lines 2..N into connected child cards.
+  - **XMind Local Branch Tidy (`📐 仅规整此分支子树` `tidySubtreeLayout`)**: Right-click any parent card to neatly tree-align ONLY its descendants without moving any other freeform cards ("放到一坨") on the canvas.
+  - **OneNote `Ctrl + 1 ~ 5` Quick Semantic Tags (`toggleNodeQuickTag`)**: `Ctrl+1` (`☑` 待办), `Ctrl+2` (`⭐` 重点), `Ctrl+3` (`❓存疑`), `Ctrl+4` (`💡灵感`), `Ctrl+5` (`✅已验证`).
+  - **OneNote Freehand Ink & Highlighter Layer (`🖍️` `#btn-ink-draw` / `P` key, `#ink-draw-toolbar`, `inkStrokes`)**: Draw freehand red/green/sky ink circles, curly braces, or semi-transparent yellow highlighter strokes directly on the SVG canvas with mouse, touch, or stylus; strokes pan/zoom 1:1 with the canvas, support `Ctrl+Z` undo, and sync to GitHub Gist.
+  - **Live Zoom Percentage Pill (`#btn-zoom-reset` `100%`)**: Displays real-time zoom percentage in `#nav-controls` and resets to `100%` (`1:1`) on click.
 - **Long-Press Left Mouse / Long-Press Touch (`200ms`) Turns into Hand (`🖐️`) to Pan Canvas (`v3.1.3` 长按左键/长按触屏变小手平移画布 + 瞬拖框选完美共存)**:
   - Holding down the left mouse button or 1-finger touch on empty canvas for **`200ms`** without dragging immediately turns the pointer into a grabbing hand (`#graph-svg.is-hand-panning` + floating `#canvas-hand-cursor` `🖐️` badge right under the cursor/finger) and smoothly pans the canvas 1:1 with the mouse/finger.
   - Dragging immediately (`< 200ms`) draws the rubber-band marquee selection box (`#marquee-box`) to select multiple cards (works on both mouse and 1-finger touch). Two-finger pinch/drag zooms/pans via `d3.zoom`.

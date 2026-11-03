@@ -1,8 +1,16 @@
-# Project State: FlowNotes (v3.1.3)
+# Project State: FlowNotes (v3.2.0)
 
 ## Current Version & Status
-- **Current Version**: `v3.1.3`
+- **Current Version**: `v3.2.0`
 - **Latest Releases**:
+  - `v3.2.0`:
+    - **Direct Type-to-Edit on Selected Card + `Alt+Enter`/`Shift+Enter` Newline**: Typing when a card is selected immediately opens inline editing on that card.
+    - **XMind `Ctrl+Enter`/`Insert` (`insertParentNode`), `Shift+Enter` Sibling Above & Arrow Midpoint `➕ 中间插卡片` (`insertNodeOnSelectedLink`)**.
+    - **Smart Safe Delete (`deleteSelectedNode`)**: Normal `Delete` on expanded cards preserves unselected child cards; `Shift+Delete` (or deleting a collapsed branch) deletes the full subtree.
+    - **Card Merge (`🧲 合并为一卡` `mergeSelectedNodes`) & Multi-Line Card Split (`✂️ 按行拆分为子卡片` `splitCardByLines`)**.
+    - **Local Subtree Tidy (`📐 仅规整此分支子树` `tidySubtreeLayout`)**: Tidies only the selected parent's branch without disturbing other freeform cards.
+    - **OneNote `Ctrl+1~5` Quick Semantic Tags (`☑` / `⭐` / `❓存疑` / `💡灵感` / `✅已验证`)**.
+    - **OneNote Freehand Ink & Highlighter Layer (`🖍️` `#btn-ink-draw` / `P` key, `inkStrokes`)** & **Live Zoom Percentage Reset (`#btn-zoom-reset` `100%`)**.
   - `v3.1.3`:
     - **Long-Press Left Mouse / Long-Press Touch (`200ms`) Hand Panning (`🖐️`) + Immediate Drag Marquee Selection (`initMarqueeSelection` + `showCanvasHandCursor`)**: Holding left mouse button or 1-finger touch on empty canvas for `200ms` turns into a hand cursor (`grabbing` + floating `🖐️` badge `#canvas-hand-cursor`) and pans the canvas 1:1; dragging immediately (`< 200ms`) draws `#marquee-box` for rubber-band multi-selection.
   - `v3.1.2`:
@@ -42,7 +50,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.1.3_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.2.0_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.
