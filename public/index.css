@@ -520,7 +520,7 @@ body {
 /* 可直接关闭的浮动提示窗 */
 #hint {
     position: absolute;
-    top: 16px;
+    top: 52px;
     right: 16px;
     color: var(--hint-color);
     line-height: 1.6;
@@ -1746,4 +1746,48 @@ html[data-theme="light"] .canvas-note-card[data-card-bg="violet"] {
     color: var(--text-muted, #94a3b8);
     opacity: 0.75;
     padding: 4px 0;
+}
+
+/* v3.1.2 右侧详细笔记面板右上角关闭按钮 (×) 与收起后右上角悬浮展开胶囊 */
+.btn-close-editor-panel {
+    color: var(--text-muted, #94a3b8);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-close-editor-panel:hover {
+    background: rgba(239, 68, 68, 0.22) !important;
+    border-color: rgba(239, 68, 68, 0.6) !important;
+    color: #f87171 !important;
+}
+
+.reopen-editor-pill {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    z-index: 25;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(99, 102, 241, 0.5);
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.reopen-editor-pill:hover {
+    transform: translateY(-1px);
+    background: rgba(79, 70, 229, 0.35);
+    border-color: #818cf8;
+    color: #ffffff;
+}
+
+html[data-theme="light"] .reopen-editor-pill {
+    background: rgba(255, 255, 255, 0.95);
+    color: #1e293b;
+    border-color: rgba(79, 70, 229, 0.4);
 }

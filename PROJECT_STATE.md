@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.1.1)
+# Project State: FlowNotes (v3.1.2)
 
 ## Current Version & Status
-- **Current Version**: `v3.1.1`
+- **Current Version**: `v3.1.2`
 - **Latest Releases**:
+  - `v3.1.2`:
+    - **Right Note Editor Panel Close (`×`) & Top-Right Reopen Pill (`#btn-close-editor`, `#closeBannerBtn`, `#btn-reopen-editor-pill`)**: Added a dedicated `×` close button inside `#editor-header`, wired `#closeBannerBtn` so clicking the top-right `×` closes the banner & collapses `#editor-panel`, auto-resizes `#graph-svg` to full screen width, and shows a `📖 展开详细笔记` pill in the top-right corner when collapsed.
   - `v3.1.1`:
     - **Fixed Initial Freeform Card Transform Bug (`refreshNodeStyles` + `updateD3Graph`)**: Fixed the bug where `simulation.stop()` in `free` mode prevented the initial `tick` (`renderPositions`), leaving `<g class="node-group">` at `(0,0)` while only the `<line>` arrows were visible in the center of the canvas.
     - **Fixed Overlapped Card Inverted Arrow Stub (`getLinkCoords`)**: Hides zero/negative-length arrows when two cards touch or overlap, preventing floating reversed arrowheads.
@@ -38,7 +40,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.1.1_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.1.2_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

@@ -256,7 +256,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.1.1 loaded — Initial Freeform Card Transform Sync & Phantom Arrow Fix");
+    console.log("[FlowNotes] v3.1.2 loaded — Right Note Editor Panel Close (×) & Reopen Pill Fix");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -2494,12 +2494,78 @@ function initEvents() {
         btnMarquee.addEventListener("click", () => toggleMarqueeMode());
     }
 
-    // 编辑器侧边栏开关
+    // 顶部猫头鹰智慧横幅关闭按钮 (#closeBannerBtn) 与点击 Logo 呼出
+    const owlBanner = document.getElementById("owlBanner");
+    const closeBannerBtn = document.getElementById("closeBannerBtn");
+    const logoGroup = document.getElementById("logoGroup");
+    if (localStorage.getItem("flownotes_banner_hidden") === "true" && owlBanner) {
+        owlBanner.style.display = "none";
+    }
+    if (closeBannerBtn) {
+        closeBannerBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (owlBanner) {
+                owlBanner.style.display = "none";
+                localStorage.setItem("flownotes_banner_hidden", "true");
+            }
+            // 用户直觉支持：很多用户点击右上角这个 × 是为了叉掉正下方的右侧详细笔记面板 (#editor-panel)，因此同步收起右侧详情面板并在右上角留出“📖 展开详细笔记”胶囊！
+            setEditorPanelCollapsed(true);
+        });
+    }
+    if (logoGroup && owlBanner) {
+        logoGroup.addEventListener("click", () => {
+            const isHidden = owlBanner.style.display === "none";
+            owlBanner.style.display = isHidden ? "flex" : "none";
+            localStorage.setItem("flownotes_banner_hidden", isHidden ? "false" : "true");
+            showOwlWisdom();
+        });
+    }
+
+    // 右侧详细笔记面板 (#editor-panel) 开关、右上角 × 关闭按钮与收起后悬浮展开胶囊
+    const edPanel = document.getElementById("editor-panel");
     const toggleEdBtn = document.getElementById("btn-toggle-editor");
+    const closeEdBtn = document.getElementById("btn-close-editor");
+    const reopenEdPill = document.getElementById("btn-reopen-editor-pill");
+
+    function setEditorPanelCollapsed(shouldCollapse) {
+        if (!edPanel) return;
+        edPanel.classList.toggle("collapsed", shouldCollapse);
+        if (reopenEdPill) {
+            reopenEdPill.style.display = shouldCollapse ? "inline-flex" : "none";
+        }
+        localStorage.setItem("flownotes_editor_collapsed", shouldCollapse ? "true" : "false");
+        setTimeout(() => {
+            const container = document.getElementById("graph-container");
+            if (container && svg) {
+                svg.attr("width", container.clientWidth || 800)
+                   .attr("height", container.clientHeight || 600);
+            }
+            updateFloatingActionBarsPosition();
+        }, 30);
+    }
+    window.setEditorPanelCollapsed = setEditorPanelCollapsed;
+
+    if (localStorage.getItem("flownotes_editor_collapsed") === "true") {
+        setEditorPanelCollapsed(true);
+    }
+
     if (toggleEdBtn) {
         toggleEdBtn.addEventListener("click", () => {
-            const ed = document.getElementById("editor-panel");
-            if (ed) ed.classList.toggle("collapsed");
+            const nextState = !(edPanel && edPanel.classList.contains("collapsed"));
+            setEditorPanelCollapsed(nextState);
+        });
+    }
+    if (closeEdBtn) {
+        closeEdBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setEditorPanelCollapsed(true);
+            showToast("📖 已收起右侧详细笔记面板（点右上角“📖 展开详细笔记”可随时恢复）");
+        });
+    }
+    if (reopenEdPill) {
+        reopenEdPill.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setEditorPanelCollapsed(false);
         });
     }
 

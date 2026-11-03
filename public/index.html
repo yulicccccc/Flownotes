@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.1)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.2)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.1.1">
+    <link rel="stylesheet" href="index.css?v=3.1.2">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -158,6 +158,9 @@
                         <input type="file" id="file-input" accept=".json" style="display: none;">
                     </div>
 
+                    <!-- 右侧笔记面板收起后显示的右上角一键展开悬浮胶囊 -->
+                    <button id="btn-reopen-editor-pill" class="reopen-editor-pill" title="展开右侧节点详细笔记面板" style="display:none;">📖 展开详细笔记</button>
+
                     <!-- 可关闭的快捷键提示浮窗 -->
                     <div id="hint">
                         <div class="hint-header">
@@ -223,6 +226,7 @@
                     <div id="editor-header" style="display:flex; align-items:center; gap:8px;">
                         <input id="title-input" type="text" autocomplete="off" spellcheck="false" value="未选择节点" disabled style="flex:1;">
                         <button id="btn-toggle-focus" class="format-btn" title="划重点 / 设为核心关注节点 (快捷键 F)" style="width:32px; height:32px; font-size:16px; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0;">⭐</button>
+                        <button id="btn-close-editor" class="format-btn btn-close-editor-panel" title="关闭/收起右侧详细笔记面板 (让脑图画布全屏展开)" style="width:32px; height:32px; font-size:18px; font-weight:700; display:flex; align-items:center; justify-content:center; padding:0; flex-shrink:0;">×</button>
                     </div>
 
                     <div id="format-toolbar">
@@ -487,6 +491,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.1.1"></script>
+    <script src="app.js?v=3.1.2"></script>
 </body>
 </html>
