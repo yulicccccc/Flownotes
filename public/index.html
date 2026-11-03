@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.6.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.7.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -126,7 +126,7 @@
                         <button class="nav-btn" id="btn-outline" title="节点目录大纲">☰</button>
                         <button class="nav-btn" id="btn-articles" title="AI 文章合成库">📝</button>
                         <button class="nav-btn" id="btn-search" title="搜索 / 快速打开 (Ctrl+K)">🔎</button>
-                        <button class="nav-btn" id="btn-relation" title="虚线关联 (按 L)">↔</button>
+                        <button class="nav-btn" id="btn-relation" title="连接有向可折叠箭头：多选卡片后按 L（默认先 make 的卡片作为父节点 Parent ➔ Child）">➔</button>
                         <button class="nav-btn" id="btn-marquee" title="矩形框选多选模式 (按 B 或按住 Shift+左键拖拽)">🔳</button>
                         <button class="nav-btn" id="btn-graph" title="自由力导力学网络 (按 G)">✦</button>
                         <button class="nav-btn" id="btn-layout" title="整理为 XMind 树状清晰结构 (按 M)">🧭</button>
@@ -152,13 +152,12 @@
                             <button class="hint-close-btn" id="btn-close-hint" title="关闭提示">×</button>
                         </div>
                         <div class="hint-body" id="hint-body">
-                            1. <b>Enter</b> 建同级节点 | <b>Tab</b> 建分支子节点<br>
-                            2. <b>Shift+拖拽 / B 键</b> 🔳 矩形框选多选节点<br>
-                            3. <b>F 键</b> ⭐ 划重点 / 亮起脉冲发光圈<br>
-                            4. <b>Ctrl+← / Ctrl+→ / Ctrl+/</b> 折叠与展开分支<br>
-                            5. <b>双击空白</b> 建独立主题 | <b>Delete</b> 批量删除节点<br>
-                            6. <b>Ctrl+Z / Ctrl+Y</b> 撤销/重做 | <b>F2</b> 重命名<br>
-                            7. <b>方向键 ↑↓←→</b> 键盘漫游 | <b>Alt+↑/↓</b> 节点调序
+                            1. <b>双击空白 / Ctrl+V</b> 自由贴句子或截图（可随意“放到一坨”）<br>
+                            2. <b>双击卡片划选文字</b> 弹出 <b>🔴红 / 🟢绿 / 🟡亮 / 🧹</b> 胶囊直接标色<br>
+                            3. <b>Tab</b> 衍生带箭头子卡片 | <b>Enter</b> 建姊妹卡片（移动自动跟踪）<br>
+                            4. <b>Shift+点选多卡按 L</b>（或拖卡片右侧 <b>➔</b>）连箭头（<b>默认先 make 的是父</b>）<br>
+                            5. <b>点击卡片右侧 −/+N</b>（或 <b>Ctrl+/</b>）像思维导图一样折叠/展开分支<br>
+                            6. <b>Shift+拖拽 / B 键</b> 🔳 框选批量移动 | <b>M 键</b> 一键整理树状结构
                         </div>
                     </div>
 

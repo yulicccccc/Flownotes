@@ -40,9 +40,39 @@ let links = [];
 let flowStream = [];
 let selectedNode = null;
 let selectedNodeIds = new Set();
-let layoutMode = "tree"; // 默认使用整洁安全的 "tree" (XMind 模式)，点击 ✦ 按钮可切换为 Obsidian Q 弹网状模式
+let layoutMode = "free"; // 默认使用自由空间白板模式 ("free"，允许笔记放到一坨自由摆放)，按 M 键可一键整理为 XMind 树状结构
 let ghSyncTimer = null;
+let saveDebounceTimer = null;
+let pendingHistoryRecord = false;
+let isImeComposing = false;
 let lastCanvasMouseCoords = { x: 450, y: 320 };
+
+// 辅助：获取节点的创建时间 (用于“默认先 make 的是父”规则)
+function getNodeCreatedTime(node) {
+    if (!node) return Number.MAX_SAFE_INTEGER;
+    if (typeof node.createdAt === "number" && Number.isFinite(node.createdAt)) {
+        return node.createdAt;
+    }
+    const idStr = String(node.id || "");
+    const m = idStr.match(/_(\d{10,})$/);
+    if (m) {
+        return parseInt(m[1], 10);
+    }
+    const idx = nodes.findIndex(n => n.id === node.id);
+    return idx >= 0 ? idx : Number.MAX_SAFE_INTEGER - 1;
+}
+
+// 防抖保存：彻底消除打字、划词标色、连续拖拽时的 JSON.stringify / localStorage 同步阻塞卡顿
+function scheduleSaveGraph(recordHistory = true, delayMs = 360) {
+    if (recordHistory) pendingHistoryRecord = true;
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => {
+        const shouldRecord = pendingHistoryRecord;
+        pendingHistoryRecord = false;
+        saveDebounceTimer = null;
+        saveGraphToStorage(shouldRecord);
+    }, delayMs);
+}
 
 // D3 全局引用
 let svg, simulation, zoom, zoomContainer;
@@ -311,9 +341,13 @@ function cleanLinks() {
 // 辅助：启动时清理孤儿链接 + 去重
 function sanitizeGraph() {
     const nodeIds = new Set(nodes.map(n => n.id));
-    // 清理孤立的 parentId
-    nodes.forEach(n => {
+    // 清理孤立的 parentId 并补齐 createdAt 时间戳
+    nodes.forEach((n, idx) => {
         if (n.parentId && !nodeIds.has(n.parentId)) n.parentId = null;
+        if (typeof n.createdAt !== "number") {
+            const m = String(n.id || "").match(/_(\d{10,})$/);
+            n.createdAt = m ? parseInt(m[1], 10) : (1700000000000 + idx * 1000);
+        }
     });
     // 去重并更新全局 links
     const seenLinks = new Set();
@@ -405,43 +439,42 @@ function initD3Mindmap() {
         }
     });
 
-    // 双击画布空白处创建 100% 独立的全新根主题节点
+    // 双击画布空白处创建 100% 独立的自由空间卡片（指哪打哪，支持放到一坨）
     svg.on("dblclick", (event) => {
         if (event.target.closest && event.target.closest(".node-group")) return;
         if (event.target.tagName === "circle" || event.target.tagName === "text") return;
 
         const coords = d3.pointer(event, zoomContainer.node());
-        const newId = `root_${Date.now()}`;
+        const nowTs = Date.now();
+        const newId = `root_${nowTs}`;
 
         const newNode = {
             id: newId,
-            label: `新主题 ${nodes.length + 1}`,
+            label: `新笔记 ${nodes.length + 1}`,
             parentId: null,
-            content: `# 新主题 ${nodes.length + 1}\n\n点击编辑 Markdown 内容...`,
+            content: `新笔记 ${nodes.length + 1}`,
+            createdAt: nowTs,
             order: nodes.length,
             x: coords[0],
-            y: coords[1]
+            y: coords[1],
+            fx: coords[0],
+            fy: coords[1]
         };
 
         nodes.push(newNode);
         selectedNode = newNode;
         selectedNodeIds = new Set([newId]);
 
-        saveGraphToStorage();
+        scheduleSaveGraph(true);
         if (layoutMode === "tree") tidyLayout();
         else updateD3Graph();
         renderPositions();
         renderEditor();
-        focusOnNode(newNode);
-        showToast(`✨ 创建了全新的独立根节点 [[${newNode.label}]]`);
+        showToast(`✨ 已在当前位置创建自由卡片 [[${newNode.label}]] (可直接输入或划词标色)`);
 
         setTimeout(() => {
-            const titleInput = document.getElementById("title-input");
-            if (titleInput && !titleInput.disabled) {
-                titleInput.focus();
-                titleInput.select();
-            }
-        }, 60);
+            startInlineCardEditById(newId, true);
+        }, 50);
     });
 
     // 媲美 Obsidian Graph View 的四向柔和果冻 Q 弹物理仿真器
@@ -594,31 +627,47 @@ function handleGraphWheel(event) {
     zoom.translateBy(svg, -event.deltaX, -event.deltaY);
 }
 
-// 计算连接线两端坐标：精确在目标卡片/圆形边缘外侧收尾，保证有向箭头端点 100% 显式可见不被遮挡
+// 辅助：射线与矩形边界交点算法（确保 360° 任意方向有向箭头刚好停在卡片外框边缘，绝不被卡片遮挡）
+function getRectEdgePoint(cx, cy, halfW, halfH, dx, dy) {
+    if (Math.abs(dx) < 0.0001 && Math.abs(dy) < 0.0001) return { x: cx, y: cy };
+    const sx = Math.abs(dx) > 0.0001 ? halfW / Math.abs(dx) : Infinity;
+    const sy = Math.abs(dy) > 0.0001 ? halfH / Math.abs(dy) : Infinity;
+    const s = Math.min(sx, sy);
+    return {
+        x: cx + dx * s,
+        y: cy + dy * s
+    };
+}
+
+// 计算连接线两端坐标：精确从父卡片边缘出发，在子卡片外边缘收尾，保证有向箭头 100% 显式可见且随拖动自动伸缩
 function getLinkCoords(d) {
-    const sx = Number.isFinite(d.source.x) ? d.source.x : 0;
-    const sy = Number.isFinite(d.source.y) ? d.source.y : 0;
-    let tx = Number.isFinite(d.target.x) ? d.target.x : 0;
-    let ty = Number.isFinite(d.target.y) ? d.target.y : 0;
+    const sxCenter = Number.isFinite(d.source.x) ? d.source.x : 0;
+    const syCenter = Number.isFinite(d.source.y) ? d.source.y : 0;
+    const txCenter = Number.isFinite(d.target.x) ? d.target.x : 0;
+    const tyCenter = Number.isFinite(d.target.y) ? d.target.y : 0;
 
-    const dx = tx - sx;
-    const dy = ty - sy;
+    const dx = txCenter - sxCenter;
+    const dy = tyCenter - syCenter;
     const dist = Math.hypot(dx, dy);
-
-    // 根据目标节点是否为截图图片卡片自适应边缘偏移
-    const targetIsImg = d.target && d.target.isImage;
-    const targetR = targetIsImg ? 45 : (d.target.parentId === null ? 22 : 16);
-    const arrowOffset = targetR + 6;
-
-    if (dist > arrowOffset) {
-        tx = tx - (dx / dist) * arrowOffset;
-        ty = ty - (dy / dist) * arrowOffset;
+    if (dist < 1) {
+        return { sx: sxCenter, sy: syCenter, tx: txCenter, ty: tyCenter };
     }
-    return { sx, sy, tx, ty };
+
+    const sHalfW = ((d.source && d.source._cardW) ? d.source._cardW : 120) / 2 + 2;
+    const sHalfH = ((d.source && d.source._cardH) ? d.source._cardH : 40) / 2 + 2;
+    const tHalfW = ((d.target && d.target._cardW) ? d.target._cardW : 120) / 2 + 7;
+    const tHalfH = ((d.target && d.target._cardH) ? d.target._cardH : 40) / 2 + 7;
+
+    const startPt = getRectEdgePoint(sxCenter, syCenter, sHalfW, sHalfH, dx, dy);
+    const endPt = getRectEdgePoint(txCenter, tyCenter, tHalfW, tHalfH, -dx, -dy);
+
+    return { sx: startPt.x, sy: startPt.y, tx: endPt.x, ty: endPt.y };
 }
 
 function renderPositions() {
     if (!linkElements || !nodeElements) return;
+    nodeElements
+        .attr("transform", d => `translate(${d.x},${d.y})`);
     linkElements.each(function(d) {
         const c = getLinkCoords(d);
         d3.select(this)
@@ -627,72 +676,87 @@ function renderPositions() {
             .attr("x2", c.tx)
             .attr("y2", c.ty);
     });
-    nodeElements
-        .attr("transform", d => `translate(${d.x},${d.y})`);
 }
 
-// 轻量级：只刷新节点视觉样式（选中高亮、重点发光等），不重启仿真
+// 生成画布卡片内部直接显示的富文本 HTML（直接呈现 🔴红字、🟢绿字、🟡荧光高亮与 📸粘贴截图）
+function getCardDisplayHTML(d) {
+    if (!d) return "";
+    if (d.isImage && d.imageUrl) {
+        const caption = (d.label && !d.label.startsWith("📸 截图")) ? `<div class="canvas-card-caption">${renderMarkdownToHTML(d.label)}</div>` : "";
+        return `<img class="canvas-card-img" src="${d.imageUrl}" alt="截图" draggable="false" />${caption}`;
+    }
+
+    let raw = (d.content || "").trim();
+    const isDefaultPlaceholder = !raw || raw.includes("点击编辑 Markdown 内容...");
+    if (isDefaultPlaceholder) {
+        raw = d.label || "未命名";
+    } else {
+        // 如果第一行是 # Title，去掉多余的 # 符号以便在画布卡片上更自然地显示句子与颜色
+        raw = raw.replace(/^#{1,4}\s+/gm, "");
+    }
+    return renderMarkdownToHTML(raw);
+}
+
+// 轻量级：刷新画布富文本卡片样式、自适应尺寸测量、折叠徽章与选中发光状态
 function refreshNodeStyles() {
     if (!nodeElements) return;
     nodeElements.each(function(d) {
         const group = d3.select(this);
-        const r = d.parentId === null ? 22 : 16;
         const isSelected = selectedNodeIds.has(d.id);
         const isFocus = !!d.isFocus;
+        const borderColor = getNodeColor(d);
 
-        const isImg = !!(d.isImage && d.imageUrl);
-        let imgPreview = group.select(".node-img-preview");
+        const fo = group.select(".node-card-fo");
+        const cardDiv = fo.select(".canvas-note-card");
+        const bodyDiv = fo.select(".canvas-note-card-body");
 
-        if (isImg) {
-            if (imgPreview.empty()) {
-                imgPreview = group.insert("image", ".node-label")
-                    .attr("class", "node-img-preview")
-                    .attr("width", 110)
-                    .attr("height", 68)
-                    .attr("x", -55)
-                    .attr("y", -34)
-                    .attr("preserveAspectRatio", "xMidYMid slice")
-                    .style("border-radius", "6px");
+        if (!cardDiv.empty() && !bodyDiv.empty()) {
+            const bodyNode = bodyDiv.node();
+            const isCurrentlyEditing = bodyNode && bodyNode.getAttribute("contenteditable") === "true";
+
+            if (!isCurrentlyEditing) {
+                const targetHTML = (isFocus ? '<span class="card-focus-star">⭐ </span>' : '') + getCardDisplayHTML(d);
+                if (bodyNode.innerHTML !== targetHTML) {
+                    bodyNode.innerHTML = targetHTML;
+                }
             }
-            imgPreview.attr("href", d.imageUrl).style("display", "block");
-            group.select(".node-circle").style("display", "none");
-            group.select(".node-label").attr("dy", "50px");
-        } else {
-            if (!imgPreview.empty()) imgPreview.style("display", "none");
-            group.select(".node-circle")
-                .style("display", "block")
-                .attr("r", r)
-                .style("fill", getNodeColor(d))
-                .style("stroke", isSelected ? "#fff" : (isFocus ? "#fbbf24" : "rgba(255,255,255,0.3)"))
-                .style("stroke-width", isSelected ? "4px" : (isFocus ? "3px" : "2px"));
 
-            group.select(".node-label").attr("dy", (r + 15) + "px");
+            cardDiv
+                .classed("is-root", d.parentId === null)
+                .classed("is-selected", isSelected)
+                .classed("is-focus", isFocus)
+                .classed("is-image-card", !!(d.isImage && d.imageUrl))
+                .style("--card-accent", borderColor);
+
+            // 测量卡片实际宽高，缓存到 d._cardW / d._cardH 供矩形边缘箭头交点算法使用
+            const cardEl = cardDiv.node();
+            const measuredW = Math.max(76, Math.min(340, (cardEl ? cardEl.offsetWidth : 130) || 130));
+            const measuredH = Math.max(34, Math.min(280, (cardEl ? cardEl.offsetHeight : 38) || 38));
+            d._cardW = measuredW;
+            d._cardH = measuredH;
+
+            const foW = measuredW + 20;
+            const foH = measuredH + 20;
+            fo.attr("width", foW)
+              .attr("height", foH)
+              .attr("x", -foW / 2)
+              .attr("y", -foH / 2);
         }
 
-        group.select(".node-label")
-            .text((isFocus ? "⭐ " : "") + d.label)
-            .style("fill", isSelected ? "var(--node-text-selected)" : (isFocus ? "#fef08a" : "var(--node-text)"))
-            .style("font-weight", isSelected || isFocus ? "bold" : "normal");
+        const halfW = (d._cardW || 120) / 2;
+        const halfH = (d._cardH || 38) / 2;
 
-        group.select(".focus-glow-ring")
-            .style("display", isFocus ? "block" : "none")
-            .attr("r", r + 10);
-
-        group.select(".focus-star-label")
-            .style("display", isFocus ? "block" : "none")
-            .attr("transform", `translate(${-(r + 14)}, ${-(r / 2)})`);
-
-        // 动态刷新折叠/展开 Badge 标志
+        // 动态刷新折叠/展开 Badge 标志（位于卡片右侧边缘偏上）
         const descCount = getDescendantCount(d.id);
         const badge = group.select(".node-fold-badge");
         if (descCount > 0) {
             badge.style("display", "block")
-                .attr("transform", `translate(${r + 6}, ${-r / 2})`);
+                .attr("transform", `translate(${halfW + 11}, ${-Math.min(halfH - 4, 10)})`);
             badge.select(".fold-circle")
                 .attr("r", 9)
-                .style("fill", d.collapsed ? "#ef4444" : "rgba(255,255,255,0.25)")
-                .style("stroke", "#fff")
-                .style("stroke-width", "1px");
+                .style("fill", d.collapsed ? "#ef4444" : "rgba(30, 41, 59, 0.9)")
+                .style("stroke", borderColor)
+                .style("stroke-width", "1.5px");
             badge.select(".fold-text")
                 .text(d.collapsed ? `+${descCount}` : "−")
                 .style("fill", "#fff")
@@ -702,10 +766,261 @@ function refreshNodeStyles() {
             badge.style("display", "none");
         }
 
+        // 右侧拖拽连线手柄（从当前卡片拖出箭头连接到任意目标卡片）
+        const port = group.select(".node-connect-port");
+        if (!port.empty()) {
+            port.attr("transform", `translate(${halfW + 11}, ${descCount > 0 ? 11 : 0})`);
+        }
+
         group.classed("multi-selected", isSelected);
         group.classed("is-focus-node", isFocus);
         group.classed("is-collapsed", !!d.collapsed);
     });
+
+    // 卡片尺寸变化后同步刷新箭头端点位置
+    if (linkElements) {
+        linkElements.each(function(d) {
+            const c = getLinkCoords(d);
+            d3.select(this)
+                .attr("x1", c.sx)
+                .attr("y1", c.sy)
+                .attr("x2", c.tx)
+                .attr("y2", c.ty);
+        });
+    }
+}
+
+// 在画布卡片上直接原地编辑文字与划词标红/标绿/高亮（无需跳转弹窗）
+function startInlineCardEditById(nodeId, selectAll = false) {
+    if (!nodeElements) return;
+    nodeElements.filter(d => d.id === nodeId).each(function(d) {
+        startInlineCardEdit(d, this, selectAll);
+    });
+}
+
+function startInlineCardEdit(d, groupEl, selectAll = false) {
+    if (!d || !groupEl) return;
+    if (d.isImage && d.imageUrl) {
+        const ti = document.getElementById("title-input");
+        if (ti && !ti.disabled) { ti.focus(); ti.select(); }
+        return;
+    }
+    const group = d3.select(groupEl);
+    const cardDiv = group.select(".canvas-note-card");
+    const bodyDiv = group.select(".canvas-note-card-body");
+    if (bodyDiv.empty()) return;
+
+    const bodyEl = bodyDiv.node();
+    if (bodyEl.getAttribute("contenteditable") === "true") return;
+
+    selectedNode = d;
+    selectedNodeIds = new Set([d.id]);
+    renderEditor();
+
+    // 载入纯净可编辑富文本
+    let raw = (d.content || "").trim();
+    if (!raw || raw.includes("点击编辑 Markdown 内容...")) {
+        raw = d.label || "";
+    } else {
+        raw = raw.replace(/^#{1,4}\s+/gm, "");
+    }
+    bodyEl.innerHTML = renderMarkdownToHTML(raw);
+    bodyEl.setAttribute("contenteditable", "true");
+    cardDiv.classed("is-editing", true);
+    bodyEl.focus();
+
+    if (selectAll) {
+        const range = document.createRange();
+        range.selectNodeContents(bodyEl);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+    }
+
+    const syncFromInlineCard = () => {
+        const md = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
+        d.content = md || "未命名";
+        const plainFirstLine = bodyEl.innerText.split("\n").map(s => s.trim()).find(Boolean) || "未命名";
+        d.label = plainFirstLine.slice(0, 42);
+
+        const titleInput = document.getElementById("title-input");
+        const mdTextarea = document.getElementById("md-textarea");
+        const richEditor = document.getElementById("rich-editor");
+        if (selectedNode && selectedNode.id === d.id) {
+            if (titleInput) titleInput.value = d.label;
+            if (mdTextarea) mdTextarea.value = d.content;
+            if (richEditor && document.activeElement !== richEditor) {
+                richEditor.innerHTML = renderMarkdownToHTML(d.content);
+            }
+        }
+        // 更新卡片自适应宽高与连线端点
+        const cardEl = cardDiv.node();
+        if (cardEl) {
+            d._cardW = Math.max(76, Math.min(340, cardEl.offsetWidth || 130));
+            d._cardH = Math.max(34, Math.min(280, cardEl.offsetHeight || 38));
+            const foW = d._cardW + 20;
+            const foH = d._cardH + 20;
+            group.select(".node-card-fo")
+                .attr("width", foW)
+                .attr("height", foH)
+                .attr("x", -foW / 2)
+                .attr("y", -foH / 2);
+            renderPositions();
+        }
+        scheduleSaveGraph(true);
+    };
+
+    const onInput = (e) => {
+        if (e.isComposing || isImeComposing) return;
+        syncFromInlineCard();
+    };
+
+    const onKeyDown = (e) => {
+        e.stopPropagation();
+        if (e.key === "Escape") {
+            e.preventDefault();
+            bodyEl.blur();
+            return;
+        }
+        if (e.key === "Tab") {
+            e.preventDefault();
+            bodyEl.blur();
+            createChildNode();
+            return;
+        }
+        if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !isImeComposing) {
+            e.preventDefault();
+            bodyEl.blur();
+            return;
+        }
+        // 支持在画布卡片内直接使用 Ctrl+Shift+R/G/H/\ 快捷键标色
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+            if (e.key === "R" || e.code === "KeyR") {
+                e.preventDefault();
+                applyFormatting("color-red");
+                syncFromInlineCard();
+            } else if (e.key === "G" || e.code === "KeyG") {
+                e.preventDefault();
+                applyFormatting("color-green");
+                syncFromInlineCard();
+            } else if (e.key === "H" || e.code === "KeyH") {
+                e.preventDefault();
+                applyFormatting("highlight");
+                syncFromInlineCard();
+            } else if (e.key === "\\" || e.code === "Backslash") {
+                e.preventDefault();
+                applyFormatting("clear");
+                syncFromInlineCard();
+            }
+        }
+    };
+
+    const onBlur = () => {
+        bodyEl.removeEventListener("input", onInput);
+        bodyEl.removeEventListener("keydown", onKeyDown);
+        bodyEl.removeEventListener("blur", onBlur);
+        bodyEl.setAttribute("contenteditable", "false");
+        cardDiv.classed("is-editing", false);
+        syncFromInlineCard();
+        refreshNodeStyles();
+    };
+
+    bodyEl.addEventListener("input", onInput);
+    bodyEl.addEventListener("keydown", onKeyDown);
+    bodyEl.addEventListener("blur", onBlur);
+}
+
+// 拖拽手柄拉线连接两个节点（支持直接从任意卡片拖出箭头连向目标卡片）
+let tempConnectLine = null;
+let connectSourceNode = null;
+
+function startPortConnectDrag(event, d) {
+    event.sourceEvent.stopPropagation();
+    connectSourceNode = d;
+    const coords = d3.pointer(event.sourceEvent, zoomContainer.node());
+    if (!tempConnectLine) {
+        tempConnectLine = zoomContainer.append("line")
+            .attr("class", "temp-connect-line")
+            .attr("marker-end", "url(#arrow-marker)");
+    }
+    tempConnectLine
+        .attr("x1", d.x)
+        .attr("y1", d.y)
+        .attr("x2", coords[0])
+        .attr("y2", coords[1])
+        .style("display", "block");
+}
+
+function dragPortConnect(event, d) {
+    if (!connectSourceNode || !tempConnectLine) return;
+    const coords = d3.pointer(event.sourceEvent, zoomContainer.node());
+    tempConnectLine
+        .attr("x1", connectSourceNode.x)
+        .attr("y1", connectSourceNode.y)
+        .attr("x2", coords[0])
+        .attr("y2", coords[1]);
+}
+
+function endPortConnectDrag(event, d) {
+    if (tempConnectLine) tempConnectLine.style("display", "none");
+    if (!connectSourceNode) return;
+
+    const coords = d3.pointer(event.sourceEvent, zoomContainer.node());
+    const targetNode = nodes.find(n => {
+        if (n.id === connectSourceNode.id) return false;
+        const hw = (n._cardW || 120) / 2 + 16;
+        const hh = (n._cardH || 40) / 2 + 16;
+        return Math.abs(coords[0] - n.x) <= hw && Math.abs(coords[1] - n.y) <= hh;
+    });
+
+    if (targetNode) {
+        connectNodesWithParentRule(connectSourceNode, targetNode, true);
+    }
+    connectSourceNode = null;
+}
+
+// 连接两个节点并支持折叠展开（explicitDirection=false 时严格遵循“默认先 make 的是父”）
+function connectNodesWithParentRule(nodeA, nodeB, explicitDirection = false) {
+    if (!nodeA || !nodeB || nodeA.id === nodeB.id) return;
+
+    let parentNode = nodeA;
+    let childNode = nodeB;
+
+    if (!explicitDirection) {
+        const timeA = getNodeCreatedTime(nodeA);
+        const timeB = getNodeCreatedTime(nodeB);
+        if (timeA <= timeB) {
+            parentNode = nodeA;
+            childNode = nodeB;
+        } else {
+            parentNode = nodeB;
+            childNode = nodeA;
+        }
+    }
+
+    // 如果已经存在父子连线，再次触发则断开父子连线
+    if (childNode.parentId === parentNode.id) {
+        childNode.parentId = null;
+        sanitizeGraph();
+        updateD3Graph();
+        renderPositions();
+        scheduleSaveGraph(true);
+        showToast(`🔓 已断开【${parentNode.label}】➔【${childNode.label}】的箭头连线`);
+        return;
+    }
+
+    // 防止环路：如果 parentNode 原本是 childNode 的子孙，先解除 parentNode 的旧父级
+    if (isNodeDescendantOf(parentNode.id, childNode.id)) {
+        parentNode.parentId = null;
+    }
+
+    childNode.parentId = parentNode.id;
+    parentNode.collapsed = false;
+    sanitizeGraph();
+    updateD3Graph();
+    renderPositions();
+    scheduleSaveGraph(true);
+    showToast(`🔗 已连接箭头：【${parentNode.label}】(父) ➔ 【${childNode.label}】(子，可折叠收起)`);
 }
 
 function updateD3Graph() {
@@ -727,41 +1042,64 @@ function updateD3Graph() {
         .attr("class", d => d.type === "relation" ? "link relation-link" : "link")
         .attr("marker-end", d => d.type === "relation" ? "url(#arrow-marker-relation)" : "url(#arrow-marker)")
         .style("stroke", d => getLinkColor(d))
-        .style("opacity", d => d.type === "relation" ? 0.6 : 0.75);
+        .style("opacity", d => d.type === "relation" ? 0.75 : 0.88);
 
     nodeElements = nodeElements.data(visibleNodes, d => d.id).join(
         enter => {
             const g = enter.append("g").attr("class", "node-group")
                 .call(d3.drag()
+                    .filter(event => {
+                        if (event.target.closest && (event.target.closest('[contenteditable="true"]') || event.target.closest('.node-connect-port') || event.target.closest('.node-fold-badge'))) {
+                            return false;
+                        }
+                        return !event.button;
+                    })
                     .on("start", dragstarted)
                     .on("drag", dragged)
                     .on("end", dragended))
                 .on("click", (event, d) => {
                     event.stopPropagation();
+                    if (event.target.closest && event.target.closest('[contenteditable="true"]')) return;
+
+                    // 支持 Shift+Click 或 Ctrl/Cmd+Click 多选节点（方便按 L 键用“先 make 的是父”规则连箭头）
+                    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+                        if (selectedNodeIds.has(d.id)) {
+                            selectedNodeIds.delete(d.id);
+                        } else {
+                            selectedNodeIds.add(d.id);
+                        }
+                        selectedNode = d;
+                        refreshNodeStyles();
+                        renderEditor();
+                        if (selectedNodeIds.size >= 2) {
+                            showToast(`已选中 ${selectedNodeIds.size} 个卡片，按 L 键或点击 ↔ 即可按“先建为父”连上可折叠箭头！`);
+                        }
+                        return;
+                    }
+
                     selectedNode = d;
                     selectedNodeIds = new Set([d.id]);
-                    refreshNodeStyles(); // 只更新视觉，不重启仿真
+                    refreshNodeStyles();
                     renderEditor();
-                    if (document.activeElement && document.activeElement !== document.body) {
-                        document.activeElement.blur();
-                    }
                 })
                 .on("dblclick", (event, d) => {
                     event.stopPropagation();
-                    renameSelectedNode(d);
+                    startInlineCardEdit(d, event.currentTarget, false);
                 });
 
-            // ⭐ 划重点金光动态呼吸外圈
-            g.append("circle").attr("class", "focus-glow-ring").style("display", "none");
+            // 画布富文本与图片直接渲染卡片容器 (<foreignObject>)
+            const fo = g.append("foreignObject")
+                .attr("class", "node-card-fo")
+                .attr("width", 160)
+                .attr("height", 54)
+                .attr("x", -80)
+                .attr("y", -27);
 
-            g.append("circle").attr("class", "node-circle");
-            g.append("text").attr("class", "node-label").attr("text-anchor", "middle");
+            const cardDiv = fo.append("xhtml:div")
+                .attr("class", "canvas-note-card");
 
-            // ⭐ 划重点左上角小星号 Badge
-            const focusStar = g.append("text").attr("class", "focus-star-label")
-                .text("⭐")
-                .style("font-size", "14px")
-                .style("display", "none");
+            cardDiv.append("xhtml:div")
+                .attr("class", "canvas-note-card-body");
 
             // 节点折叠 / 展开徽章点按 Badge
             const badge = g.append("g").attr("class", "node-fold-badge")
@@ -771,14 +1109,30 @@ function updateD3Graph() {
                     toggleNodeFold(d);
                 });
             badge.append("circle").attr("class", "fold-circle");
-            badge.append("text").attr("class", "fold-text").attr("text-anchor", "middle").attr("dy", "3px");
+            badge.append("text").attr("class", "fold-text").attr("text-anchor", "middle").attr("dy", "3.5px");
+
+            // 右侧拖拽拉出箭头手柄 (.node-connect-port)
+            const port = g.append("g").attr("class", "node-connect-port")
+                .attr("title", "拖拽拉出箭头连接到其他卡片")
+                .call(d3.drag()
+                    .on("start", startPortConnectDrag)
+                    .on("drag", dragPortConnect)
+                    .on("end", endPortConnectDrag));
+            port.append("circle")
+                .attr("r", 7)
+                .attr("class", "port-circle");
+            port.append("text")
+                .attr("text-anchor", "middle")
+                .attr("dy", "3.5px")
+                .attr("class", "port-arrow")
+                .text("➔");
 
             return g;
         },
         update => update
     );
 
-    // 每次渲染都更新 ALL 节点属性（包含折叠徽章与重点发光样式）
+    // 每次渲染都更新 ALL 节点属性（包含富文本卡片尺寸测量、折叠徽章与重点发光样式）
     refreshNodeStyles();
 
     // 更新仿真
@@ -859,21 +1213,23 @@ function dragged(event, d) {
         d.x = event.x;
         d.y = event.y;
 
-        // 实时检测靠近目标父节点 (Drag to Reparent 吸附预警)
+        // 仅当按住 Alt 键拖拽靠近目标节点时才触发吸附挂载父节点，确保平时把笔记“放到一坨”紧挨摆放时绝不误触自动连线
         let nearestNode = null;
-        let minDist = 75; // 75px 吸附触发距离阈值
+        const allowReparentDrop = !!(event.sourceEvent && event.sourceEvent.altKey);
+        let minDist = 48;
 
-        nodes.forEach(n => {
-            if (n.id === d.id) return;
-            // 不能挂载到自己的子孙节点上 (防止死循环)
-            if (isNodeDescendantOf(n.id, d.id)) return;
+        if (allowReparentDrop) {
+            nodes.forEach(n => {
+                if (n.id === d.id) return;
+                if (isNodeDescendantOf(n.id, d.id)) return;
 
-            const dist = Math.hypot(d.x - n.x, d.y - n.y);
-            if (dist < minDist) {
-                minDist = dist;
-                nearestNode = n;
-            }
-        });
+                const dist = Math.hypot(d.x - n.x, d.y - n.y);
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestNode = n;
+                }
+            });
+        }
 
         if (nearestNode !== dropCandidateTargetNode) {
             clearDropCandidateHighlight();
@@ -924,7 +1280,7 @@ function dragended(event, d) {
             if (layoutMode === "tree") {
                 tidyLayout();
             } else {
-                updateGraph();
+                updateD3Graph();
             }
         }
     } else {
@@ -955,9 +1311,14 @@ function dragended(event, d) {
         }
     }
 
+    if (layoutMode === "tree" && !dropCandidateTargetNode) {
+        layoutMode = "free";
+        const btnLayout = document.getElementById("btn-layout");
+        if (btnLayout) btnLayout.dataset.active = "false";
+    }
     clearDropCandidateHighlight();
     dragStartPositions.clear();
-    saveGraphToStorage();
+    scheduleSaveGraph(true);
 }
 
 // --- XMind 树状布局模式 (Tidy Layout Engine) ---
@@ -1059,17 +1420,29 @@ function switchToForceLayout() {
 
 // --- XMind 全套核心快捷键逻辑 ---
 
-// 1. Tab 键：建子节点
+// 1. Tab 键：建子节点（自带动态跟随箭头，且父节点默认可收起展开）
 function createChildNode() {
     if (!selectedNode) selectedNode = nodes[0];
-    const newId = `node_${Date.now()}`;
+    if (!selectedNode) return;
+    selectedNode.collapsed = false;
+
+    const nowTs = Date.now();
+    const newId = `node_${nowTs}`;
+    const existingChildren = nodes.filter(n => n.parentId === selectedNode.id);
+    const parentW = selectedNode._cardW || 140;
+    const targetX = (Number.isFinite(selectedNode.x) ? selectedNode.x : 450) + Math.max(220, parentW + 100);
+    const targetY = (Number.isFinite(selectedNode.y) ? selectedNode.y : 320) + (existingChildren.length * 68);
+
     const newNode = {
         id: newId,
-        label: `新节点 ${nodes.length + 1}`,
+        label: `新分支 ${nodes.length + 1}`,
         parentId: selectedNode.id,
-        content: `# 新节点\n\n点击编辑 Markdown 内容...`,
-        x: selectedNode.x + 180,
-        y: selectedNode.y + 40,
+        content: `新分支 ${nodes.length + 1}`,
+        createdAt: nowTs,
+        x: targetX,
+        y: targetY,
+        fx: targetX,
+        fy: targetY,
         order: nodes.length
     };
 
@@ -1078,43 +1451,45 @@ function createChildNode() {
     selectedNode = newNode;
     selectedNodeIds = new Set([newId]);
 
-    saveGraphToStorage();
+    scheduleSaveGraph(true);
     if (layoutMode === "tree") tidyLayout();
     else updateD3Graph();
     renderPositions();
     renderEditor();
-    focusOnNode(newNode);
-    showToast(`✨ 已增加子节点 [[${newNode.label}]]`);
+    showToast(`✨ 已衍生子卡片 [[${newNode.label}]] (箭头自动跟随，父节点可折叠)`);
 
     setTimeout(() => {
-        const titleInput = document.getElementById("title-input");
-        if (titleInput && !titleInput.disabled) {
-            titleInput.focus();
-            titleInput.select();
-        }
-    }, 60);
+        startInlineCardEditById(newId, true);
+    }, 50);
 }
 
-// 2. Enter 键：新建同级节点
+// 2. Enter 键：新建同级姊妹节点
 function createSiblingNode() {
     if (!selectedNode) {
         createChildNode();
         return;
     }
     const parentId = selectedNode.parentId;
-    const newId = `node_${Date.now()}`;
+    const nowTs = Date.now();
+    const newId = `node_${nowTs}`;
 
     const siblings = nodes.filter(n => n.parentId === parentId);
     siblings.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     const maxOrder = siblings.length > 0 ? Math.max(...siblings.map(s => s.order ?? 0)) + 1 : 0;
 
+    const targetX = Number.isFinite(selectedNode.x) ? selectedNode.x : 450;
+    const targetY = (Number.isFinite(selectedNode.y) ? selectedNode.y : 320) + Math.max(68, (selectedNode._cardH || 40) + 32);
+
     const newNode = {
         id: newId,
-        label: `同级节点 ${nodes.length + 1}`,
+        label: `同级卡片 ${nodes.length + 1}`,
         parentId: parentId,
-        content: `# 同级节点\n\n点击编辑 Markdown 内容...`,
-        x: selectedNode.x,
-        y: selectedNode.y + 60,
+        content: `同级卡片 ${nodes.length + 1}`,
+        createdAt: nowTs,
+        x: targetX,
+        y: targetY,
+        fx: targetX,
+        fy: targetY,
         order: maxOrder
     };
 
@@ -1126,21 +1501,16 @@ function createSiblingNode() {
     selectedNode = newNode;
     selectedNodeIds = new Set([newId]);
 
-    saveGraphToStorage();
+    scheduleSaveGraph(true);
     if (layoutMode === "tree") tidyLayout();
     else updateD3Graph();
     renderPositions();
     renderEditor();
-    focusOnNode(newNode);
-    showToast(`✨ 已新增同级节点 [[${newNode.label}]]`);
+    showToast(`✨ 已新增姊妹卡片 [[${newNode.label}]]`);
 
     setTimeout(() => {
-        const titleInput = document.getElementById("title-input");
-        if (titleInput && !titleInput.disabled) {
-            titleInput.focus();
-            titleInput.select();
-        }
-    }, 60);
+        startInlineCardEditById(newId, true);
+    }, 50);
 }
 
 // --- XMind 分支折叠 / 展开 (Fold / Unfold Engine) ---
@@ -1300,16 +1670,10 @@ function deleteSelectedNode() {
     showToast("🗑️ 已删除节点及其关联子分支");
 }
 
-// 4. F2 / Space：重命名节点
+// 4. F2 / 双击：直接在画布卡片上原地富文本编辑（取代简陋的弹窗 prompt）
 function renameSelectedNode(targetNode = selectedNode) {
     if (!targetNode) return;
-    const newTitle = prompt("修改节点标题:", targetNode.label);
-    if (newTitle && newTitle.trim()) {
-        targetNode.label = newTitle.trim();
-        saveGraphToStorage();
-        updateD3Graph();
-        renderEditor();
-    }
+    startInlineCardEditById(targetNode.id, true);
 }
 
 // 5. 方向键 ↑↓←→：节点键盘高亮漫游
@@ -1369,26 +1733,37 @@ function moveSiblingOrder(delta) {
 
 function toggleRelationLink() {
     if (selectedNodeIds.size < 2) {
-        showToast("请先选择两个节点以连接虚线关联");
+        showToast("💡 请先按住 Shift 点击（或框选）2 个以上卡片，再按 L 键即可按“先 make 的是父”连上可折叠箭头！");
         return;
     }
-    const [id1, id2] = Array.from(selectedNodeIds);
-    const existingIndex = links.findIndex(l => {
-        const sId = typeof l.source === "object" ? l.source.id : l.source;
-        const tId = typeof l.target === "object" ? l.target.id : l.target;
-        return (sId === id1 && tId === id2) || (sId === id2 && tId === id1);
-    });
+    const selectedList = nodes.filter(n => selectedNodeIds.has(n.id));
+    if (selectedList.length < 2) return;
 
-    if (existingIndex >= 0) {
-        links.splice(existingIndex, 1);
-        showToast("已移除虚线关联");
-    } else {
-        links.push({ source: id1, target: id2, type: "relation" });
-        showToast("🔗 已添加虚线关联");
+    // 严格按照创建时间排序：先 make (创建) 的节点默认作为父节点 (Parent ➔ Child)
+    selectedList.sort((a, b) => getNodeCreatedTime(a) - getNodeCreatedTime(b));
+    const parentNode = selectedList[0];
+    const childNodes = selectedList.slice(1);
+
+    // 若只有两个节点，直接调用带切换开关的父子箭头连接
+    if (childNodes.length === 1) {
+        connectNodesWithParentRule(parentNode, childNodes[0], false);
+        return;
     }
 
-    saveGraphToStorage();
+    // 若多选了 3 个及以上节点，最先创建的作为父节点，其余全部挂载为其子节点
+    let connectedCount = 0;
+    childNodes.forEach(child => {
+        if (!isNodeDescendantOf(parentNode.id, child.id)) {
+            child.parentId = parentNode.id;
+            connectedCount++;
+        }
+    });
+    parentNode.collapsed = false;
+    sanitizeGraph();
     updateD3Graph();
+    renderPositions();
+    scheduleSaveGraph(true);
+    showToast(`🔗 已将最先创建的【${parentNode.label}】设为父节点，连向 ${connectedCount} 个子卡片（支持折叠展开）！`);
 }
 
 function renderOutlineTree() {
@@ -1524,38 +1899,54 @@ function initEvents() {
     const mdTextarea = document.getElementById("md-textarea");
     const richEditor = document.getElementById("rich-editor");
 
-    titleInput.addEventListener("input", () => {
+    // 全局中文输入法 (IME) 组合状态守卫，彻底解决中文拼音打字与手写输入卡顿
+    document.addEventListener("compositionstart", () => { isImeComposing = true; });
+    document.addEventListener("compositionend", () => {
+        isImeComposing = false;
+        if (document.activeElement === richEditor && selectedNode) {
+            selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
+            mdTextarea.value = selectedNode.content;
+            refreshNodeStyles();
+            scheduleSaveGraph(true);
+        }
+    });
+
+    titleInput.addEventListener("input", (e) => {
         if (!selectedNode) return;
         selectedNode.label = titleInput.value.trim() || "未命名";
-        saveGraphToStorage();
-        refreshNodeStyles(); // 只刷新文字标签，不重启仿真！
+        refreshNodeStyles();
+        if (!e.isComposing && !isImeComposing) {
+            scheduleSaveGraph(true);
+        }
     });
 
     // XMind 风格：标题输入框中 Tab=子节点，Enter=姊妹节点
     titleInput.addEventListener("keydown", (e) => {
+        if (e.isComposing || isImeComposing) return;
         if (e.key === "Tab") {
             e.preventDefault();
             createChildNode();
-            // 自动聚焦新节点的标题输入框
-            setTimeout(() => titleInput.select(), 50);
         } else if (e.key === "Enter") {
             e.preventDefault();
             createSiblingNode();
-            setTimeout(() => titleInput.select(), 50);
         }
     });
 
-    mdTextarea.addEventListener("input", () => {
+    mdTextarea.addEventListener("input", (e) => {
         if (!selectedNode) return;
         selectedNode.content = mdTextarea.value;
-        saveGraphToStorage();
+        refreshNodeStyles();
+        if (!e.isComposing && !isImeComposing) {
+            scheduleSaveGraph(true);
+        }
     });
 
-    richEditor.addEventListener("input", () => {
-        if (!selectedNode) return;
+    richEditor.addEventListener("input", (e) => {
+        if (!selectedNode || e.isComposing || isImeComposing) return;
         selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
         mdTextarea.value = selectedNode.content;
-        saveGraphToStorage();
+        refreshNodeStyles();
+        scheduleSaveGraph(true);
     });
 
     // 格式化按钮
@@ -1903,9 +2294,13 @@ function applyFormatting(format) {
         return;
     }
 
-    // 在富文本 (live) 模式下操作 richEditor
-    if (richEditor && (previewMode === "live")) {
-        const sel = window.getSelection();
+    // 支持在画布卡片原地编辑区 (.canvas-note-card-body) 或右侧富文本编辑器 (#rich-editor) 直接划词标红/标绿/高亮
+    const sel = window.getSelection();
+    const activeInlineBody = (sel && sel.rangeCount > 0 && sel.anchorNode)
+        ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body[contenteditable='true']")
+        : null;
+
+    if (activeInlineBody || (richEditor && (previewMode === "live"))) {
         if (!sel || sel.rangeCount === 0) return;
 
         switch (format) {
@@ -1966,11 +2361,20 @@ function applyFormatting(format) {
             default: return;
         }
 
-        // 同步 richEditor 内容到 mdTextarea 与 selectedNode
+        // 同步画布内联卡片或 richEditor 内容到 selectedNode，并立即在画布上呈现红/绿/高亮效果
         if (selectedNode) {
-            selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
-            document.getElementById("md-textarea").value = selectedNode.content;
-            saveGraphToStorage(false);
+            if (activeInlineBody) {
+                selectedNode.content = htmlToSafeMarkdown(activeInlineBody.innerHTML);
+                const plainFirst = activeInlineBody.innerText.split("\n").map(s => s.trim()).find(Boolean);
+                if (plainFirst) selectedNode.label = plainFirst.slice(0, 42);
+                if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
+            } else if (richEditor) {
+                selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
+            }
+            const mdEl = document.getElementById("md-textarea");
+            if (mdEl) mdEl.value = selectedNode.content;
+            refreshNodeStyles();
+            scheduleSaveGraph(true);
         }
     }
 }
@@ -2754,6 +3158,9 @@ function initSelectionQuickBubble() {
     const bubble = document.getElementById("selection-quick-bubble");
     const richEditor = document.getElementById("rich-editor");
     if (!bubble || !richEditor) return;
+    if (bubble.parentElement !== document.body) {
+        document.body.appendChild(bubble);
+    }
 
     function updateBubblePosition() {
         const sel = window.getSelection();
@@ -2763,7 +3170,12 @@ function initSelectionQuickBubble() {
         }
 
         const range = sel.getRangeAt(0);
-        if (!richEditor.contains(range.commonAncestorContainer)) {
+        const containerEl = range.commonAncestorContainer.nodeType === 1
+            ? range.commonAncestorContainer
+            : range.commonAncestorContainer.parentElement;
+        const inRichEditor = richEditor.contains(range.commonAncestorContainer);
+        const inCanvasCard = !!(containerEl && containerEl.closest && containerEl.closest(".canvas-note-card-body"));
+        if (!inRichEditor && !inCanvasCard) {
             bubble.style.display = "none";
             return;
         }
@@ -2788,15 +3200,16 @@ function initSelectionQuickBubble() {
         bubble.style.top = `${top}px`;
     }
 
-    richEditor.addEventListener("mouseup", () => setTimeout(updateBubblePosition, 20));
-    richEditor.addEventListener("keyup", (e) => {
+    document.addEventListener("mouseup", () => setTimeout(updateBubblePosition, 25));
+    document.addEventListener("keyup", (e) => {
         if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Shift"].includes(e.key)) {
-            setTimeout(updateBubblePosition, 20);
+            setTimeout(updateBubblePosition, 25);
         }
     });
 
     document.addEventListener("mousedown", (e) => {
-        if (!bubble.contains(e.target) && !richEditor.contains(e.target)) {
+        const inCanvasCard = !!(e.target && e.target.closest && e.target.closest(".canvas-note-card-body"));
+        if (!bubble.contains(e.target) && !richEditor.contains(e.target) && !inCanvasCard) {
             bubble.style.display = "none";
         }
     });
@@ -2846,6 +3259,7 @@ function initClipboardPaste() {
                     const targetX = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.x)) ? lastCanvasMouseCoords.x : 450;
                     const targetY = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.y)) ? lastCanvasMouseCoords.y : 320;
 
+                    const nowTs = Date.now();
                     const newNode = {
                         id: newId,
                         label: `📸 截图 ${nodes.length + 1}`,
@@ -2853,22 +3267,24 @@ function initClipboardPaste() {
                         content: `![截图](${compressedDataUrl})\n\n`,
                         isImage: true,
                         imageUrl: compressedDataUrl,
+                        createdAt: nowTs,
                         order: nodes.length,
                         x: targetX,
-                        y: targetY
+                        y: targetY,
+                        fx: targetX,
+                        fy: targetY
                     };
 
                     nodes.push(newNode);
                     selectedNode = newNode;
                     selectedNodeIds = new Set([newId]);
 
-                    saveGraphToStorage();
+                    scheduleSaveGraph(true);
                     if (layoutMode === "tree") tidyLayout();
                     else updateD3Graph();
                     renderPositions();
                     renderEditor();
-                    focusOnNode(newNode);
-                    showToast("📸 截图已成功粘贴为独立卡片 (可按 Tab 衍生箭头)！");
+                    showToast("📸 截图已粘贴在鼠标位置 (可自由摆放、按 Tab 衍生箭头或拉线连接)！");
                 });
             };
             reader.readAsDataURL(imageFile);
@@ -2886,27 +3302,30 @@ function initClipboardPaste() {
                 const targetX = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.x)) ? lastCanvasMouseCoords.x : 450;
                 const targetY = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.y)) ? lastCanvasMouseCoords.y : 320;
 
+                const nowTs = Date.now();
                 const newNode = {
                     id: newId,
                     label: firstLine,
-                    parentId: null, // 独立自由悬浮卡片
+                    parentId: null, // 独立自由悬浮卡片，支持放到一坨
                     content: trimmed,
+                    createdAt: nowTs,
                     order: nodes.length,
                     x: targetX,
-                    y: targetY
+                    y: targetY,
+                    fx: targetX,
+                    fy: targetY
                 };
 
                 nodes.push(newNode);
                 selectedNode = newNode;
                 selectedNodeIds = new Set([newId]);
 
-                saveGraphToStorage();
+                scheduleSaveGraph(true);
                 if (layoutMode === "tree") tidyLayout();
                 else updateD3Graph();
                 renderPositions();
                 renderEditor();
-                focusOnNode(newNode);
-                showToast(`📋 已粘贴为独立卡片: [[${firstLine}]]`);
+                showToast(`📋 已在光标处粘贴卡片: [[${firstLine}]] (双击卡片可直接划词标红/标绿/高亮)`);
             }
         }
     });

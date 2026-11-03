@@ -1,61 +1,60 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.6.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.7.0)
 
 ## Goal
-A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, with D3.js interactive graph workspace, sticky tracking directional arrow links, zero-friction high-frequency text coloring, clipboard image paste, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
+A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
-- **Spatial Infinite Canvas & Sticky Tracking Arrows (v2.6.0 空间自由沙盘与动态跟随箭头)**:
-  - **Dynamic Directional Arrows (物理有向箭头自适应伸缩跟随)**: All parent-child and relational links render crisp SVG directional arrowheads (`#arrow-marker`, `#arrow-marker-relation`).
-  - **Node Boundary Auto-Offset (智能边缘止步)**: Link lines automatically stop at the outer boundary of the target node or image card, ensuring the arrowhead is 100% visible and touches the border cleanly without being obscured.
-  - **Sticky Tracking (随心拖拽永不脱钩)**: Moving any node stretches, shrinks, and rotates all connected arrows in real-time.
-  - **Directional Fold/Unfold (有向分支收起与展开)**: "默认先建为父、后建为子"，点击父节点折叠徽章 (`+N` / `−`) 或快捷键 `Ctrl + /` 即可一键折叠或展开所有下游子分支。
-- **Zero-Friction Colors & Highlighting (v2.6.0 零摩擦高频标注套件)**:
+- **Freeform Spatial Canvas & Direct Rich-Text Card Rendering (v2.7.0 自由空间“放到一坨”与画布富文本直显)**:
+  - **Freeform Spatial Dumping (`layoutMode = "free"` by default)**: Double-clicking or pasting (`Ctrl+V`) places independent cards at exact 2D cursor coordinates (`fx/fy`) without forcibly snapping unrelated notes into a vertical tree column. Unrelated thoughts can sit side-by-side in clusters ("放到一坨") without accidental auto-reparenting (`Alt + Drag` required for proximity drop reparenting).
+  - **Direct On-Canvas Rich Sentences & Image Cards (`<foreignObject class="node-card-fo">`)**: Sentences on the canvas directly display inline 🔴 red words, 🟢 green words, 🟡 yellow `<mark>` highlights, multi-line text, and 📸 pasted screenshots—just like OneNote, without needing to look at the right sidebar.
+  - **Direct On-Canvas Inline Editing & Selection Bubble**: Double-clicking any text card edits it directly on the canvas (`contenteditable="true"`). Selecting words directly inside a canvas card pops up `#selection-quick-bubble` (`[🔴] [🟢] [🟡] [🧹]`) right above the card on the canvas.
+- **Sticky Tracking Arrows & "默认先 make 的是父" Foldable Connections (v2.6.0 - v2.7.0)**:
+  - **Dynamic Rectangle-Edge Directional Arrows (物理有向箭头矩形边界精确止步与跟随)**: Uses ray-rectangle intersection (`getRectEdgePoint`) with dynamically measured card width/height (`_cardW`, `_cardH`) so SVG arrowheads (`#arrow-marker`) start at the parent card's outer border and stop cleanly at the child card's outer border at any 360° angle. Moving any card stretches, shrinks, and rotates connected arrows in real time.
+  - **Keep `Tab` (Child) & `Enter` (Sibling) Shortcuts**: Pressing `Tab` sprouts a connected child card (`Parent ➔ Child`) with automatic vertical offset so siblings don't overlap; pressing `Enter` sprouts a sibling card.
+  - **"默认先 make 的是父" (Earlier-Created Card = Parent) When Connecting Existing Cards**:
+    - Every card records its creation timestamp (`createdAt`).
+    - Multi-selecting 2+ existing cards (`Shift+Click` or `Shift+Drag` / `B` marquee box) and pressing `L` (or clicking `➔` `#btn-relation`) sorts the selected cards by `getNodeCreatedTime(node)` ascending: **the card created (`make`) earlier automatically becomes the Parent (`Parent ➔ Child`), and the later-created card(s) become its Children**.
+    - Every card also provides a right-edge `.node-connect-port` (`➔` handle) to drag a directional arrow directly from one card to another with the mouse.
+  - **Mindmap Fold/Unfold on All Arrow-Connected Cards**: Any card with outgoing parent-child arrow(s) displays a fold/unfold badge (`−` / `+N`) on its right edge (and supports `Ctrl + /`, `Ctrl + ←`, `Ctrl + →`), collapsing or expanding all downstream arrow-connected descendants like a mindmap.
+- **Zero-Friction Colors & Highlighting (v2.6.0 - v2.7.0 零摩擦高频标注套件)**:
   - **Keyboard Stream (盲打式全键盘流)**:
     - `Ctrl + Shift + R`: 🔴 瞬间标红 (核心科学问题 / 重点自变量)
     - `Ctrl + Shift + G`: 🟢 瞬间标绿 (测量指标 / 因变量 / 关键特征)
     - `Ctrl + Shift + H`: 🟡 瞬间荧光黄高亮 (`==highlight==` / `<mark>`)
     - `Ctrl + Shift + \`: 🧹 瞬间清除格式与列表
-  - **Selection Quick Bubble (划词悬浮微型调色胶囊)**: When selecting text inside the editor, an ultra-fast floating pill pops up directly above the selection with 🔴, 🟢, 🟡, 🧹 instant action buttons.
+  - **Selection Quick Bubble (`#selection-quick-bubble`)**: Mounted on `document.body` so it works both inside on-canvas cards (even when the right sidebar is collapsed) and inside `#rich-editor`.
   - **Format Toolbar Presets**: Dedicated 1-click preset buttons on the editor toolbar (`🔴 红`, `🟢 绿`, `🟡 亮`, `🧹 擦除`).
-- **Global Clipboard Image & Text Paste (v2.6.0 剪贴板直贴画布)**:
-  - **Screenshot Direct Paste**: Press `Ctrl + V` anywhere on the canvas with screenshot/image data in the clipboard (`Win + Shift + S`) to spawn an independent floating image card at the cursor position.
-  - **Auto-Compress Engine**: Automatically scales and compresses images (max 1000px, 0.85 quality) to prevent storage and GitHub Gist sync explosion.
-  - **Canvas Text Paste**: Press `Ctrl + V` while viewing the canvas to spawn a new floating text card at the cursor position.
+- **Smooth Zero-Lag Input & IME Protection (v2.7.0 输入防抖与输入法防卡顿)**:
+  - Debounced storage persistence (`scheduleSaveGraph`, 360ms) + Chinese IME `compositionstart`/`compositionend` guards eliminate synchronous `JSON.stringify` / `localStorage` / DOM rebuild stalls during fast typing or handwriting input.
+- **Global Clipboard Image & Text Paste (v2.6.0 - v2.7.0 剪贴板直贴画布)**:
+  - **Screenshot Direct Paste**: Press `Ctrl + V` anywhere on the canvas with screenshot/image data in the clipboard (`Win + Shift + S`) to spawn an independent floating image card at the exact cursor position (without camera jump), auto-compressed via HTML5 Canvas (`max 1000px`, `0.85` JPEG quality).
+  - **Canvas Text Paste**: Press `Ctrl + V` while viewing the canvas to spawn a new floating rich-text card at the exact cursor position.
 - **Authentication System (`public/login.html`)**:
   - Golden-themed UI mockup available at `/login.html`.
   - Direct access enabled on `/index.html` to prevent any authentication blocking.
 - **Mindmap-First Visual Workspace (`public/`)**:
-  - D3.js SVG canvas with D3 force simulation and XMind Tidy Tree layout engine (`🧭` / `M` key).
+  - D3.js SVG canvas with Freeform Whiteboard mode (`free`), XMind Tidy Tree layout engine (`🧭` / `M` key), and Force layout (`✦` / `G` key).
   - **Full Keyboard Shortcuts Suite**:
-    - `Enter`: 新建同级节点 (Add sibling node).
-    - `Tab`: 新建子分支节点 (Add child node with directional arrow).
-    - `双击空白处`: 创建 100% 独立的全新根主题节点 (Create independent root topic).
-    - `Ctrl + Z` / `Cmd + Z`: 撤销历史步骤 (Undo history state).
-    - `Ctrl + Y` / `Cmd + Shift + Z`: 重做历史步骤 (Redo history state).
-    - `Delete` / `Backspace`: 删除选中节点及其整个子分支 (Delete node & subtree).
-    - `F2` / `Space`: 原处重命名节点 (Rename inline).
-    - `方向键 ↑ / ↓ / ← / →`: 键盘吸附导航漫游节点 (Navigate node focus).
-    - `Alt + ↑ / ↓`: 向上 / 向下微调同级节点顺序 (Reorder sibling nodes up/down).
-    - `L` / `Ctrl + L`: 建立 / 解除节点间虚线双链关联 (Toggle dashed relation link).
-    - `M`: 一键整理为 XMind 树状清晰模式 (Toggle XMind Tidy Layout).
-    - `G`: 一键切换为自由网状力学图 (Toggle Force Layout).
-    - `Ctrl + ←` / `Ctrl + →` / `Ctrl + /`: 分支折叠 / 展开 / 切换 (Fold & Unfold branches).
-    - `F` / `Ctrl + Shift + F`: ⭐ 划重点 / 设为核心关注节点并触发脉冲金光呼吸环 (Toggle Focus Node).
-    - `Shift + 左键拖拽 / 🔳 框选`: 画布矩形框选多选节点 (Marquee Box Selection for batch node operations).
-    - **Drag-to-Reparent**: Drag any single node close to another node (< 75px) to show animated cyan/gold pulse pre-warning ring (`dropTargetPulse`) and automatically re-parent it upon mouse release!
-  - Side Markdown editor panel (`#editor-panel`) with Live Edit, Markdown Source, and Preview mode, complete with `📖` toggle button.
-  - **Full Rich Text List & Formatting Controls**:
-    - `-`: Toggle Unordered Bullet List (`<ul><li>`).
-    - `1.`: Toggle Ordered Numbered List (`<ol><li>`).
-    - `🧹`: One-click Clear Formatting & Remove Lists / Bullet Symbols.
-    - Automatic paste normalization for Word/Web bullet symbols (`•`, `·`, `▪`).
+    - `Enter`: 新建同级卡片 (Add sibling card).
+    - `Tab`: 新建子分支卡片 (Add child card with directional arrow).
+    - `双击空白处`: 在光标处创建独立的自由空间卡片并直接进入原地编辑.
+    - `双击卡片`: 在画布卡片内直接原地富文本编辑与划词标色.
+    - `Ctrl + Z` / `Cmd + Z` & `Ctrl + Y`: 撤销 / 重做历史步骤.
+    - `Delete` / `Backspace`: 删除选中卡片及其关联子分支.
+    - `F2`: 原地编辑卡片内容.
+    - `方向键 ↑ / ↓ / ← / →` & `Alt + ↑ / ↓`: 节点漫游与同级调序.
+    - `L` (或点击 `➔`): 将多选卡片按**“默认先 make 的是父”**连接为可折叠有向箭头（再次按 `L` 可断开）.
+    - `M`: 一键整理为 XMind 树状清晰结构 (`tidyLayout`).
+    - `G`: 一键切换为自由网状力学图 (`switchToForceLayout`).
+    - `Ctrl + ←` / `Ctrl + →` / `Ctrl + /`: 分支折叠 / 展开 / 切换.
+    - `F` / `Ctrl + Shift + F`: ⭐ 划重点 / 设为核心关注节点.
+    - `Shift + 左键点选` / `Shift + 左键拖拽` / `🔳 框选 (B 键)`: 多选节点（支持批量移动、删除、划重点、按 `L` 连箭头）.
+  - Side Markdown editor panel (`#editor-panel`) with Live Edit, Markdown Source, and Preview mode, complete with `📖` toggle button and `-`, `1.`, `🧹` list/format controls.
 - **🗂️ Multi-Map Organizer (多图谱组织器)**:
   - Support creating, switching, renaming, duplicating, and deleting multiple independent mindmap projects with metadata manifests (`flownotes_maps_manifest`).
 - **GitHub Gist Anti-Loss Sync & Data Protection Guardrail**:
-  - Auto-linked to private Gist (`4e7cc31fd55d0614a69e31283319953d`).
-  - Auto-commit history on every edit for 100% accidental deletion recovery with 8s rate-limiting cooling protection.
-  - **Data Protection Guardrail**: If local total card count is less than 50% of remote count (and remote count > 3), push MUST be blocked to prevent data loss.
+  - Auto-linked to private Gist (`4e7cc31fd55d0614a69e31283319953d`) with 8s rate-limiting cooling protection and 50% card-count wipe protection guardrail.
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.6.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.7.0_flownotes-eze.pages.dev_一键更新网站.bat`.

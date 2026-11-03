@@ -975,3 +975,145 @@ body {
 }
 
 
+/* ==========================================================================
+   v2.7.0 画布直接渲染富文本句子卡片、原地划词标红/标绿/高亮、拉线连箭头与防重叠样式
+   ========================================================================== */
+
+.node-card-fo {
+    overflow: visible;
+    pointer-events: auto;
+}
+
+.canvas-note-card {
+    --card-accent: #6366f1;
+    display: inline-block;
+    min-width: 76px;
+    max-width: 320px;
+    padding: 7px 12px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1.5px solid rgba(148, 163, 184, 0.28);
+    border-left: 4px solid var(--card-accent);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    color: var(--text-primary, #f1f5f9);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 13.5px;
+    line-height: 1.5;
+    cursor: grab;
+    user-select: none;
+    transition: box-shadow 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+    box-sizing: border-box;
+    word-break: break-word;
+}
+
+html[data-theme="light"] .canvas-note-card {
+    background: rgba(255, 255, 255, 0.96);
+    border-color: rgba(100, 116, 139, 0.3);
+    border-left: 4px solid var(--card-accent);
+    color: #0f172a;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+}
+
+.canvas-note-card.is-root {
+    font-weight: 600;
+    border-width: 2px;
+    border-left-width: 5px;
+}
+
+.canvas-note-card.is-selected {
+    border-color: var(--accent-cyan, #38bdf8) !important;
+    box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.45), 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.canvas-note-card.is-focus {
+    border-color: #fbbf24 !important;
+    box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.55), 0 0 18px rgba(251, 191, 36, 0.35);
+}
+
+.canvas-note-card.is-editing {
+    cursor: text;
+    user-select: text;
+    border-color: #818cf8 !important;
+    box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.5), 0 12px 28px rgba(0, 0, 0, 0.5);
+    background: rgba(15, 23, 42, 0.98);
+}
+
+html[data-theme="light"] .canvas-note-card.is-editing {
+    background: #ffffff;
+}
+
+.canvas-note-card-body {
+    outline: none;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.canvas-note-card-body[contenteditable="true"] {
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+    min-height: 20px;
+}
+
+.canvas-note-card-body ul,
+.canvas-note-card-body ol {
+    margin: 4px 0;
+    padding-left: 18px;
+}
+
+.canvas-card-img {
+    display: block;
+    max-width: 240px;
+    max-height: 150px;
+    width: auto;
+    height: auto;
+    border-radius: 6px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.canvas-card-caption {
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-secondary, #cbd5e1);
+    text-align: center;
+}
+
+/* 卡片右侧拖出箭头连线手柄 (.node-connect-port) */
+.node-connect-port {
+    cursor: crosshair;
+    opacity: 0;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.node-group:hover .node-connect-port,
+.node-group.multi-selected .node-connect-port {
+    opacity: 1;
+}
+
+.node-connect-port .port-circle {
+    fill: #4f46e5;
+    stroke: #ffffff;
+    stroke-width: 1.5px;
+}
+
+.node-connect-port:hover .port-circle {
+    fill: #38bdf8;
+    r: 8.5px;
+}
+
+.node-connect-port .port-arrow {
+    fill: #ffffff;
+    font-size: 9px;
+    font-weight: bold;
+    pointer-events: none;
+    user-select: none;
+}
+
+/* 拖拽连接时的实时预览箭头线 */
+.temp-connect-line {
+    stroke: #38bdf8;
+    stroke-width: 2.5px;
+    stroke-dasharray: 5, 4;
+    pointer-events: none;
+}
