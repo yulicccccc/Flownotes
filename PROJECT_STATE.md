@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.2.1)
+# Project State: FlowNotes (v3.3.0)
 
 ## Current Version & Status
-- **Current Version**: `v3.2.1`
+- **Current Version**: `v3.3.0`
 - **Latest Releases**:
+  - `v3.3.0`:
+    - **Diagonal Proportional Font Scaling & 4-Edge Adaptive Reflow Resize Engine (`startCardResize` + `resetCardCustomSize`)**: Dragging diagonal corners (`.handle-se` `◢` / `.handle-sw`) scales the card box AND automatically scales `d.customFontSize` (`9px`–`64px`) proportionally; dragging left/right edges (`.handle-e` / `.handle-w`) adjusts only width (`d.customWidth`) with automatic text wrapping; dragging bottom edge (`.handle-s`) adjusts only height (`d.customHeight`). Double-clicking any handle or clicking `📏 恢复默认字号与自适应框大小` in the context menu resets to defaults.
   - `v3.2.1`:
     - **0ms 120fps Instant Hand-Pan & Zero-Reflow `Shift`/Hold Marquee Engine (`initMarqueeSelection` + `syncMarqueeSelectionStyles`)**: Upgraded to the Obsidian Canvas / Miro / XMind gold-standard gesture model where immediate Left-Drag / 1-Finger Touch / Right-Drag pans the canvas at `0ms` latency, `Shift + Left-Drag` (or `130ms` pinpoint hold, or `🔳` mode) performs 120fps zero-reflow marquee box selection, and DOM layout thrashing during marquee dragging is completely eliminated.
   - `v3.2.0`:
@@ -52,7 +54,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.2.1_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.3.0_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

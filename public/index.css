@@ -1375,35 +1375,134 @@ html[data-theme="light"] .ctx-item {
     position: relative;
 }
 
-/* OneNote 风格：卡片/图片右侧边缘拖拽调宽手柄 (.card-resize-handle) */
+/* v3.3.0 智能分向调整卡片尺寸与对角线等比缩放字号手柄 (.card-resize-handle) */
 .card-resize-handle {
     position: absolute;
+    background: transparent;
+    transition: background 0.14s ease, transform 0.14s ease, opacity 0.14s ease;
+    z-index: 6;
+    user-select: none;
+    touch-action: none;
+}
+
+/* 1. 左右拉手柄 (.handle-e 右侧边缘 / .handle-w 左侧边缘)：仅调整卡片宽度，文字自动换行自适应 */
+.card-resize-handle.handle-e {
     top: 4px;
     right: -3px;
-    bottom: 4px;
+    bottom: 13px;
     width: 7px;
     cursor: ew-resize;
     border-radius: 4px;
-    background: transparent;
-    transition: background 0.15s ease;
-    z-index: 5;
 }
 
-.canvas-note-card:hover .card-resize-handle,
-.canvas-note-card.is-selected .card-resize-handle {
-    background: rgba(56, 189, 248, 0.28);
+.card-resize-handle.handle-w {
+    top: 4px;
+    left: -3px;
+    bottom: 13px;
+    width: 7px;
+    cursor: ew-resize;
+    border-radius: 4px;
+}
+
+/* 2. 上下拉手柄 (.handle-s 底部边缘)：仅调整卡片高度，排版自适应 */
+.card-resize-handle.handle-s {
+    left: 13px;
+    right: 13px;
+    bottom: -3px;
+    height: 7px;
+    cursor: ns-resize;
+    border-radius: 4px;
+}
+
+/* 3. 拉对角线手柄 (.handle-se 右下对角 / .handle-sw 左下对角)：框框与字体大小按比例同步缩放！ */
+.card-resize-handle.handle-se {
+    right: -4px;
+    bottom: -4px;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    border-radius: 4px;
+    z-index: 8;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    font-size: 9px;
+    line-height: 1;
+    padding: 1px;
+    color: transparent;
+}
+
+.card-resize-handle.handle-sw {
+    left: -4px;
+    bottom: -4px;
+    width: 12px;
+    height: 12px;
+    cursor: nesw-resize;
+    border-radius: 4px;
+    z-index: 8;
+}
+
+.canvas-note-card:hover .card-resize-handle.handle-e,
+.canvas-note-card.is-selected .card-resize-handle.handle-e {
+    background: rgba(56, 189, 248, 0.25);
+}
+
+.canvas-note-card:hover .card-resize-handle.handle-s,
+.canvas-note-card.is-selected .card-resize-handle.handle-s {
+    background: rgba(56, 189, 248, 0.2);
+}
+
+.canvas-note-card:hover .card-resize-handle.handle-se,
+.canvas-note-card.is-selected .card-resize-handle.handle-se {
+    color: rgba(56, 189, 248, 0.85);
 }
 
 .card-resize-handle:hover,
 .card-resize-handle.is-resizing {
     background: #38bdf8 !important;
+    color: #0f172a !important;
     box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
 }
 
-/* 自定义调宽后的图片卡片自动适配宽度 */
-.canvas-note-card.has-custom-width .canvas-card-img {
+/* 拖拽缩放时的实时浮动 HUD 提示胶囊 (显示宽度/高度自适应 或 对角线字号缩放比例) */
+.canvas-note-card[data-resize-hud]::after {
+    content: attr(data-resize-hud);
+    position: absolute;
+    right: 0;
+    bottom: -26px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid #38bdf8;
+    color: #38bdf8;
+    font-size: 11px !important;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+    z-index: 30;
+}
+
+/* 对角线缩放字号后的内部元素自适应比例优化 */
+.canvas-note-card.has-custom-font .card-quick-tag-badge {
+    font-size: 0.8em;
+}
+
+.canvas-note-card.has-custom-font .canvas-todo-checkbox {
+    width: 1.05em;
+    height: 1.05em;
+}
+
+.canvas-note-card.has-custom-font .canvas-card-caption {
+    font-size: 0.88em;
+}
+
+/* 自定义调宽/调高后的图片卡片自动适配尺寸 */
+.canvas-note-card.has-custom-width .canvas-card-img,
+.canvas-note-card.has-custom-height .canvas-card-img {
     max-width: 100%;
-    max-height: 460px;
+    max-height: 680px;
     width: 100%;
 }
 

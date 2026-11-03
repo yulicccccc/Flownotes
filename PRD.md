@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.2.1)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.3.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Diagonal Proportional Font Scaling & 4-Edge Adaptive Reflow Resize Engine (v3.3.0 拉对角线自动按框框比例变字号 + 左右/上下拉自适应换行排版)**:
+  - **Diagonal Pull (`⤡ 拉对角线` `.handle-se` / `.handle-sw`)**: Dragging a card's bottom-right (`◢`) or bottom-left diagonal corner scales the card frame (`d.customWidth`, `d.customHeight`) AND automatically scales the internal font size (`d.customFontSize`, `9px`–`64px`) proportionally in lockstep (`⤡ 字号 XXpx (XX%)` live HUD), so text and box zoom together without breaking line layout.
+  - **Horizontal Pull (`↔ 左右拉` `.handle-e` / `.handle-w`)**: Dragging a card's left or right edge adjusts only the card width (`d.customWidth`, `80px`–`960px`); font size remains unchanged while internal text wraps/unwraps and container height adapts automatically (`↔ 宽 XXpx · 自动换行` live HUD).
+  - **Vertical Pull (`↕ 上下拉` `.handle-s`)**: Dragging a card's bottom edge adjusts only the card height (`d.customHeight`, `32px`–`820px`); font size remains unchanged while internal layout adapts (`↕ 高 XXpx · 自适应` live HUD).
+  - **One-Click / Double-Click Reset (`resetCardCustomSize`)**: Double-clicking any resize handle (or right-clicking the card and selecting `📏 恢复默认字号与自适应框大小`) restores default auto-fit dimensions and `13.5px` font size.
 - **0ms 120fps Instant Hand-Pan & Zero-Reflow `Shift`/Hold Marquee Engine (v3.2.1 参照 Obsidian Canvas / Miro / XMind 实现 0毫秒丝滑拖动画布与 120fps 零重排框选)**:
   - **0ms Instant Hand Pan (`🖐️`)**: In default mode (`isMarqueeMode = false`, `✋`), dragging with Left Mouse, 1-Finger Touch, or Right Mouse (`XMind` desktop gesture) on empty space pans the canvas immediately at **`0ms` latency** without waiting for a long-press timer.
   - **0ms `Shift + Drag` Marquee & `130ms` Pinpoint Hold Marquee (`🔳`)**: Holding `Shift + Left-Drag` (or `Ctrl/Cmd + Left-Drag`) triggers **`0ms` instant rubber-band box selection**; for mouse-only or touchscreen without `Shift`, holding still on empty space for **`130ms`** pops up `🔳` and drags a selection box (or click `✋/🔳` / press `B` to switch to bare-left-drag marquee mode).
@@ -107,4 +112,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.1.2_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.3.0_flownotes-eze.pages.dev_一键更新网站.bat`.
