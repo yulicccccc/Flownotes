@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.3.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.3.0">
+    <link rel="stylesheet" href="index.css?v=3.4.0">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -151,13 +151,13 @@
                     </div>
 
                     <div id="io-controls">
-                        <button class="io-btn" id="btn-export" title="导出 JSON 备份">⬇️ 导出 JSON</button>
-                        <button class="io-btn" id="btn-import" title="导入 JSON 数据">⬆️ 导入 JSON</button>
+                        <button class="io-btn" id="btn-export" title="导出 JSON 备份">⬇️ 导出</button>
+                        <button class="io-btn" id="btn-import" title="导入 Excalidraw (.excalidraw) 或 FlowNotes 备份 (.json)">⬆️ 导入</button>
                         <button class="io-btn" id="btn-pull" title="从 GitHub 私有 Gist 拉取">↙️ 拉取</button>
                         <button class="io-btn" id="btn-sync" title="立即同步到 GitHub Gist">💾 同步</button>
                         <button class="io-btn" id="btn-password" title="配置 GitHub 个人授权 Token 与私有 Gist 存储库 ID">🔐 密钥</button>
                         <span class="sync-status" id="sync-status" data-state="local">🟢 本地已保存 (Gist 已连通)</span>
-                        <input type="file" id="file-input" accept=".json" style="display: none;">
+                        <input type="file" id="file-input" accept=".excalidraw,.json,.pdf" style="display: none;">
                     </div>
 
                     <!-- 右侧笔记面板收起后显示的右上角一键展开悬浮胶囊 -->
@@ -197,6 +197,7 @@
                                 <input id="newMapTitleInput" type="text" autocomplete="off" placeholder="输入新图谱名称 (如: 面试课)..." style="flex:1; background:var(--input-bg); color:var(--text-color); border:1px solid var(--panel-border); border-radius:4px; padding:4px 8px; font-size:12px; outline:none;">
                             </div>
                             <button id="btnCreateMap" class="btn btn-primary" style="width:100%; height:28px; padding:0; font-size:12px; font-weight:bold;">+ 新建思维图谱</button>
+                            <button id="btnLoadExcalidrawDemo" class="btn" style="width:100%; height:28px; padding:0; font-size:11.5px; font-weight:600; margin-top:6px; background:rgba(56, 189, 248, 0.15); border:1px solid rgba(56, 189, 248, 0.5); color:#38bdf8;" title="直接载入已由 1.pdf 转换的 Excalidraw 宏基因组学思维导图">🎨 一键导入《1.pdf (AI Biologist 宏基因组)》导图</button>
                         </div>
                         <div id="organizerMapList" style="flex:1; overflow-y:auto; padding:10px 8px; display:flex; flex-direction:column; gap:8px;"></div>
                     </aside>
@@ -492,6 +493,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.3.0"></script>
+    <script src="app.js?v=3.4.0"></script>
 </body>
 </html>

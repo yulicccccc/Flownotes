@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.3.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Native Excalidraw & PDF Visual Mindmap Importer Suite (v3.4.0 原生 Excalidraw 格式与 PDF 视觉脑图导入引擎)**:
+  - **Excalidraw Native Import (`importExcalidrawFile`)**: Supports importing `.excalidraw` and Excalidraw JSON documents directly into FlowNotes via `⬆️ 导入` button or drag-and-drop. Automatically extracts and maps text elements, cards, colors (`#e03131` red, `#2f9e44` green, `#1971c2` sky), embedded base64 images (process diagrams, screenshots), and bound/unbound directional arrows into dedicated, fully interactive spatial mindmaps without overwriting existing projects.
+  - **OneNote PDF to Excalidraw Converter (`convert_pdf_to_excalidraw.py`)**: Converted `"C:\Users\qchen\OneDrive - Professional Compounding Centers of America, Inc\Desktop\1.pdf"` into a high-fidelity standalone `1.excalidraw` file with 70 elements (61 text notes, 5 embedded process diagrams, 3 arrows, and 1 highlight container), saved directly to Desktop and project assets.
+  - **Seamless Drag-and-Drop & 1-Click Demo Loader (`loadDemoExcalidrawMap`)**: Dragging or selecting `.excalidraw` or `.pdf` files onto the canvas automatically parses them into spatial cards; the Organizer drawer includes a 1-click button (`🎨 一键导入《1.pdf (AI Biologist 宏基因组)》导图`) to open the converted note instantly.
 - **Diagonal Proportional Font Scaling & 4-Edge Adaptive Reflow Resize Engine (v3.3.0 拉对角线自动按框框比例变字号 + 左右/上下拉自适应换行排版)**:
   - **Diagonal Pull (`⤡ 拉对角线` `.handle-se` / `.handle-sw`)**: Dragging a card's bottom-right (`◢`) or bottom-left diagonal corner scales the card frame (`d.customWidth`, `d.customHeight`) AND automatically scales the internal font size (`d.customFontSize`, `9px`–`64px`) proportionally in lockstep (`⤡ 字号 XXpx (XX%)` live HUD), so text and box zoom together without breaking line layout.
   - **Horizontal Pull (`↔ 左右拉` `.handle-e` / `.handle-w`)**: Dragging a card's left or right edge adjusts only the card width (`d.customWidth`, `80px`–`960px`); font size remains unchanged while internal text wraps/unwraps and container height adapts automatically (`↔ 宽 XXpx · 自动换行` live HUD).
@@ -112,4 +116,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.3.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.0_flownotes-eze.pages.dev_一键更新网站.bat`.

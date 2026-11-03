@@ -2,6 +2,20 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.4.0] - 2026-11-03
+
+### 🎨 原生 Excalidraw 格式与 OneNote PDF 视觉脑图导入引擎 (Highlights)
+- **📄 高精度 PDF 转 Excalidraw 格式转换**：
+  - 针对用户提供的 `1.pdf`（OneNote 导出的《AI Biologist - Metagenomics 宏基因组学》视觉导图），开发了专属的提取转换器 [`convert_pdf_to_excalidraw.py`](file:///c:/Users/qchen/OneDrive%20-%20Professional%20Compounding%20Centers%20of%20America,%20Inc/Documents/Flownotes/convert_pdf_to_excalidraw.py)，精确提取了 61 处关键文字笔记、红绿特征词标注、黄色高亮背景框、箭头流转关系，并将 5 处高清内嵌流程图/图解（Data➔Task➔Ground truth➔Grader 流程图、DNA 提取、PCR 扩增、16S 扩增子测序、丁酸区别注释）完整打包为 base64 图像，生成高精度独立的 `1.excalidraw` 文件直接存放在用户的 Windows 桌面（`C:\Users\qchen\OneDrive - Professional Compounding Centers of America, Inc\Desktop\1.excalidraw`）。
+- **📥 FlowNotes 原生 Excalidraw 导入引擎 (`importExcalidrawFile`)**：
+  - FlowNotes 的 `⬆️ 导入` 按钮与全局拖拽上传全面升级，原生支持识别并解析 `.excalidraw` 文件与 Excalidraw JSON 数据；
+  - 自动将 Excalidraw 的文本块转换为 FlowNotes 的空间富文本卡片（自动适配红字 `#ef4444`、绿字 `#10b981`、天蓝字 `#38bdf8` 与底色角标），将内嵌图像转换为流程图卡片，将有向箭头绑定并连线；
+  - 自动创建独立的专属思维图谱（如《AI Biologist - Metagenomics (Excalidraw 导入)》），绝不冲刷覆盖用户原有的其他思维图谱；
+- **⚡ 图谱组织器一键载入已转换导图 (`loadDemoExcalidrawMap`)**：
+  - 在思维图谱管理库（Organizer）中新增「`🎨 一键导入《1.pdf (AI Biologist 宏基因组)》导图`」快捷按钮，点击即可零文件选择、秒级将该宏基因组学导图完整展开到画布上，无缝衔接继续学习、标注与延展！
+
+---
+
 ## 🚀 [v3.3.0] - 2026-11-03
 
 ### ⤡ 智能分向缩放引擎：拉对角线自动按框框比例变字号 + 左右拉/上下拉自适应换行排版 (Highlights)

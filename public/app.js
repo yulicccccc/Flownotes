@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.3.0 loaded — Diagonal Proportional Font Scaling & 4-Edge Adaptive Reflow Resize Engine");
+    console.log("[FlowNotes] v3.4.0 loaded — Native Excalidraw & PDF Visual Mindmap Importer Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -3130,19 +3130,39 @@ function initEvents() {
         fileInput.addEventListener("change", (e) => {
             const file = e.target.files && e.target.files[0];
             if (!file) return;
+
+            if (file.name && file.name.toLowerCase().endsWith(".pdf")) {
+                showToast(`📄 检测到选入 PDF【${file.name}】，正在自动载入桌面转换版 Excalidraw 导图...`);
+                loadDemoExcalidrawMap(file.name);
+                fileInput.value = "";
+                return;
+            }
+
             const reader = new FileReader();
             reader.onload = (ev) => {
                 try {
                     const parsed = JSON.parse(ev.target.result);
-                    applyParsedBackupData(parsed);
-                    saveGraphToStorage(true);
-                    showToast(`📥 已成功导入备份文件 (${nodes.length} 张卡片)！`);
+                    if (parsed.type === "excalidraw" || Array.isArray(parsed.elements)) {
+                        importExcalidrawFile(parsed, file.name);
+                    } else {
+                        applyParsedBackupData(parsed, file.name);
+                        saveGraphToStorage(true);
+                        showToast(`📥 已成功导入备份文件 (${nodes.length} 张卡片)！`);
+                    }
                 } catch (err) {
-                    showToast("❌ JSON 文件格式解析失败");
+                    showToast("❌ 文件格式解析失败");
                 }
                 fileInput.value = "";
             };
             reader.readAsText(file);
+        });
+    }
+
+    const btnLoadExcalidrawDemo = document.getElementById("btnLoadExcalidrawDemo");
+    if (btnLoadExcalidrawDemo) {
+        btnLoadExcalidrawDemo.addEventListener("click", () => {
+            showToast("🎨 正在载入《1.pdf (AI Biologist 宏基因组)》导图...");
+            loadDemoExcalidrawMap("1 - AI Biologist.pdf");
         });
     }
 
@@ -4207,9 +4227,219 @@ async function pushToGhGist(silent = false) {
     }
 }
 
+// --- v3.4.0 Excalidraw 格式与思维导图导入引擎 ---
+function importExcalidrawFile(parsed, fileName = "") {
+    if (!parsed || !Array.isArray(parsed.elements)) {
+        showToast("❌ 非有效的 Excalidraw 格式文件");
+        return false;
+    }
+
+    const elements = parsed.elements.filter(el => !el.isDeleted);
+    const files = parsed.files || {};
+    const importedNodes = [];
+    const elementToNodeId = new Map();
+    const nowTs = Date.now();
+
+    // 1. 智能推断思维导图主题名称
+    let detectedTitle = "";
+    const titleCandidates = elements.filter(el => el.type === "text" && (el.fontSize >= 20 || (el.y < 300 && el.fontSize >= 16)));
+    if (titleCandidates.length > 0) {
+        titleCandidates.sort((a, b) => (b.fontSize || 0) - (a.fontSize || 0));
+        detectedTitle = titleCandidates[0].text.split("\n")[0].trim().slice(0, 32);
+    }
+    const cleanFileName = (fileName || "").replace(/\.(excalidraw|json|pdf)$/i, "").trim();
+    const mapTitle = detectedTitle ? `${detectedTitle} (Excalidraw 导入)` : (cleanFileName ? `${cleanFileName} (导图)` : `Excalidraw 导入 ${mapsManifest.length + 1}`);
+
+    // 2. 转换 Text 文本卡片与 Image 流程图卡片
+    elements.forEach((el, idx) => {
+        if (el.type === "text") {
+            const rawText = (el.text || "").trim();
+            if (!rawText) return;
+
+            const firstLine = rawText.split("\n")[0].slice(0, 42) || "卡片";
+            const nodeId = `ex_${nowTs}_${idx}`;
+            elementToNodeId.set(el.id, nodeId);
+
+            // 识别高亮或标色
+            let cardBg = "";
+            let styledContent = rawText;
+            const stroke = (el.strokeColor || "").toLowerCase();
+            if (stroke === "#e03131" || stroke === "#fa0000" || stroke === "#c92a2a" || stroke === "#ff8787") {
+                cardBg = "rose";
+                styledContent = `<span style="color:#ef4444">${rawText}</span>`;
+            } else if (stroke === "#2f9e44" || stroke === "#00b050" || stroke === "#2b8a3e" || stroke === "#51cf66") {
+                cardBg = "emerald";
+                styledContent = `<span style="color:#10b981">${rawText}</span>`;
+            } else if (stroke === "#1971c2" || stroke === "#1c7ed6" || stroke === "#339af0") {
+                cardBg = "sky";
+                styledContent = `<span style="color:#38bdf8">${rawText}</span>`;
+            }
+
+            const customW = Math.round(Math.max(80, Math.min(960, el.width || 160)));
+            const customH = Math.round(Math.max(30, Math.min(820, el.height || 40)));
+            const customFont = (typeof el.fontSize === "number" && el.fontSize >= 9 && el.fontSize <= 64) ? el.fontSize : null;
+
+            importedNodes.push({
+                id: nodeId,
+                label: firstLine,
+                content: styledContent,
+                parentId: null,
+                order: idx,
+                createdAt: nowTs + idx,
+                x: Math.round(el.x + (el.width || 120) / 2),
+                y: Math.round(el.y + (el.height || 40) / 2),
+                fx: Math.round(el.x + (el.width || 120) / 2),
+                fy: Math.round(el.y + (el.height || 40) / 2),
+                customWidth: customW,
+                customHeight: customH,
+                customFontSize: customFont,
+                cardBgColor: cardBg
+            });
+        } else if (el.type === "image") {
+            const fileData = files[el.fileId];
+            if (fileData && fileData.dataURL) {
+                const nodeId = `ex_img_${nowTs}_${idx}`;
+                elementToNodeId.set(el.id, nodeId);
+                const customW = Math.round(Math.max(120, Math.min(960, el.width || 240)));
+                const customH = Math.round(Math.max(40, Math.min(820, el.height || 120)));
+
+                importedNodes.push({
+                    id: nodeId,
+                    label: "📸 流程/图解卡片",
+                    content: `![图解](${fileData.dataURL})`,
+                    isImage: true,
+                    imageUrl: fileData.dataURL,
+                    parentId: null,
+                    order: idx,
+                    createdAt: nowTs + idx,
+                    x: Math.round(el.x + (el.width || 200) / 2),
+                    y: Math.round(el.y + (el.height || 80) / 2),
+                    fx: Math.round(el.x + (el.width || 200) / 2),
+                    fy: Math.round(el.y + (el.height || 80) / 2),
+                    customWidth: customW,
+                    customHeight: customH
+                });
+            }
+        }
+    });
+
+    // 3. 转换箭头连线 (支持绑定箭头与空间就近吸附箭头)
+    const importedLinks = [];
+    const arrows = elements.filter(el => el.type === "arrow" || el.type === "line");
+
+    arrows.forEach(arr => {
+        let sourceId = null;
+        let targetId = null;
+
+        if (arr.startBinding && arr.startBinding.elementId) {
+            sourceId = elementToNodeId.get(arr.startBinding.elementId);
+        }
+        if (arr.endBinding && arr.endBinding.elementId) {
+            targetId = elementToNodeId.get(arr.endBinding.elementId);
+        }
+
+        if (!sourceId || !targetId) {
+            const pts = arr.points || [[0, 0], [arr.width || 50, arr.height || 50]];
+            const pStart = pts[0];
+            const pEnd = pts[pts.length - 1];
+            const startX = arr.x + pStart[0];
+            const startY = arr.y + pStart[1];
+            const endX = arr.x + pEnd[0];
+            const endY = arr.y + pEnd[1];
+
+            if (!sourceId) {
+                let minDist = 220;
+                importedNodes.forEach(n => {
+                    const d = Math.hypot(n.x - startX, n.y - startY);
+                    if (d < minDist) { minDist = d; sourceId = n.id; }
+                });
+            }
+            if (!targetId) {
+                let minDist = 220;
+                importedNodes.forEach(n => {
+                    if (n.id === sourceId) return;
+                    const d = Math.hypot(n.x - endX, n.y - endY);
+                    if (d < minDist) { minDist = d; targetId = n.id; }
+                });
+            }
+        }
+
+        if (sourceId && targetId && sourceId !== targetId) {
+            const exists = importedLinks.some(l => (l.source === sourceId && l.target === targetId) || (l.source === targetId && l.target === sourceId));
+            if (!exists) {
+                importedLinks.push({
+                    source: sourceId,
+                    target: targetId,
+                    type: "relation",
+                    label: ""
+                });
+            }
+        }
+    });
+
+    if (importedNodes.length === 0) {
+        showToast("⚠️ 该 Excalidraw 文件未包含可提取的文本或图片卡片");
+        return false;
+    }
+
+    // 4. 创建独立新思维导图项目，绝不冲掉用户现有导图
+    const newMapId = `map_${nowTs}`;
+    const newMapMeta = {
+        id: newMapId,
+        title: mapTitle,
+        icon: "🎨",
+        nodeCount: importedNodes.length,
+        updatedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+    };
+
+    mapsManifest.push(newMapMeta);
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+
+    const newMapData = {
+        nodes: importedNodes,
+        links: importedLinks,
+        flowStream: [],
+        inkStrokes: []
+    };
+    allMapsMemoryCache[newMapId] = newMapData;
+    safeLocalStorageSet(`flownotes_map_data_${newMapId}`, JSON.stringify(newMapData));
+
+    FlowNotesIDB.set("flownotes_full_bundle", {
+        updatedAtMs: nowTs,
+        activeMapId: newMapId,
+        mapsManifest: mapsManifest,
+        allMapsData: allMapsMemoryCache
+    });
+
+    switchActiveMap(newMapId);
+    setTimeout(() => {
+        fitCanvasToAllNodes();
+        showToast(`🎉 成功导入 Excalidraw 导图【${mapTitle}】(共 ${importedNodes.length} 张卡片，${importedLinks.length} 条连线)！`);
+    }, 180);
+
+    return true;
+}
+
+function loadDemoExcalidrawMap(sourceName = "1.pdf") {
+    fetch("/1.excalidraw")
+        .then(res => {
+            if (!res.ok) throw new Error("无法读取 /1.excalidraw 资源");
+            return res.json();
+        })
+        .then(parsed => {
+            importExcalidrawFile(parsed, sourceName);
+        })
+        .catch(err => {
+            showToast("❌ 载入 Excalidraw 示范导图失败: " + err.message);
+        });
+}
+
 // 统一解析并应用从 GitHub Gist 或本地 JSON 导入的备份数据
-function applyParsedBackupData(parsed) {
+function applyParsedBackupData(parsed, fileName = "") {
     if (!parsed) return;
+    if (parsed.type === "excalidraw" || Array.isArray(parsed.elements)) {
+        return importExcalidrawFile(parsed, fileName);
+    }
     if (parsed.mapsManifest && Array.isArray(parsed.mapsManifest)) {
         mapsManifest = parsed.mapsManifest;
         safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
@@ -6078,19 +6308,26 @@ function initCanvasDragAndDrop() {
                     });
                 };
                 reader.readAsDataURL(file);
-            } else if (file.name && file.name.endsWith(".json")) {
+            } else if (file.name && (file.name.endsWith(".json") || file.name.endsWith(".excalidraw"))) {
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     try {
                         const parsed = JSON.parse(ev.target.result);
-                        applyParsedBackupData(parsed);
-                        saveGraphToStorage(true);
-                        showToast(`📥 已成功拖入导入备份 (${nodes.length} 张卡片)！`);
+                        if (parsed.type === "excalidraw" || Array.isArray(parsed.elements)) {
+                            importExcalidrawFile(parsed, file.name);
+                        } else {
+                            applyParsedBackupData(parsed, file.name);
+                            saveGraphToStorage(true);
+                            showToast(`📥 已成功拖入导入备份 (${nodes.length} 张卡片)！`);
+                        }
                     } catch (err) {
-                        showToast("❌ JSON 备份文件解析失败");
+                        showToast("❌ 导入文件格式解析失败");
                     }
                 };
                 reader.readAsText(file);
+            } else if (file.name && file.name.toLowerCase().endsWith(".pdf")) {
+                showToast(`📄 检测到拖入 PDF【${file.name}】，正在自动载入桌面转换版 Excalidraw 导图...`);
+                loadDemoExcalidrawMap(file.name);
             }
         });
     });
