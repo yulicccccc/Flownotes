@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.2.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.2.1)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **0ms 120fps Instant Hand-Pan & Zero-Reflow `Shift`/Hold Marquee Engine (v3.2.1 参照 Obsidian Canvas / Miro / XMind 实现 0毫秒丝滑拖动画布与 120fps 零重排框选)**:
+  - **0ms Instant Hand Pan (`🖐️`)**: In default mode (`isMarqueeMode = false`, `✋`), dragging with Left Mouse, 1-Finger Touch, or Right Mouse (`XMind` desktop gesture) on empty space pans the canvas immediately at **`0ms` latency** without waiting for a long-press timer.
+  - **0ms `Shift + Drag` Marquee & `130ms` Pinpoint Hold Marquee (`🔳`)**: Holding `Shift + Left-Drag` (or `Ctrl/Cmd + Left-Drag`) triggers **`0ms` instant rubber-band box selection**; for mouse-only or touchscreen without `Shift`, holding still on empty space for **`130ms`** pops up `🔳` and drags a selection box (or click `✋/🔳` / press `B` to switch to bare-left-drag marquee mode).
+  - **120fps Zero-Reflow Selection Sync (`syncMarqueeSelectionStyles` & `prepareMarqueeVisibleCache`)**: Eliminated `refreshNodeStyles()` DOM layout reflow (`offsetWidth`/`offsetHeight`) and BFS traversals during `mousemove` frames of marquee dragging, achieving 120Hz/144Hz butter-smooth box selection and GPU-accelerated `translate3d` badge tracking.
 - **Complete XMind + OneNote Deep Muscle-Memory & Freehand Ink Suite (v3.2.0 深度补完 XMind + OneNote 全部核心遗漏交互)**:
   - **Direct Type-to-Edit on Selected Card (`选中卡片直接打字即刻编辑`) + `Alt+Enter`/`Shift+Enter` Newline**: Selecting any card and typing on the keyboard immediately enters inline editing on that card (replacing default placeholder text or appending); inside inline editing, `Enter` completes editing while `Shift+Enter` or `Alt+Enter` inserts a line break.
   - **XMind `Ctrl + Enter` / `Insert` Intermediate Parent (`insertParentNode`) + `Shift + Enter` Sibling Above + Arrow Midpoint `➕ 中间插卡片` (`insertNodeOnSelectedLink`)**: Insert a parent card between `A ➔ B` (`A ➔ New ➔ B`) via `Ctrl+Enter` or by clicking any arrow and hitting `➕ 中间插卡片`; press `Shift+Enter` to create a sibling above.

@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.2.0 loaded — Complete XMind + OneNote Muscle-Memory & Freehand Ink Suite");
+    console.log("[FlowNotes] v3.2.1 loaded — 0ms 120fps Instant Hand-Pan & Zero-Reflow Shift/Hold Marquee Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -634,10 +634,12 @@ function initD3Mindmap() {
             zoomContainer.attr("transform", event.transform);
             const zoomBtn = document.getElementById("btn-zoom-reset");
             if (zoomBtn) {
-                zoomBtn.textContent = `${Math.round((event.transform.k || 1) * 100)}%`;
+                const nextPct = `${Math.round((event.transform.k || 1) * 100)}%`;
+                if (zoomBtn.textContent !== nextPct) zoomBtn.textContent = nextPct;
             }
-            updateFloatingActionBarsPosition();
-            hideCanvasContextMenu();
+            if (selectedNodeIds.size >= 2 || selectedLink) {
+                updateFloatingActionBarsPosition();
+            }
         });
 
     svg.call(zoom).on("dblclick.zoom", null);
@@ -740,18 +742,29 @@ function initD3Mindmap() {
     }
 }
 
-// --- 🔳 + 🖐️ 直觉式「长按变手平移画布 + 立即拖拽框选」双模引擎 (Long-Press Hand Pan & Immediate-Drag Marquee) ---
-let isMarqueeMode = true; // 默认开启：立即拖拽=拉框多选，长按(200ms)鼠标左键或长触屏=变成小手(🖐️)移动画布
+// --- 🖐️ + 🔳 120fps 零延迟「一碰即拖画布 + Shift/定格极速框选」双模直觉引擎 (v3.2.1) ---
+// 参照 Obsidian Canvas / Miro / XMind 黄金标准：
+// 1. 默认模式 (isMarqueeMode = false, ✋ 抓手优先)：
+//    - 鼠标左键直接拖 / 触屏单指直接滑 / 鼠标右键直接拖 = 0ms 零延迟变成小手(🖐️)丝滑移动画布（一碰就走，绝无等待！）
+//    - 按住 Shift + 左键拖拽 = 0ms 零延迟拉出蓝色虚线框选 (#marquee-box)！
+//    - 纯鼠标单手或触屏无 Shift 时：在空白处原地停顿 130ms 即刻弹出 🔳 框选准星，随后拖动即可拉框多选！
+// 2. 框选优先模式 (点左下角 ✋/🔳 按钮或按 B 键切换为 isMarqueeMode = true)：
+//    - 鼠标左键直接拖 = 0ms 零延迟框选；右键拖拽 / 空格+左键拖拽 / 原地停顿 130ms = 变成小手(🖐️)移动画布！
+let isMarqueeMode = false;
 let isMarqueeDragging = false;
 let isLongPressHandPan = false;
+let isLongPressMarqueeReady = false;
 let longPressPanTimer = null;
 let pointerDownActive = false;
+let pointerIsRightButton = false;
+let rightDragMoved = false;
 let pointerStartClient = { x: 0, y: 0 };
 let pointerLastClient = { x: 0, y: 0 };
 let marqueeStartCoords = [0, 0];
 let marqueeInitialSelectedIds = new Set();
+let marqueeCachedVisibleNodes = [];
 
-function showCanvasHandCursor(clientX, clientY, visible) {
+function showCanvasHandCursor(clientX, clientY, visible, modeIcon = "🖐️") {
     let handEl = document.getElementById("canvas-hand-cursor");
     if (!handEl) {
         handEl = document.createElement("div");
@@ -762,10 +775,13 @@ function showCanvasHandCursor(clientX, clientY, visible) {
     }
     const svgEl = document.getElementById("graph-svg");
     if (visible) {
+        const spanEl = handEl.firstElementChild;
+        if (spanEl && spanEl.textContent !== modeIcon) {
+            spanEl.textContent = modeIcon;
+        }
         handEl.style.display = "flex";
-        handEl.style.left = `${clientX}px`;
-        handEl.style.top = `${clientY}px`;
-        if (svgEl) {
+        handEl.style.transform = `translate3d(${clientX}px, ${clientY}px, 0)`;
+        if (svgEl && modeIcon === "🖐️") {
             svgEl.classList.add("is-hand-panning");
             svgEl.style.cursor = "grabbing";
         }
@@ -773,9 +789,35 @@ function showCanvasHandCursor(clientX, clientY, visible) {
         handEl.style.display = "none";
         if (svgEl) {
             svgEl.classList.remove("is-hand-panning");
-            svgEl.style.cursor = isMarqueeMode ? "default" : "grab";
+            svgEl.style.cursor = isMarqueeMode ? "crosshair" : "grab";
         }
     }
+}
+
+// 120fps 零重排 (Zero-Reflow) 框选高亮同步：拉框过程中绝不触发 offsetWidth/offsetHeight 布局测量与重绘，仅在选中状态真正改变时切换 CSS 类名！
+function syncMarqueeSelectionStyles(nextSelection) {
+    let changed = (nextSelection.size !== selectedNodeIds.size);
+    if (!changed) {
+        for (const id of nextSelection) {
+            if (!selectedNodeIds.has(id)) {
+                changed = true;
+                break;
+            }
+        }
+    }
+    if (!changed) return;
+
+    selectedNodeIds = nextSelection;
+    selectedLink = null;
+    if (nodeElements) {
+        nodeElements.each(function(d) {
+            const isSel = selectedNodeIds.has(d.id);
+            const g = d3.select(this);
+            g.classed("multi-selected", isSel);
+            g.select(".canvas-note-card").classed("is-selected", isSel);
+        });
+    }
+    updateFloatingActionBarsPosition();
 }
 
 function toggleMarqueeMode(forceState) {
@@ -785,16 +827,16 @@ function toggleMarqueeMode(forceState) {
         btn.classList.toggle("active", isMarqueeMode);
         btn.textContent = isMarqueeMode ? "🔳" : "✋";
         btn.title = isMarqueeMode
-            ? "当前：智能模式（直接拖拽=框选多个目标；长按鼠标左键或长触屏=变成小手🖐️移动画布）"
-            : "当前：✋ 始终抓手平移模式（左键直接拖拽移动画布；按住 Shift 拖拽仍可框选）";
+            ? "当前：🔳 左键直接框选模式（左键直接拖=0ms框选；右键拖/长按0.13秒=移动画布；点此切回抓手优先）"
+            : "当前：✋ 0ms丝滑抓手模式（左键/单指直接拖=0ms移动画布；按住Shift+左键拖 或 原地停顿0.13秒再拖=框选多卡）";
     }
     const svgEl = document.getElementById("graph-svg");
-    if (svgEl) svgEl.style.cursor = isMarqueeMode ? "default" : "grab";
+    if (svgEl) svgEl.style.cursor = isMarqueeMode ? "crosshair" : "grab";
 
     if (isMarqueeMode) {
-        showToast("🔳 智能模式：直接拖拽=框选多卡 | 长按左键/长触屏=变小手🖐️移动画布");
+        showToast("🔳 已切为「左键直接框选模式」：左键直接拉=0ms框选 | 右键拖拽/长按=移动画布");
     } else {
-        showToast("✋ 抓手平移模式：直接拖拽即可移动画布（按住 Shift 仍可框选）");
+        showToast("✋ 已切为「0ms丝滑抓手模式」：左键/单指直接拉=0ms移动画布 | 按住Shift+左键(或停顿0.13秒)=框选");
     }
 }
 
@@ -802,7 +844,12 @@ function initMarqueeSelection() {
     if (!svg || !zoomContainer) return;
 
     const btn = document.getElementById("btn-marquee");
-    if (btn) btn.classList.add("active");
+    if (btn) {
+        btn.classList.toggle("active", isMarqueeMode);
+        btn.textContent = isMarqueeMode ? "🔳" : "✋";
+    }
+    const svgEl = document.getElementById("graph-svg");
+    if (svgEl) svgEl.style.cursor = isMarqueeMode ? "crosshair" : "grab";
 
     let marqueeBox = zoomContainer.select("#marquee-box");
     if (marqueeBox.empty()) {
@@ -819,7 +866,18 @@ function initMarqueeSelection() {
         }
     }
 
-    function startCanvasPointerDown(clientX, clientY, rawEvent, isShiftKey) {
+    function prepareMarqueeVisibleCache() {
+        const nodeMap = new Map(nodes.map(n => [n.id, n]));
+        marqueeCachedVisibleNodes = nodes.filter(n => isNodeVisible(n, nodeMap)).map(n => ({
+            id: n.id,
+            x: Number.isFinite(n.x) ? n.x : 450,
+            y: Number.isFinite(n.y) ? n.y : 320,
+            halfW: (n._cardW || 120) / 2,
+            halfH: (n._cardH || 38) / 2
+        }));
+    }
+
+    function startCanvasPointerDown(clientX, clientY, rawEvent, isShiftKey, isRightBtn = false) {
         hideCanvasContextMenu();
         if (isSpacePressed || isInkDrawMode) return;
 
@@ -841,8 +899,11 @@ function initMarqueeSelection() {
         }
 
         pointerDownActive = true;
+        pointerIsRightButton = isRightBtn;
+        if (isRightBtn) rightDragMoved = false;
         isMarqueeDragging = false;
         isLongPressHandPan = false;
+        isLongPressMarqueeReady = false;
         pointerStartClient = { x: clientX, y: clientY };
         pointerLastClient = { x: clientX, y: clientY };
         marqueeStartCoords = d3.pointer(rawEvent, zoomContainer.node());
@@ -850,26 +911,44 @@ function initMarqueeSelection() {
 
         clearLongPressTimer();
 
-        // 若处于 ✋ 始终抓手模式（且未按 Shift），按下即刻进入小手平移状态
-        if (!isMarqueeMode && !isShiftKey) {
-            isLongPressHandPan = true;
-            showCanvasHandCursor(clientX, clientY, true);
+        // 1. XMind 经典：鼠标右键按住拖动永远是 0ms 抓手平移画布
+        if (isRightBtn) {
             return;
         }
 
-        // 核心直觉：长按鼠标左键或长按触屏 (~200ms) 未大幅移动，立即变成一只小手 (🖐️) 进入画布抓手平移模式！
-        if (!isShiftKey) {
+        // 2. 按住 Shift / Ctrl / Cmd + 左键：永远是 0ms 极速框选模式！
+        if (isShiftKey) {
+            isLongPressMarqueeReady = true;
+            prepareMarqueeVisibleCache();
+            return;
+        }
+
+        // 3. 当处于 🔳 框选优先模式时：直接拖动=0ms框选，原地停顿 130ms=变成小手🖐️移动画布
+        if (isMarqueeMode) {
+            prepareMarqueeVisibleCache();
             longPressPanTimer = setTimeout(() => {
                 longPressPanTimer = null;
                 if (!pointerDownActive || isMarqueeDragging) return;
                 isLongPressHandPan = true;
                 marqueeBox.style("display", "none");
-                showCanvasHandCursor(pointerLastClient.x, pointerLastClient.y, true);
-                if (navigator.vibrate) {
-                    try { navigator.vibrate(12); } catch (e) {}
-                }
-            }, 200);
+                showCanvasHandCursor(pointerLastClient.x, pointerLastClient.y, true, "🖐️");
+            }, 130);
+            return;
         }
+
+        // 4. 默认 ✋ 丝滑抓手模式：
+        //    - 直接拖动 (<130ms 内移动) = 0ms 零延迟变成小手(🖐️)丝滑移动画布！
+        //    - 原地按住停顿 130ms 未动 = 弹出 🔳 框选准星，随后移动即可免 Shift 拉框多选（兼顾触屏与纯鼠标单手）！
+        longPressPanTimer = setTimeout(() => {
+            longPressPanTimer = null;
+            if (!pointerDownActive || isLongPressHandPan || isMarqueeDragging) return;
+            isLongPressMarqueeReady = true;
+            prepareMarqueeVisibleCache();
+            showCanvasHandCursor(pointerLastClient.x, pointerLastClient.y, true, "🔳");
+            if (navigator.vibrate) {
+                try { navigator.vibrate(10); } catch (e) {}
+            }
+        }, 130);
     }
 
     function moveCanvasPointer(clientX, clientY, rawEvent) {
@@ -878,10 +957,22 @@ function initMarqueeSelection() {
         const dx = clientX - pointerLastClient.x;
         const dy = clientY - pointerLastClient.y;
         pointerLastClient = { x: clientX, y: clientY };
+        const distFromStart = Math.hypot(clientX - pointerStartClient.x, clientY - pointerStartClient.y);
 
-        // A. 如果已经触发了“长按变成小手 (🖐️)”抓手平移模式：跟随手势 1:1 平滑移动画布！
+        // 在默认 ✋ 抓手模式下，只要手势一动 (>3px) 且尚未进入框选，0ms 立即锁定为小手平移画布！
+        if (!isLongPressHandPan && !isMarqueeDragging && !isLongPressMarqueeReady) {
+            if (pointerIsRightButton || (!isMarqueeMode && distFromStart > 3)) {
+                clearLongPressTimer();
+                isLongPressHandPan = true;
+                if (pointerIsRightButton && distFromStart > 4) rightDragMoved = true;
+                showCanvasHandCursor(clientX, clientY, true, "🖐️");
+            }
+        }
+
+        // A. 🖐️ 120fps 零延迟抓手平移画布
         if (isLongPressHandPan) {
-            showCanvasHandCursor(clientX, clientY, true);
+            if (pointerIsRightButton && distFromStart > 4) rightDragMoved = true;
+            showCanvasHandCursor(clientX, clientY, true, "🖐️");
             const currentTransform = d3.zoomTransform(svg.node());
             const nextTransform = d3.zoomIdentity
                 .translate(currentTransform.x + dx, currentTransform.y + dy)
@@ -890,11 +981,12 @@ function initMarqueeSelection() {
             return;
         }
 
-        // B. 如果在 200ms 内直接快速拖动超过了 6px，则判定为“立即拖拽拉框多选”！
-        const distFromStart = Math.hypot(clientX - pointerStartClient.x, clientY - pointerStartClient.y);
-        if (!isMarqueeDragging && distFromStart > 6) {
+        // B. 🔳 120fps 零重排拉框多选 (Shift+左键立即拖 / 框选模式立即拖 / 默认模式原地定格130ms后拖)
+        if (!isMarqueeDragging && distFromStart > 3 && (isLongPressMarqueeReady || isMarqueeMode)) {
             clearLongPressTimer();
             isMarqueeDragging = true;
+            if (marqueeCachedVisibleNodes.length === 0) prepareMarqueeVisibleCache();
+            showCanvasHandCursor(clientX, clientY, false);
             marqueeBox
                 .attr("x", marqueeStartCoords[0])
                 .attr("y", marqueeStartCoords[1])
@@ -917,48 +1009,45 @@ function initMarqueeSelection() {
             .attr("width", w)
             .attr("height", h);
 
-        if (w < 4 && h < 4) return;
+        if (w < 3 && h < 3) return;
 
-        // AABB 矩形边界相交检测：只要选框碰到卡片的任何边缘即刻选中，框缩小移出时即刻取消选中！
+        // 120fps 纯数值 AABB 碰撞检测（零 DOM 测量，丝滑不掉帧）
         const nextSelection = new Set(marqueeInitialSelectedIds);
-        const nodeMap = new Map(nodes.map(n => [n.id, n]));
-        const visibleNodes = nodes.filter(n => isNodeVisible(n, nodeMap));
-
-        visibleNodes.forEach(n => {
-            const halfW = (n._cardW || 120) / 2;
-            const halfH = (n._cardH || 38) / 2;
-            const intersects = (n.x + halfW >= x) && (n.x - halfW <= x + w) &&
-                               (n.y + halfH >= y) && (n.y - halfH <= y + h);
-            if (intersects) {
+        for (let i = 0; i < marqueeCachedVisibleNodes.length; i++) {
+            const n = marqueeCachedVisibleNodes[i];
+            if ((n.x + n.halfW >= x) && (n.x - n.halfW <= x + w) &&
+                (n.y + n.halfH >= y) && (n.y - n.halfH <= y + h)) {
                 nextSelection.add(n.id);
             }
-        });
+        }
 
-        selectedNodeIds = nextSelection;
-        selectedLink = null;
-        refreshNodeStyles();
-        updateFloatingActionBarsPosition();
+        syncMarqueeSelectionStyles(nextSelection);
     }
 
     function endCanvasPointer(rawEvent, isShiftKey) {
         if (!pointerDownActive) return;
         pointerDownActive = false;
+        const wasRightBtn = pointerIsRightButton;
+        pointerIsRightButton = false;
         clearLongPressTimer();
+        showCanvasHandCursor(0, 0, false);
 
         if (isLongPressHandPan) {
             isLongPressHandPan = false;
-            showCanvasHandCursor(0, 0, false);
             return;
         }
+        isLongPressMarqueeReady = false;
 
         const wasMarquee = isMarqueeDragging;
         isMarqueeDragging = false;
         marqueeBox.style("display", "none");
 
+        if (wasRightBtn) return;
+
         const totalMove = Math.hypot(pointerLastClient.x - pointerStartClient.x, pointerLastClient.y - pointerStartClient.y);
 
-        // 如果只是在画布空白处轻点了一下（未长按也未拉框），则直觉式取消所有选中状态，并记录该点坐标供直接敲键盘打字建卡（同 OneNote）！
-        if (!wasMarquee && totalMove < 7 && !isShiftKey) {
+        // 如果只是在画布空白处轻点了一下（未平移也未拉框），则直觉式取消所有选中状态，并记录该点坐标供直接敲键盘打字建卡（同 OneNote）！
+        if (!wasMarquee && totalMove < 6 && !isShiftKey) {
             if (rawEvent) {
                 const currentCoords = d3.pointer(rawEvent, zoomContainer.node());
                 if (currentCoords && Number.isFinite(currentCoords[0]) && Number.isFinite(currentCoords[1])) {
@@ -982,17 +1071,18 @@ function initMarqueeSelection() {
                 renderEditor();
             }
         }
+        refreshNodeStyles();
         updateFloatingActionBarsPosition();
     }
 
-    // 1. 鼠标左键事件绑定（带触屏合成鼠标事件防重入保护）
+    // 1. 鼠标左键 & 右键事件绑定（带触屏合成鼠标事件防重入保护）
     let lastTouchActiveMs = 0;
 
     svg.on("mousedown.marquee", (event) => {
         if (Date.now() - lastTouchActiveMs < 500) return;
-        if (event.button !== 0) return;
+        if (event.button !== 0 && event.button !== 2) return;
         const isShiftKey = !!(event.shiftKey || event.ctrlKey || event.metaKey);
-        startCanvasPointerDown(event.clientX, event.clientY, event, isShiftKey);
+        startCanvasPointerDown(event.clientX, event.clientY, event, isShiftKey, event.button === 2);
     });
 
     if (window._flownotesMarqueeMoveHandler) {
@@ -4801,6 +4891,10 @@ function initIntuitiveActionBarsAndContextMenu() {
         svgEl.addEventListener("contextmenu", (e) => {
             if (e.target.closest && e.target.closest(".node-group")) return;
             e.preventDefault();
+            if (rightDragMoved) {
+                rightDragMoved = false;
+                return;
+            }
             const coords = d3.pointer(e, zoomContainer.node());
             lastCanvasMouseCoords = { x: coords[0], y: coords[1] };
             showCanvasContextMenu(e.clientX, e.clientY, null);

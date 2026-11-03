@@ -1800,21 +1800,28 @@ html[data-theme="light"] .reopen-editor-pill {
 
 .canvas-hand-cursor-badge {
     position: fixed;
+    left: 0;
+    top: 0;
     z-index: 15000;
     pointer-events: none;
     display: none;
     align-items: center;
     justify-content: center;
-    width: 40px;
-    height: 40px;
-    margin-left: -20px;
-    margin-top: -24px;
+    width: 38px;
+    height: 38px;
+    margin-left: -19px;
+    margin-top: -22px;
     border-radius: 50%;
     background: rgba(15, 23, 42, 0.88);
     border: 2px solid #38bdf8;
-    box-shadow: 0 0 18px rgba(56, 189, 248, 0.7), 0 6px 16px rgba(0, 0, 0, 0.45);
-    font-size: 21px;
-    animation: handBadgePopIn 0.14s cubic-bezier(0.18, 1.4, 0.38, 1);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.65), 0 4px 12px rgba(0, 0, 0, 0.4);
+    font-size: 20px;
+    will-change: transform;
+}
+
+.canvas-hand-cursor-badge > span {
+    display: inline-block;
+    animation: handBadgePopIn 0.1s cubic-bezier(0.18, 1.4, 0.38, 1);
 }
 
 @keyframes handBadgePopIn {

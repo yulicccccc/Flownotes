@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.2.0)
+# Project State: FlowNotes (v3.2.1)
 
 ## Current Version & Status
-- **Current Version**: `v3.2.0`
+- **Current Version**: `v3.2.1`
 - **Latest Releases**:
+  - `v3.2.1`:
+    - **0ms 120fps Instant Hand-Pan & Zero-Reflow `Shift`/Hold Marquee Engine (`initMarqueeSelection` + `syncMarqueeSelectionStyles`)**: Upgraded to the Obsidian Canvas / Miro / XMind gold-standard gesture model where immediate Left-Drag / 1-Finger Touch / Right-Drag pans the canvas at `0ms` latency, `Shift + Left-Drag` (or `130ms` pinpoint hold, or `🔳` mode) performs 120fps zero-reflow marquee box selection, and DOM layout thrashing during marquee dragging is completely eliminated.
   - `v3.2.0`:
     - **Direct Type-to-Edit on Selected Card + `Alt+Enter`/`Shift+Enter` Newline**: Typing when a card is selected immediately opens inline editing on that card.
     - **XMind `Ctrl+Enter`/`Insert` (`insertParentNode`), `Shift+Enter` Sibling Above & Arrow Midpoint `➕ 中间插卡片` (`insertNodeOnSelectedLink`)**.
@@ -50,7 +52,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.2.0_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.2.1_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.
