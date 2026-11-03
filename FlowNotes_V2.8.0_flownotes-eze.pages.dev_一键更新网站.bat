@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ===================================================
-echo   FlowNotes V2.7.0 - Auto Deploy to Cloudflare Pages
+echo   FlowNotes V2.8.0 - Auto Deploy to Cloudflare Pages
 echo   Target Domain: https://flownotes-eze.pages.dev
 echo ===================================================
 echo.

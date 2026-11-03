@@ -1,0 +1,19 @@
+{
+  "name": "FlowNotes — 空间自由思维沙盘与动态脑图",
+  "short_name": "FlowNotes",
+  "description": "非线性自由空间笔记、画布富文本标色、动态跟踪有向箭头与 GitHub Gist 多端防丢同步工作台",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230f172a'/%3E%3Cpath d='M50 15 C30 15 18 32 18 58 C18 82 30 90 50 90 C70 90 82 82 82 58 C82 32 70 15 50 15 Z' fill='%236366f1'/%3E%3Cpath d='M25 22 L15 8 L35 18 Z' fill='%23818cf8'/%3E%3Cpath d='M75 22 L85 8 L65 18 Z' fill='%23818cf8'/%3E%3Ccircle cx='36' cy='45' r='13' fill='%230f172a' stroke='%23c084fc' stroke-width='2.5'/%3E%3Ccircle cx='64' cy='45' r='13' fill='%230f172a' stroke='%23c084fc' stroke-width='2.5'/%3E%3Ccircle cx='36' cy='45' r='6' fill='%2338bdf8'/%3E%3Ccircle cx='64' cy='45' r='6' fill='%2338bdf8'/%3E%3Cpolygon points='50,53 45,63 55,63' fill='%23f59e0b'/%3E%3C/svg%3E",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.7.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.8.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=2.6.0">
+    <link rel="stylesheet" href="index.css?v=2.8.0">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -73,6 +77,12 @@
                 <span class="shortcut-hint">Ctrl+K</span>
             </div>
 
+            <!-- PWA 一键安装桌面/任务栏独立应用按钮 -->
+            <button class="btn btn-secondary" id="btnInstallPwa" title="将 FlowNotes 安装到桌面/任务栏作为独立窗口运行" style="display:none;">
+                <span class="btn-icon">📲</span>
+                <span>安装桌面版</span>
+            </button>
+
             <!-- GitHub 同步防误删按钮 -->
             <button class="btn btn-github" id="ghSyncBtn" title="GitHub 云端多端同步与历史回滚防误删">
                 <span class="btn-icon">🔄</span>
@@ -126,7 +136,10 @@
                         <button class="nav-btn" id="btn-outline" title="节点目录大纲">☰</button>
                         <button class="nav-btn" id="btn-articles" title="AI 文章合成库">📝</button>
                         <button class="nav-btn" id="btn-search" title="搜索 / 快速打开 (Ctrl+K)">🔎</button>
-                        <button class="nav-btn" id="btn-relation" title="连接有向可折叠箭头：多选卡片后按 L（默认先 make 的卡片作为父节点 Parent ➔ Child）">➔</button>
+                        <button class="nav-btn" id="btn-add-child" title="衍生子卡片 (等同 Tab 键，触屏/鼠标一键建子卡)" style="font-size:11px; font-weight:700;">+子</button>
+                        <button class="nav-btn" id="btn-add-sibling" title="新增同级卡片 (等同 Enter 键，触屏/鼠标一键建同级)" style="font-size:11px; font-weight:700;">+同</button>
+                        <button class="nav-btn" id="btn-multi-select" title="点选多选模式：开启后无需按住 Shift 即可依次点选多张卡片，再点 ➔ 按“先 make 的是父”连箭头">☑️</button>
+                        <button class="nav-btn" id="btn-relation" title="连接有向可折叠箭头：多选卡片后按 L 或点此按钮（默认先 make 的卡片作为父节点 Parent ➔ Child）">➔</button>
                         <button class="nav-btn" id="btn-marquee" title="矩形框选多选模式 (按 B 或按住 Shift+左键拖拽)">🔳</button>
                         <button class="nav-btn" id="btn-graph" title="自由力导力学网络 (按 G)">✦</button>
                         <button class="nav-btn" id="btn-layout" title="整理为 XMind 树状清晰结构 (按 M)">🧭</button>
@@ -471,6 +484,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=2.6.0"></script>
+    <script src="app.js?v=2.8.0"></script>
 </body>
 </html>

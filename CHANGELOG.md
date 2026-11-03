@@ -2,6 +2,24 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.8.0] - 2026-11-03
+
+### 🌟 核心升级：桌面/手机独立 PWA、无限容量贴图、跨设备无感同步与触屏/非触屏零延迟 (Highlights)
+- **📲 PWA 桌面与移动端独立窗口应用 (`manifest.json` + `sw.js` + `📲 安装桌面版`)**：
+  - 支持在 Chrome / Edge 地址栏或点击顶部 **`📲 安装桌面版`** 按钮，一键将 FlowNotes 安装到 Windows/Mac 任务栏与桌面（或 iPad/手机主屏幕），拥有独立的 🦉 猫头鹰图标与无地址栏纯净窗口，支持 `Alt + Tab` 秒切！
+  - 内置 Network-First 离线缓存 Service Worker (`sw.js`)，有网时永远加载最新代码，断网/弱网（如飞机、高铁）也能 0 秒瞬间打开。
+- **🗄️ `IndexedDB` 大容量本地存储引擎 (`FlowNotesIDB` + `safeLocalStorageSet`)**：
+  - 彻底突破浏览器 `localStorage` 仅 5MB 的容量瓶颈！现在粘贴几十甚至上百张高清截图时，自动同步写入高容量 `IndexedDB` 与内存缓存 (`allMapsMemoryCache`)，绝不抛出 `QuotaExceededError`，也不会因为本地缓存满而中断云端同步。
+- **🔄 跨设备双向自动检测同步与关网页防丢冲刷 (`autoCheckCloudGist` + `flushPendingSave`)**：
+  - **关网页/刷新 0 丢失**：监听 `beforeunload` / `pagehide` / `visibilitychange`，在关闭或刷新页面的瞬间立即同步冲刷尚未落盘的防抖编辑。
+  - **换设备打开自动拉取最新云端笔记**：无论你在公司电脑、家里电脑、iPad 还是手机上打开 FlowNotes（或切回窗口），系统会自动比对 GitHub Gist 云端时间戳 (`updatedAtMs`)，发现云端有新版本且本地无冲突修改时自动无感拉取最新图谱！
+  - **修复左下角快捷同步栏**：完整绑定左下角 `💾 同步` (`#btn-sync`)、`↙️ 拉取` (`#btn-pull`) 与 `⬆️ 导入 JSON` (`#file-input`) 按钮。
+- **⚡ 触屏与非触屏全设备 0 延迟交互适配**：
+  - **消除 300ms 触控延迟**：为 `#graph-svg` 与所有控件启用 `touch-action: none` / `manipulation` 与 GPU 合成加速 (`will-change: transform`)，无论鼠标滚轮还是手指/触控笔拖拽均达到 0ms 响应。
+  - **触屏快速双击 + 免键盘单手快捷按钮**：支持在触屏上快速双击卡片原地编辑、快速双击空白处新建卡片；左侧工具栏新增 **`+子`**（建子卡）、**`+同`**（建同级）、**`☑️`**（免 `Shift` 键点选多张卡片，配合 `➔` 按钮即可按**“默认先 make 的是父”**连上可折叠箭头）。
+
+---
+
 ## 🚀 [v2.7.0] - 2026-11-03
 
 ### 🌟 核心升级与全量需求闭环 (Highlights)

@@ -1117,3 +1117,44 @@ html[data-theme="light"] .canvas-note-card.is-editing {
     stroke-dasharray: 5, 4;
     pointer-events: none;
 }
+
+/* ==========================================================================
+   v2.8.0 全平台零延迟触控/非触控适配与 PWA 独立窗口优化
+   ========================================================================== */
+
+#graph-svg {
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.node-group {
+    will-change: transform;
+}
+
+.nav-btn,
+.io-btn,
+.format-btn,
+.bubble-btn,
+.btn {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* 在触屏设备 (iPad / 手机 / 触屏笔记本) 上自动常显右侧拉线箭头手柄并放大点击热区 */
+@media (pointer: coarse) {
+    .node-connect-port {
+        opacity: 0.92;
+    }
+    .node-connect-port .port-circle {
+        r: 10px;
+    }
+    .node-fold-badge .fold-circle {
+        r: 11px;
+    }
+    .bubble-btn {
+        padding: 6px 11px;
+        font-size: 15px;
+    }
+}

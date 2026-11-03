@@ -45,7 +45,71 @@ let ghSyncTimer = null;
 let saveDebounceTimer = null;
 let pendingHistoryRecord = false;
 let isImeComposing = false;
+let isTouchMultiSelectMode = false;
 let lastCanvasMouseCoords = { x: 450, y: 320 };
+let allMapsMemoryCache = {};
+let deferredPwaPrompt = null;
+let lastCloudCheckMs = 0;
+
+// 安全写入 localStorage（捕获 QuotaExceededError，防止贴大量截图超过 5MB 时崩溃或阻断云同步）
+function safeLocalStorageSet(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (e) {
+        console.warn("[FlowNotes] localStorage quota exceeded for key:", key, "— falling back to IndexedDB + Memory Cache.");
+        return false;
+    }
+}
+
+// --- v2.8.0 高容量 IndexedDB 异步持久化引擎 (支持几百 MB 截图与多图谱无损本地存储) ---
+const FlowNotesIDB = {
+    dbPromise: null,
+    open() {
+        if (this.dbPromise) return this.dbPromise;
+        this.dbPromise = new Promise((resolve, reject) => {
+            if (!window.indexedDB) return resolve(null);
+            const req = indexedDB.open("FlowNotesDB_v1", 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains("kv")) {
+                    db.createObjectStore("kv");
+                }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = () => resolve(null);
+        });
+        return this.dbPromise;
+    },
+    async set(key, val) {
+        const db = await this.open();
+        if (!db) return;
+        return new Promise((resolve) => {
+            try {
+                const tx = db.transaction("kv", "readwrite");
+                tx.objectStore("kv").put(val, key);
+                tx.oncomplete = () => resolve(true);
+                tx.onerror = () => resolve(false);
+            } catch (e) {
+                resolve(false);
+            }
+        });
+    },
+    async get(key) {
+        const db = await this.open();
+        if (!db) return null;
+        return new Promise((resolve) => {
+            try {
+                const tx = db.transaction("kv", "readonly");
+                const req = tx.objectStore("kv").get(key);
+                req.onsuccess = () => resolve(req.result || null);
+                req.onerror = () => resolve(null);
+            } catch (e) {
+                resolve(null);
+            }
+        });
+    }
+};
 
 // 辅助：获取节点的创建时间 (用于“默认先 make 的是父”规则)
 function getNodeCreatedTime(node) {
@@ -72,6 +136,17 @@ function scheduleSaveGraph(recordHistory = true, delayMs = 360) {
         saveDebounceTimer = null;
         saveGraphToStorage(shouldRecord);
     }, delayMs);
+}
+
+// 页面关闭/刷新/切后台时立即冲刷尚未落盘的防抖修改，确保 0 丢失
+function flushPendingSave() {
+    if (saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer);
+        saveDebounceTimer = null;
+        const shouldRecord = pendingHistoryRecord;
+        pendingHistoryRecord = false;
+        saveGraphToStorage(shouldRecord);
+    }
 }
 
 // D3 全局引用
@@ -185,9 +260,50 @@ document.addEventListener("DOMContentLoaded", () => {
     initClipboardPaste();
     renderAll();
     initGhSyncUI();
+    initPwaAndLifecycleSync();
     showOwlWisdom();
     pushHistory();
 });
+
+// 注册 PWA Service Worker、卸载前防丢冲刷与多端窗口聚焦自动云同步检测
+function initPwaAndLifecycleSync() {
+    if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+        navigator.serviceWorker.register("/sw.js").catch(() => {});
+    }
+
+    const installBtn = document.getElementById("btnInstallPwa");
+    window.addEventListener("beforeinstallprompt", (e) => {
+        e.preventDefault();
+        deferredPwaPrompt = e;
+        if (installBtn) installBtn.style.display = "inline-flex";
+    });
+    if (installBtn) {
+        installBtn.addEventListener("click", async () => {
+            if (deferredPwaPrompt) {
+                deferredPwaPrompt.prompt();
+                await deferredPwaPrompt.userChoice;
+                deferredPwaPrompt = null;
+                installBtn.style.display = "none";
+            } else {
+                showToast("💡 你可以在浏览器地址栏右侧点击“安装应用”图标，将 FlowNotes 固定到桌面和任务栏！");
+            }
+        });
+    }
+
+    window.addEventListener("beforeunload", flushPendingSave);
+    window.addEventListener("pagehide", flushPendingSave);
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            flushPendingSave();
+        } else if (document.visibilityState === "visible") {
+            autoCheckCloudGist(true);
+        }
+    });
+    window.addEventListener("focus", () => autoCheckCloudGist(true));
+
+    // 启动后 900ms 自动检测云端是否有其他设备（手机/平板/家里电脑）推送的更新版本
+    setTimeout(() => autoCheckCloudGist(true), 900);
+}
 
 // --- 多图谱全局状态管理 ---
 let mapsManifest = [];
@@ -220,41 +336,71 @@ function initStorage() {
             nodeCount: legacyNodes ? (JSON.parse(legacyNodes) || []).length : DEFAULT_NODES.length,
             updatedAt: new Date().toLocaleString()
         }];
-        localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
-        localStorage.setItem("flownotes_active_map_id", activeMapId);
+        safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+        safeLocalStorageSet("flownotes_active_map_id", activeMapId);
 
         const initData = {
             nodes: legacyNodes ? JSON.parse(legacyNodes) : DEFAULT_NODES,
             links: legacyLinks ? JSON.parse(legacyLinks) : DEFAULT_LINKS,
             flowStream: legacyFlows ? JSON.parse(legacyFlows) : DEFAULT_FLOW_STREAM
         };
-        localStorage.setItem(`flownotes_map_data_${activeMapId}`, JSON.stringify(initData));
+        allMapsMemoryCache[activeMapId] = initData;
+        safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(initData));
+    } else {
+        mapsManifest.forEach(m => {
+            const raw = localStorage.getItem(`flownotes_map_data_${m.id}`);
+            if (raw) {
+                try { allMapsMemoryCache[m.id] = JSON.parse(raw); } catch (e) {}
+            }
+        });
     }
 
     loadMapData(activeMapId);
+
+    // 异步从高容量 IndexedDB 恢复（如果贴了大量图片超出 localStorage 5MB 上限，IndexedDB 依然保留 100% 完整数据）
+    FlowNotesIDB.get("flownotes_full_bundle").then(bundle => {
+        if (!bundle || !bundle.mapsManifest) return;
+        const lsUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
+        const idbUpdatedMs = bundle.updatedAtMs || 0;
+        if (idbUpdatedMs >= lsUpdatedMs && bundle.allMapsData) {
+            allMapsMemoryCache = { ...allMapsMemoryCache, ...bundle.allMapsData };
+            if (idbUpdatedMs > lsUpdatedMs) {
+                mapsManifest = bundle.mapsManifest;
+                activeMapId = bundle.activeMapId || activeMapId;
+                loadMapData(activeMapId);
+                if (layoutMode === "tree") tidyLayout();
+                else updateD3Graph();
+                renderPositions();
+                renderAll();
+                renderOrganizerUI();
+            }
+        }
+    });
 }
 
 function loadMapData(mapId) {
     activeMapId = mapId;
-    localStorage.setItem("flownotes_active_map_id", activeMapId);
+    safeLocalStorageSet("flownotes_active_map_id", activeMapId);
 
-    const raw = localStorage.getItem(`flownotes_map_data_${mapId}`);
-    if (raw) {
-        try {
-            const data = JSON.parse(raw);
-            nodes = data.nodes || [];
-            links = data.links || [];
-            flowStream = data.flowStream || [];
-            sanitizeGraph();
-        } catch (e) {
-            nodes = [...DEFAULT_NODES];
-            links = [...DEFAULT_LINKS];
-            flowStream = [...DEFAULT_FLOW_STREAM];
+    let data = allMapsMemoryCache[mapId];
+    if (!data) {
+        const raw = localStorage.getItem(`flownotes_map_data_${mapId}`);
+        if (raw) {
+            try { data = JSON.parse(raw); } catch (e) { data = null; }
         }
+    }
+
+    if (data) {
+        nodes = data.nodes || [];
+        links = data.links || [];
+        flowStream = data.flowStream || [];
+        allMapsMemoryCache[mapId] = data;
+        sanitizeGraph();
     } else {
         nodes = [...DEFAULT_NODES];
         links = [...DEFAULT_LINKS];
         flowStream = [...DEFAULT_FLOW_STREAM];
+        sanitizeGraph();
     }
 
     selectedNode = nodes[0] || null;
@@ -265,25 +411,37 @@ function loadMapData(mapId) {
 function saveGraphToStorage(recordHistory = true) {
     if (recordHistory) pushHistory();
 
-    // 1. 保存当前激活图谱的数据
+    const nowMs = Date.now();
+    safeLocalStorageSet("flownotes_local_updated_ms", String(nowMs));
+
+    // 1. 保存当前激活图谱的数据（内存缓存 + localStorage + IndexedDB 大容量双保险）
     const currentData = {
         nodes: nodes,
         links: cleanLinks(),
         flowStream: flowStream
     };
-    localStorage.setItem(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
+    allMapsMemoryCache[activeMapId] = currentData;
+    safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
 
     // 兼顾向后兼容
-    localStorage.setItem("obsidian_nodes", JSON.stringify(nodes));
-    localStorage.setItem("obsidian_links", JSON.stringify(cleanLinks()));
+    safeLocalStorageSet("obsidian_nodes", JSON.stringify(nodes));
+    safeLocalStorageSet("obsidian_links", JSON.stringify(cleanLinks()));
 
     // 2. 更新当前图谱在 Manifest 中的元数据 (卡片数、修改时间)
     const targetMap = mapsManifest.find(m => m.id === activeMapId);
     if (targetMap) {
         targetMap.nodeCount = nodes.length;
         targetMap.updatedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+        safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
     }
+
+    // 3. 异步写入高容量 IndexedDB（突破 5MB 限制，支持无限贴图）
+    FlowNotesIDB.set("flownotes_full_bundle", {
+        updatedAtMs: nowMs,
+        activeMapId: activeMapId,
+        mapsManifest: mapsManifest,
+        allMapsData: allMapsMemoryCache
+    });
 
     updateCurrentMapBadge();
     renderOrganizerUI();
@@ -439,12 +597,7 @@ function initD3Mindmap() {
         }
     });
 
-    // 双击画布空白处创建 100% 独立的自由空间卡片（指哪打哪，支持放到一坨）
-    svg.on("dblclick", (event) => {
-        if (event.target.closest && event.target.closest(".node-group")) return;
-        if (event.target.tagName === "circle" || event.target.tagName === "text") return;
-
-        const coords = d3.pointer(event, zoomContainer.node());
+    function spawnFreeCardAtCoords(coords) {
         const nowTs = Date.now();
         const newId = `root_${nowTs}`;
 
@@ -475,6 +628,35 @@ function initD3Mindmap() {
         setTimeout(() => {
             startInlineCardEditById(newId, true);
         }, 50);
+    }
+
+    // 双击画布空白处创建 100% 独立的自由空间卡片（指哪打哪，支持放到一坨）
+    svg.on("dblclick", (event) => {
+        if (event.target.closest && event.target.closest(".node-group")) return;
+        if (event.target.tagName === "circle" || event.target.tagName === "text") return;
+        const coords = d3.pointer(event, zoomContainer.node());
+        spawnFreeCardAtCoords(coords);
+    });
+
+    // 触屏设备（iPad/手机/触屏本）零延迟快速双击空白处创建卡片支持
+    let lastCanvasTapMs = 0;
+    let lastCanvasTapPt = [0, 0];
+    svg.on("touchend.fastDoubleTap", (event) => {
+        if (event.changedTouches && event.changedTouches.length === 1) {
+            if (event.target.closest && event.target.closest(".node-group")) return;
+            const touch = event.changedTouches[0];
+            const now = Date.now();
+            const dist = Math.hypot(touch.clientX - lastCanvasTapPt[0], touch.clientY - lastCanvasTapPt[1]);
+            if (now - lastCanvasTapMs < 320 && dist < 28) {
+                event.preventDefault();
+                const coords = d3.pointer(touch, zoomContainer.node());
+                spawnFreeCardAtCoords(coords);
+                lastCanvasTapMs = 0;
+            } else {
+                lastCanvasTapMs = now;
+                lastCanvasTapPt = [touch.clientX, touch.clientY];
+            }
+        }
     });
 
     // 媲美 Obsidian Graph View 的四向柔和果冻 Q 弹物理仿真器
@@ -1061,8 +1243,17 @@ function updateD3Graph() {
                     event.stopPropagation();
                     if (event.target.closest && event.target.closest('[contenteditable="true"]')) return;
 
-                    // 支持 Shift+Click 或 Ctrl/Cmd+Click 多选节点（方便按 L 键用“先 make 的是父”规则连箭头）
-                    if (event.shiftKey || event.ctrlKey || event.metaKey) {
+                    // 触屏快速双击卡片检测（320ms 内连续轻点两次直接进入画布原地富文本编辑）
+                    const nowTap = Date.now();
+                    if (d._lastTapMs && (nowTap - d._lastTapMs < 320) && !event.shiftKey && !isTouchMultiSelectMode) {
+                        d._lastTapMs = 0;
+                        startInlineCardEdit(d, event.currentTarget, false);
+                        return;
+                    }
+                    d._lastTapMs = nowTap;
+
+                    // 支持 Shift+Click、Ctrl/Cmd+Click 或开启“☑️多选”按钮模式点选多个节点（方便按 L 键或点 ➔ 用“先 make 的是父”规则连箭头）
+                    if (event.shiftKey || event.ctrlKey || event.metaKey || isTouchMultiSelectMode) {
                         if (selectedNodeIds.has(d.id)) {
                             selectedNodeIds.delete(d.id);
                         } else {
@@ -1072,7 +1263,7 @@ function updateD3Graph() {
                         refreshNodeStyles();
                         renderEditor();
                         if (selectedNodeIds.size >= 2) {
-                            showToast(`已选中 ${selectedNodeIds.size} 个卡片，按 L 键或点击 ↔ 即可按“先建为父”连上可折叠箭头！`);
+                            showToast(`已选中 ${selectedNodeIds.size} 个卡片，点左侧 ➔（或按 L 键）即可按“先 make 的是父”连上可折叠箭头！`);
                         }
                         return;
                     }
@@ -1888,11 +2079,28 @@ function initEvents() {
     document.getElementById("btn-layout").addEventListener("click", tidyLayout);
     document.getElementById("btn-graph").addEventListener("click", switchToForceLayout);
 
-    // 图谱视图控制按钮
+    // 图谱视图控制按钮 + 触屏/鼠标单手快捷建卡与多选按钮
     document.getElementById("btn-zoom-in").addEventListener("click", () => svg.transition().call(zoom.scaleBy, 1.25));
     document.getElementById("btn-zoom-out").addEventListener("click", () => svg.transition().call(zoom.scaleBy, 0.8));
     document.getElementById("btn-fit").addEventListener("click", () => svg.transition().call(zoom.transform, d3.zoomIdentity));
     document.getElementById("btn-relation").addEventListener("click", toggleRelationLink);
+
+    const btnAddChild = document.getElementById("btn-add-child");
+    if (btnAddChild) btnAddChild.addEventListener("click", () => createChildNode());
+
+    const btnAddSibling = document.getElementById("btn-add-sibling");
+    if (btnAddSibling) btnAddSibling.addEventListener("click", () => createSiblingNode());
+
+    const btnMultiSelect = document.getElementById("btn-multi-select");
+    if (btnMultiSelect) {
+        btnMultiSelect.addEventListener("click", () => {
+            isTouchMultiSelectMode = !isTouchMultiSelectMode;
+            btnMultiSelect.classList.toggle("active", isTouchMultiSelectMode);
+            showToast(isTouchMultiSelectMode
+                ? "☑️ 已开启点选多选模式：直接依次点击两张卡片，再点 ➔ 即可按“先 make 的是父”连上箭头！"
+                : "👆 已恢复单选模式");
+        });
+    }
 
     // 编辑器绑定
     const titleInput = document.getElementById("title-input");
@@ -1986,7 +2194,37 @@ function initEvents() {
     document.getElementById("saveGhSettingsBtn").addEventListener("click", saveGhSettings);
     document.getElementById("autoCreateGistBtn").addEventListener("click", autoCreateGhGist);
     document.getElementById("pushToGhBtn").addEventListener("click", () => pushToGhGist(false));
-    document.getElementById("pullFromGhBtn").addEventListener("click", pullFromGhGist);
+    document.getElementById("pullFromGhBtn").addEventListener("click", () => pullFromGhGist(false));
+
+    // 左下角快捷 IO 栏按钮绑定 (💾 同步、↙️ 拉取、⬆️ 导入 JSON)
+    const btnQuickSync = document.getElementById("btn-sync");
+    if (btnQuickSync) btnQuickSync.addEventListener("click", () => pushToGhGist(false));
+
+    const btnQuickPull = document.getElementById("btn-pull");
+    if (btnQuickPull) btnQuickPull.addEventListener("click", () => pullFromGhGist(false));
+
+    const btnImport = document.getElementById("btn-import");
+    const fileInput = document.getElementById("file-input");
+    if (btnImport && fileInput) {
+        btnImport.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const parsed = JSON.parse(ev.target.result);
+                    applyParsedBackupData(parsed);
+                    saveGraphToStorage(true);
+                    showToast(`📥 已成功导入备份文件 (${nodes.length} 张卡片)！`);
+                } catch (err) {
+                    showToast("❌ JSON 文件格式解析失败");
+                }
+                fileInput.value = "";
+            };
+            reader.readAsText(file);
+        });
+    }
 
     // 图谱组织器抽屉绑定
     const toggleOrganizerPanel = () => {
@@ -2793,12 +3031,16 @@ async function pushToGhGist(silent = false) {
             }
         }
 
-        // 2. 打包包含所有多图谱项目与元数据的全量大包裹
+        // 2. 打包包含所有多图谱项目与元数据的全量大包裹（优先从内存缓存读取，即使超出 localStorage 5MB 也 100% 完整）
         const allMapsData = {};
         mapsManifest.forEach(m => {
-            const raw = localStorage.getItem(`flownotes_map_data_${m.id}`);
-            if (raw) {
-                try { allMapsData[m.id] = JSON.parse(raw); } catch (e) {}
+            if (allMapsMemoryCache[m.id]) {
+                allMapsData[m.id] = allMapsMemoryCache[m.id];
+            } else {
+                const raw = localStorage.getItem(`flownotes_map_data_${m.id}`);
+                if (raw) {
+                    try { allMapsData[m.id] = JSON.parse(raw); } catch (e) {}
+                }
             }
         });
         allMapsData[activeMapId] = {
@@ -2806,9 +3048,12 @@ async function pushToGhGist(silent = false) {
             links: cleanLinks(),
             flowStream: flowStream
         };
+        allMapsMemoryCache[activeMapId] = allMapsData[activeMapId];
 
+        const syncTimestampMs = Date.now();
         const localPayload = JSON.stringify({
-            version: "FlowNotes-MultiMap-2.0",
+            version: "FlowNotes-MultiMap-2.8",
+            updatedAtMs: syncTimestampMs,
             activeMapId: activeMapId,
             mapsManifest: mapsManifest,
             allMapsData: allMapsData,
@@ -2830,10 +3075,12 @@ async function pushToGhGist(silent = false) {
             throw new Error(`HTTP ${patchRes.status}`);
         }
 
-        lastGhPatchTimestamp = Date.now();
+        lastGhPatchTimestamp = syncTimestampMs;
         const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        localStorage.setItem("flownotes_last_sync_time", nowStr);
-        localStorage.setItem("flownotes_cloud_node_count", totalCardCount.toString());
+        safeLocalStorageSet("flownotes_last_sync_time", nowStr);
+        safeLocalStorageSet("flownotes_cloud_node_count", totalCardCount.toString());
+        safeLocalStorageSet("flownotes_cloud_updated_ms", String(syncTimestampMs));
+        safeLocalStorageSet("flownotes_local_updated_ms", String(syncTimestampMs));
 
         updateGhStatusDisplay();
         if (!silent) showToast(`✅ 共 ${mapsManifest.length} 个思维图谱库 (${totalCardCount} 卡片) 已安全同步至 GitHub！(${nowStr})`);
@@ -2850,69 +3097,134 @@ async function pushToGhGist(silent = false) {
     }
 }
 
-async function pullFromGhGist() {
+// 统一解析并应用从 GitHub Gist 或本地 JSON 导入的备份数据
+function applyParsedBackupData(parsed) {
+    if (!parsed) return;
+    if (parsed.mapsManifest && Array.isArray(parsed.mapsManifest)) {
+        mapsManifest = parsed.mapsManifest;
+        safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+
+        if (parsed.allMapsData) {
+            Object.keys(parsed.allMapsData).forEach(mId => {
+                allMapsMemoryCache[mId] = parsed.allMapsData[mId];
+                safeLocalStorageSet(`flownotes_map_data_${mId}`, JSON.stringify(parsed.allMapsData[mId]));
+            });
+        }
+
+        const targetActiveId = parsed.activeMapId || (mapsManifest[0] ? mapsManifest[0].id : "map_default");
+        loadMapData(targetActiveId);
+    } else if (parsed.nodes) {
+        nodes = parsed.nodes;
+        links = parsed.links || [];
+        sanitizeGraph();
+        allMapsMemoryCache[activeMapId] = { nodes, links: cleanLinks(), flowStream };
+    }
+
+    const stampMs = parsed.updatedAtMs || Date.now();
+    FlowNotesIDB.set("flownotes_full_bundle", {
+        updatedAtMs: stampMs,
+        activeMapId: activeMapId,
+        mapsManifest: mapsManifest,
+        allMapsData: allMapsMemoryCache
+    });
+
+    if (layoutMode === "tree") tidyLayout();
+    else updateD3Graph();
+    renderPositions();
+    renderAll();
+    renderEditor();
+    renderOrganizerUI();
+}
+
+async function pullFromGhGist(silent = false) {
     const pat = localStorage.getItem("flownotes_gh_pat");
     const gistId = localStorage.getItem("flownotes_gh_gist_id");
     if (!pat || !gistId) {
-        showToast("请先在同步设置中配置 GitHub PAT 和 Gist ID");
+        if (!silent) showToast("请先在同步设置中配置 GitHub PAT 和 Gist ID");
         return;
     }
 
-    updateSyncStatusUI("busy", "🔄 正在从 GitHub 拉取多图谱...", "正在拉取全量云端 Gist 备份文件");
+    if (!silent) {
+        updateSyncStatusUI("busy", "🔄 正在从 GitHub 拉取多图谱...", "正在拉取全量云端 Gist 备份文件");
+    }
 
     try {
         const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: { "Authorization": `Bearer ${pat}` } });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
+        if (!data.files || !data.files["flownotes_backup.json"]) return;
         const parsed = JSON.parse(data.files["flownotes_backup.json"].content);
 
         // 安全防护：如果拉取到的云端数据极其微小（如 0 个节点），阻止覆盖本地有效数据
         if (parsed.nodes && parsed.nodes.length === 0 && nodes.length > 0) {
             updateSyncStatusUI("warn", "⚠️ 拉取拦截: 云端数据为空", "云端数据为 0 个节点，阻止覆盖本地已有节点");
-            showToast("⚠️ 拦截拉取！云端数据为空，阻止覆盖本地数据。");
+            if (!silent) showToast("⚠️ 拦截拉取！云端数据为空，阻止覆盖本地数据。");
             return;
         }
 
-        // 多图谱还原逻辑
-        if (parsed.mapsManifest && Array.isArray(parsed.mapsManifest)) {
-            mapsManifest = parsed.mapsManifest;
-            localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+        applyParsedBackupData(parsed);
 
-            if (parsed.allMapsData) {
-                Object.keys(parsed.allMapsData).forEach(mId => {
-                    localStorage.setItem(`flownotes_map_data_${mId}`, JSON.stringify(parsed.allMapsData[mId]));
-                });
-            }
-
-            const targetActiveId = parsed.activeMapId || (mapsManifest[0] ? mapsManifest[0].id : "map_default");
-            loadMapData(targetActiveId);
-        } else {
-            // 向下兼容单图谱还原
-            if (parsed.nodes) nodes = parsed.nodes;
-            if (parsed.links) links = parsed.links;
-            saveGraphToStorage(false);
-        }
-
-        if (layoutMode === "tree") tidyLayout();
-        else updateD3Graph();
-        renderAll();
-        renderEditor();
-        renderOrganizerUI();
-
+        const cloudStampMs = parsed.updatedAtMs || (data.updated_at ? Date.parse(data.updated_at) : Date.now());
         const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
         const totalCardCount = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0);
-        localStorage.setItem("flownotes_last_sync_time", nowStr);
-        localStorage.setItem("flownotes_cloud_node_count", totalCardCount.toString());
+        safeLocalStorageSet("flownotes_last_sync_time", nowStr);
+        safeLocalStorageSet("flownotes_cloud_node_count", totalCardCount.toString());
+        safeLocalStorageSet("flownotes_cloud_updated_ms", String(cloudStampMs));
+        safeLocalStorageSet("flownotes_local_updated_ms", String(cloudStampMs));
 
         updateGhStatusDisplay();
-        showToast(`🎉 已成功从 GitHub 恢复 ${mapsManifest.length} 个思维图谱项目 (${totalCardCount} 卡片)！(${nowStr})`);
+        if (silent) {
+            showToast(`☁️ 已自动同步云端最新笔记 (${totalCardCount} 张卡片)`);
+        } else {
+            showToast(`🎉 已成功从 GitHub 恢复 ${mapsManifest.length} 个思维图谱项目 (${totalCardCount} 卡片)！(${nowStr})`);
+        }
 
     } catch (e) {
-        const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        updateSyncStatusUI("error", `🔴 拉取失败 (${nowStr})`, `拉取失败原因: ${e.message || "网络或 JSON 解析异常"}`);
-        showToast(`❌ 拉取失败 (${e.message || "网络错误"})`);
+        if (!silent) {
+            const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            updateSyncStatusUI("error", `🔴 拉取失败 (${nowStr})`, `拉取失败原因: ${e.message || "网络或 JSON 解析异常"}`);
+            showToast(`❌ 拉取失败 (${e.message || "网络错误"})`);
+        }
     }
+}
+
+// 跨设备开机/切回窗口自动云端新版本检测（实现手机/平板/办公电脑/家里电脑打开即最新）
+async function autoCheckCloudGist(silent = true) {
+    const now = Date.now();
+    if (now - lastCloudCheckMs < 20000) return; // 20秒冷却防频繁请求
+    lastCloudCheckMs = now;
+
+    const pat = localStorage.getItem("flownotes_gh_pat");
+    const gistId = localStorage.getItem("flownotes_gh_gist_id");
+    if (!pat || !gistId) return;
+
+    try {
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers: { "Authorization": `Bearer ${pat}` } });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.files || !data.files["flownotes_backup.json"]) return;
+
+        const parsed = JSON.parse(data.files["flownotes_backup.json"].content);
+        const cloudStampMs = parsed.updatedAtMs || (data.updated_at ? Date.parse(data.updated_at) : 0);
+        const lastKnownCloudMs = parseInt(localStorage.getItem("flownotes_cloud_updated_ms") || "0", 10);
+        const localUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
+
+        const isDefaultInitialState = (mapsManifest.length === 1 && nodes.length === DEFAULT_NODES.length && nodes[0] && nodes[0].id === "root_1" && !lastKnownCloudMs);
+
+        // 如果这台设备是刚打开的初始状态，或者云端比上次已知同步时间更新且本地没有未推送的新修改，则自动无感拉取云端最新数据！
+        if (isDefaultInitialState || (cloudStampMs > lastKnownCloudMs + 1000 && localUpdatedMs <= lastKnownCloudMs + 1000)) {
+            applyParsedBackupData(parsed);
+            const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+            const totalCardCount = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0);
+            safeLocalStorageSet("flownotes_last_sync_time", nowStr);
+            safeLocalStorageSet("flownotes_cloud_node_count", totalCardCount.toString());
+            safeLocalStorageSet("flownotes_cloud_updated_ms", String(cloudStampMs));
+            safeLocalStorageSet("flownotes_local_updated_ms", String(cloudStampMs));
+            updateGhStatusDisplay();
+            showToast(`☁️ 已自动同步云端最新笔记 (${totalCardCount} 张卡片)`);
+        }
+    } catch (e) {}
 }
 
 function triggerAutoGhSync() {
@@ -3044,6 +3356,7 @@ function createNewMap(title, icon = "🧠") {
 
 function switchActiveMap(mapId) {
     if (mapId === activeMapId) return;
+    flushPendingSave();
 
     // 先保存当前激活图谱的数据
     const currentData = {
@@ -3051,7 +3364,8 @@ function switchActiveMap(mapId) {
         links: cleanLinks(),
         flowStream: flowStream
     };
-    localStorage.setItem(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
+    allMapsMemoryCache[activeMapId] = currentData;
+    safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
 
     // 加载新图谱
     loadMapData(mapId);

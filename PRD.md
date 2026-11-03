@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.7.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.8.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **PWA Standalone App, High-Capacity IndexedDB & Multi-Device Auto-Sync (v2.8.0 独立桌面应用、无限图片容量与多端无感同步)**:
+  - **PWA Standalone Mode (`public/manifest.json` + `public/sw.js`)**: Supports 1-click installation to Windows/macOS Desktop & Taskbar or iOS/Android Home Screen (`#btnInstallPwa`), with Network-First offline Service Worker caching so it opens instantaneously anywhere, online or offline.
+  - **High-Capacity `IndexedDB` Storage (`FlowNotesIDB` + `safeLocalStorageSet`)**: Breaks through browser `localStorage`'s 5MB limit by persisting the full multi-map bundle (`flownotes_full_bundle`) in `IndexedDB` + in-memory cache (`allMapsMemoryCache`), allowing hundreds of MBs of screenshots without `QuotaExceededError`.
+  - **Multi-Device Bi-Directional Cloud Auto-Check (`autoCheckCloudGist` + `flushPendingSave`)**: Automatically flushes any pending debounced edits on `beforeunload`/`pagehide`/`visibilitychange`, and checks GitHub Gist on startup & window focus to auto-pull newer cloud commits from other devices when local has no conflicting unsynced edits.Also wired up bottom-left `#btn-sync` (`💾 同步`), `#btn-pull` (`↙️ 拉取`), and `#btn-import` (`⬆️ 导入 JSON`).
+  - **Zero-Latency Touch & Non-Touch Experience**: Eliminates the 300ms mobile tap delay via `touch-action: none`, adds `< 320ms` fast double-tap on cards/canvas for touchscreens, and adds `+子` (`#btn-add-child`), `+同` (`#btn-add-sibling`), and `☑️` (`#btn-multi-select`) buttons so touch/mouse-only users can create child/sibling cards and multi-select cards to connect foldable arrows ("默认先 make 的是父") without needing a physical keyboard.
 - **Freeform Spatial Canvas & Direct Rich-Text Card Rendering (v2.7.0 自由空间“放到一坨”与画布富文本直显)**:
   - **Freeform Spatial Dumping (`layoutMode = "free"` by default)**: Double-clicking or pasting (`Ctrl+V`) places independent cards at exact 2D cursor coordinates (`fx/fy`) without forcibly snapping unrelated notes into a vertical tree column. Unrelated thoughts can sit side-by-side in clusters ("放到一坨") without accidental auto-reparenting (`Alt + Drag` required for proximity drop reparenting).
   - **Direct On-Canvas Rich Sentences & Image Cards (`<foreignObject class="node-card-fo">`)**: Sentences on the canvas directly display inline 🔴 red words, 🟢 green words, 🟡 yellow `<mark>` highlights, multi-line text, and 📸 pasted screenshots—just like OneNote, without needing to look at the right sidebar.
@@ -57,4 +62,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.7.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.8.0_flownotes-eze.pages.dev_一键更新网站.bat`.
