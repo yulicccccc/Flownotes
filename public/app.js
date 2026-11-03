@@ -47,6 +47,7 @@ let pendingHistoryRecord = false;
 let isImeComposing = false;
 let isTouchMultiSelectMode = false;
 let isSpacePressed = false;
+let spacePanMoved = false;
 let selectedLink = null;
 let copiedNodesBuffer = [];
 let lastCanvasMouseCoords = { x: 450, y: 320 };
@@ -256,6 +257,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
+    console.log("[FlowNotes] v3.0.0 loaded — Full OneNote + XMind Intuitive Interaction Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -478,23 +480,25 @@ function cleanLinks() {
     const treeLinks = [];
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
-    // 1. 唯一真理来源：根据每个节点的 parentId 精确生成树状连线
+    // 1. 唯一真理来源：根据每个节点的 parentId 精确生成树状连线（并保留箭头上的关系词 edgeLabel）
     nodes.forEach(n => {
         if (n.parentId && nodeMap.has(n.parentId)) {
             treeLinks.push({
                 source: cleanNodeId(n.parentId),
-                target: cleanNodeId(n.id)
+                target: cleanNodeId(n.id),
+                label: n.edgeLabel || ""
             });
         }
     });
 
-    // 2. 包含保留用户自定义的 relation 关系虚线
+    // 2. 包含保留用户自定义的 relation 关系虚线（及关系词 label）
     const relationLinks = (links || [])
         .filter(l => l && l.type === "relation")
         .map(l => ({
             source: cleanNodeId(l.source),
             target: cleanNodeId(l.target),
-            type: "relation"
+            type: "relation",
+            label: l.label || ""
         }));
 
     return [...treeLinks, ...relationLinks];
@@ -523,7 +527,7 @@ function sanitizeGraph() {
 }
 
 // D3 持久引用（与 reference 一致，分层 <g> 组）
-let linkElements, nodeElements;
+let linkElements, linkLabelElements, nodeElements;
 
 function initD3Mindmap() {
     const container = document.getElementById("graph-container");
@@ -573,8 +577,9 @@ function initD3Mindmap() {
         .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
         .attr("fill", "rgba(56, 189, 248, 0.95)");
 
-    // 链接层在节点层下面（z-order 正确）
+    // 链接层与箭头关系词层在节点层下面（z-order 正确）
     linkElements = zoomContainer.append("g").attr("class", "link-layer").selectAll("line");
+    linkLabelElements = zoomContainer.append("g").attr("class", "link-label-layer").selectAll(".link-label-group");
     nodeElements = zoomContainer.append("g").attr("class", "node-layer").selectAll(".node-group");
 
     // Zoom: 默认鼠标左键在空白处拖拽用于“矩形框选多个目标”；画布平移通过滚轮/双指滑动、按住空格键(Space)+左键拖拽、鼠标中键拖拽、或切换✋抓手模式触发
@@ -583,7 +588,11 @@ function initD3Mindmap() {
         .filter((event) => {
             if (event.type === "wheel") return false; // 禁止 D3 默认 wheel zoom
             if (event.type === "mousedown") {
-                const onNode = event.target.closest && (event.target.closest(".node-group") || event.target.closest(".link"));
+                const onNode = event.target.closest && (
+                    event.target.closest(".node-group") ||
+                    event.target.closest(".link") ||
+                    event.target.closest(".link-label-group")
+                );
                 if (onNode) return false;
                 // 当处于抓手平移模式 (!isMarqueeMode)、或按住 Space 键、或鼠标中键(1)时平移画布
                 return !isMarqueeMode || isSpacePressed || event.button === 1;
@@ -601,23 +610,26 @@ function initD3Mindmap() {
     // 自定义滚轮行为：裸滚轮 = 平移画布，Ctrl+滚轮 = 缩放（与 reference 一致）
     svg.node().addEventListener("wheel", handleGraphWheel, { passive: false });
 
-    // 实时追踪鼠标在画布内部的坐标，便于 Ctrl+V 直接在光标处落子生成卡片
+    // 实时追踪鼠标在画布内部的坐标，便于 Ctrl+V 或空白处直接打字时在光标处落子生成卡片
     svg.on("mousemove.canvasCoords", (event) => {
+        if (isSpacePressed) spacePanMoved = true;
         const c = d3.pointer(event, zoomContainer.node());
         if (c && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
             lastCanvasMouseCoords = { x: c[0], y: c[1] };
         }
     });
 
-    function spawnFreeCardAtCoords(coords) {
+    function spawnFreeCardAtCoords(coords, initialText = "") {
         const nowTs = Date.now();
         const newId = `root_${nowTs}`;
+        const hasInit = typeof initialText === "string" && initialText.length > 0;
+        const defaultTitle = hasInit ? initialText : `新笔记 ${nodes.length + 1}`;
 
         const newNode = {
             id: newId,
-            label: `新笔记 ${nodes.length + 1}`,
+            label: defaultTitle,
             parentId: null,
-            content: `新笔记 ${nodes.length + 1}`,
+            content: defaultTitle,
             createdAt: nowTs,
             order: nodes.length,
             x: coords[0],
@@ -629,18 +641,22 @@ function initD3Mindmap() {
         nodes.push(newNode);
         selectedNode = newNode;
         selectedNodeIds = new Set([newId]);
+        selectedLink = null;
 
         scheduleSaveGraph(true);
         if (layoutMode === "tree") tidyLayout();
         else updateD3Graph();
         renderPositions();
         renderEditor();
-        showToast(`✨ 已在当前位置创建自由卡片 [[${newNode.label}]] (可直接输入或划词标色)`);
+        if (!hasInit) {
+            showToast(`✨ 已在当前位置创建自由卡片 [[${newNode.label}]] (可直接输入或划词标色)`);
+        }
 
         setTimeout(() => {
-            startInlineCardEditById(newId, true);
-        }, 50);
+            startInlineCardEditById(newId, !hasInit, hasInit);
+        }, 35);
     }
+    window.spawnFreeCardAtCoords = spawnFreeCardAtCoords;
 
     // 双击画布空白处创建 100% 独立的自由空间卡片（指哪打哪，支持放到一坨）
     svg.on("dblclick", (event) => {
@@ -818,8 +834,11 @@ function initMarqueeSelection() {
         const w = Math.abs(currentCoords[0] - marqueeStartCoords[0]);
         const h = Math.abs(currentCoords[1] - marqueeStartCoords[1]);
 
-        // 如果只是在画布空白处单击了一下（未拖动拉框），则直觉式取消所有选中状态！
+        // 如果只是在画布空白处单击了一下（未拖动拉框），则直觉式取消所有选中状态，并记录该点坐标供直接敲键盘打字建卡（同 OneNote）！
         if (w < 5 && h < 5 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
+            if (currentCoords && Number.isFinite(currentCoords[0]) && Number.isFinite(currentCoords[1])) {
+                lastCanvasMouseCoords = { x: currentCoords[0], y: currentCoords[1] };
+            }
             selectedNodeIds.clear();
             selectedNode = null;
             selectedLink = null;
@@ -923,6 +942,14 @@ function renderPositions() {
             .attr("x2", c.tx)
             .attr("y2", c.ty);
     });
+    if (linkLabelElements) {
+        linkLabelElements.each(function(d) {
+            const c = getLinkCoords(d);
+            const mx = (c.sx + c.tx) / 2;
+            const my = (c.sy + c.ty) / 2;
+            d3.select(this).attr("transform", `translate(${mx},${my})`);
+        });
+    }
 }
 
 // 生成画布卡片内部直接显示的富文本 HTML（直接呈现 🔴红字、🟢绿字、🟡荧光高亮与 📸粘贴截图）
@@ -968,17 +995,21 @@ function refreshNodeStyles() {
                 }
             }
 
+            const hasCustomW = typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 90;
             cardDiv
                 .classed("is-root", d.parentId === null)
                 .classed("is-selected", isSelected)
                 .classed("is-focus", isFocus)
                 .classed("is-image-card", !!(d.isImage && d.imageUrl))
+                .classed("has-custom-width", hasCustomW)
+                .style("width", hasCustomW ? `${d.customWidth}px` : null)
+                .style("max-width", hasCustomW ? "none" : null)
                 .style("--card-accent", borderColor);
 
             // 测量卡片实际宽高，缓存到 d._cardW / d._cardH 供矩形边缘箭头交点算法使用
             const cardEl = cardDiv.node();
-            const measuredW = Math.max(76, Math.min(340, (cardEl ? cardEl.offsetWidth : 130) || 130));
-            const measuredH = Math.max(34, Math.min(280, (cardEl ? cardEl.offsetHeight : 38) || 38));
+            const measuredW = Math.max(76, Math.min(720, (cardEl ? cardEl.offsetWidth : 130) || 130));
+            const measuredH = Math.max(34, Math.min(580, (cardEl ? cardEl.offsetHeight : 38) || 38));
             d._cardW = measuredW;
             d._cardH = measuredH;
 
@@ -1028,7 +1059,7 @@ function refreshNodeStyles() {
         group.classed("is-collapsed", !!d.collapsed);
     });
 
-    // 卡片尺寸变化后同步刷新箭头端点位置
+    // 卡片尺寸变化后同步刷新箭头端点与关系词位置
     if (linkElements) {
         linkElements.each(function(d) {
             const c = getLinkCoords(d);
@@ -1039,17 +1070,23 @@ function refreshNodeStyles() {
                 .attr("y2", c.ty);
         });
     }
+    if (linkLabelElements) {
+        linkLabelElements.each(function(d) {
+            const c = getLinkCoords(d);
+            d3.select(this).attr("transform", `translate(${(c.sx + c.tx) / 2},${(c.sy + c.ty) / 2})`);
+        });
+    }
 }
 
 // 在画布卡片上直接原地编辑文字与划词标红/标绿/高亮（无需跳转弹窗）
-function startInlineCardEditById(nodeId, selectAll = false) {
+function startInlineCardEditById(nodeId, selectAll = false, cursorAtEnd = false) {
     if (!nodeElements) return;
     nodeElements.filter(d => d.id === nodeId).each(function(d) {
-        startInlineCardEdit(d, this, selectAll);
+        startInlineCardEdit(d, this, selectAll, cursorAtEnd);
     });
 }
 
-function startInlineCardEdit(d, groupEl, selectAll = false) {
+function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false) {
     if (!d || !groupEl) return;
     if (d.isImage && d.imageUrl) {
         const ti = document.getElementById("title-input");
@@ -1086,13 +1123,20 @@ function startInlineCardEdit(d, groupEl, selectAll = false) {
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
+    } else if (cursorAtEnd) {
+        const range = document.createRange();
+        range.selectNodeContents(bodyEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
     }
 
     const syncFromInlineCard = () => {
         const md = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
         d.content = md || "未命名";
         const plainFirstLine = bodyEl.innerText.split("\n").map(s => s.trim()).find(Boolean) || "未命名";
-        d.label = plainFirstLine.slice(0, 42);
+        d.label = plainFirstLine.replace(/^\[[ xX]\]\s*/, "").slice(0, 42) || "未命名";
 
         const titleInput = document.getElementById("title-input");
         const mdTextarea = document.getElementById("md-textarea");
@@ -1107,8 +1151,8 @@ function startInlineCardEdit(d, groupEl, selectAll = false) {
         // 更新卡片自适应宽高与连线端点
         const cardEl = cardDiv.node();
         if (cardEl) {
-            d._cardW = Math.max(76, Math.min(340, cardEl.offsetWidth || 130));
-            d._cardH = Math.max(34, Math.min(280, cardEl.offsetHeight || 38));
+            d._cardW = Math.max(76, Math.min(720, cardEl.offsetWidth || 130));
+            d._cardH = Math.max(34, Math.min(580, cardEl.offsetHeight || 38));
             const foW = d._cardW + 20;
             const foH = d._cardH + 20;
             group.select(".node-card-fo")
@@ -1136,7 +1180,14 @@ function startInlineCardEdit(d, groupEl, selectAll = false) {
         if (e.key === "Tab") {
             e.preventDefault();
             bodyEl.blur();
-            createChildNode();
+            if (e.shiftKey) promoteSelectedNode();
+            else createChildNode();
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "1") {
+            e.preventDefault();
+            bodyEl.blur();
+            toggleTodoOnSelectedCard(d);
             return;
         }
         if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !isImeComposing) {
@@ -1308,6 +1359,17 @@ function updateD3Graph() {
             updateD3Graph();
             updateFloatingActionBarsPosition();
         })
+        .on("dblclick", (event, d) => {
+            event.stopPropagation();
+            hideCanvasContextMenu();
+            selectedLink = d;
+            selectedNodeIds.clear();
+            selectedNode = null;
+            refreshNodeStyles();
+            updateD3Graph();
+            updateFloatingActionBarsPosition();
+            promptEditSelectedLinkLabel();
+        })
         .on("contextmenu", (event, d) => {
             event.preventDefault();
             event.stopPropagation();
@@ -1318,6 +1380,53 @@ function updateD3Graph() {
             updateFloatingActionBarsPosition();
         });
 
+    // 渲染箭头中央的关系词胶囊标签 (.link-label-group)
+    const labeledLinks = visibleLinks.filter(l => l.label && String(l.label).trim().length > 0);
+    if (linkLabelElements) {
+        linkLabelElements = linkLabelElements.data(labeledLinks, linkDataKey).join(
+            enter => {
+                const lg = enter.append("g")
+                    .attr("class", "link-label-group")
+                    .on("click", (event, d) => {
+                        event.stopPropagation();
+                        hideCanvasContextMenu();
+                        selectedLink = d;
+                        selectedNodeIds.clear();
+                        selectedNode = null;
+                        refreshNodeStyles();
+                        updateD3Graph();
+                        updateFloatingActionBarsPosition();
+                    })
+                    .on("dblclick", (event, d) => {
+                        event.stopPropagation();
+                        selectedLink = d;
+                        promptEditSelectedLinkLabel();
+                    });
+                lg.append("rect").attr("class", "link-label-bg");
+                lg.append("text").attr("class", "link-label-text").attr("text-anchor", "middle").attr("dy", "3.8px");
+                return lg;
+            },
+            update => update
+        );
+
+        linkLabelElements.each(function(d) {
+            const lg = d3.select(this);
+            const isSel = selectedLink && linkDataKey(selectedLink) === linkDataKey(d);
+            lg.classed("is-selected", !!isSel);
+            const txt = String(d.label || "").trim();
+            const textEl = lg.select(".link-label-text").text(txt);
+            const approxW = Math.max(32, txt.length * 12 + 16);
+            const approxH = 20;
+            lg.select(".link-label-bg")
+                .attr("width", approxW)
+                .attr("height", approxH)
+                .attr("x", -approxW / 2)
+                .attr("y", -approxH / 2);
+            const c = getLinkCoords(d);
+            lg.attr("transform", `translate(${(c.sx + c.tx) / 2},${(c.sy + c.ty) / 2})`);
+        });
+    }
+
     nodeElements = nodeElements.data(visibleNodes, d => d.id).join(
         enter => {
             const g = enter.append("g").attr("class", "node-group")
@@ -1327,7 +1436,9 @@ function updateD3Graph() {
                             event.target.closest('[contenteditable="true"]') ||
                             event.target.closest('.node-connect-port') ||
                             event.target.closest('.node-quick-add-btn') ||
-                            event.target.closest('.node-fold-badge')
+                            event.target.closest('.node-fold-badge') ||
+                            event.target.closest('.card-resize-handle') ||
+                            event.target.closest('.canvas-todo-checkbox')
                         )) {
                             return false;
                         }
@@ -1396,10 +1507,35 @@ function updateD3Graph() {
                 .attr("y", -27);
 
             const cardDiv = fo.append("xhtml:div")
-                .attr("class", "canvas-note-card");
+                .attr("class", "canvas-note-card")
+                .on("click.todoToggle", function(event, d) {
+                    const cb = event.target && event.target.closest ? event.target.closest(".canvas-todo-checkbox") : null;
+                    if (!cb) return;
+                    event.stopPropagation();
+                    const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
+                    toggleNthTaskCheckboxInNode(d, idx, cb.checked);
+                });
 
             cardDiv.append("xhtml:div")
                 .attr("class", "canvas-note-card-body");
+
+            // OneNote 风格：卡片右侧边缘自由拖拽调宽手柄 (.card-resize-handle)
+            cardDiv.append("xhtml:div")
+                .attr("class", "card-resize-handle")
+                .attr("title", "左右拖拽自由调整卡片/图片宽度 (双击恢复默认自适应宽度)")
+                .on("mousedown", function(event, d) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    startCardWidthResize(event, d, this);
+                })
+                .on("dblclick", function(event, d) {
+                    event.stopPropagation();
+                    delete d.customWidth;
+                    refreshNodeStyles();
+                    renderPositions();
+                    scheduleSaveGraph(true);
+                    showToast("📏 已恢复卡片自动适应宽度");
+                });
 
             // 节点折叠 / 展开徽章点按 Badge
             const badge = g.append("g").attr("class", "node-fold-badge")
@@ -1484,6 +1620,30 @@ function clearDropCandidateHighlight() {
     dropCandidateTargetNode = null;
 }
 
+// 收集指定节点集合及其全部下属子孙节点 ID（用于 XMind 风格拖拽父节点时子树自动整体跟随移动）
+function collectSubtreeNodeIds(rootIdSet) {
+    const result = new Set(rootIdSet);
+    const childrenMap = new Map();
+    nodes.forEach(n => {
+        if (n.parentId) {
+            if (!childrenMap.has(n.parentId)) childrenMap.set(n.parentId, []);
+            childrenMap.get(n.parentId).push(n.id);
+        }
+    });
+    const queue = Array.from(rootIdSet);
+    while (queue.length > 0) {
+        const currId = queue.shift();
+        const kids = childrenMap.get(currId) || [];
+        kids.forEach(kidId => {
+            if (!result.has(kidId)) {
+                result.add(kidId);
+                queue.push(kidId);
+            }
+        });
+    }
+    return result;
+}
+
 function dragstarted(event, d) {
     hideCanvasContextMenu();
     d._dragMoved = false;
@@ -1491,6 +1651,7 @@ function dragstarted(event, d) {
 
     const srcEvt = event.sourceEvent;
     const isMultiModifier = !!(srcEvt && (srcEvt.shiftKey || srcEvt.ctrlKey || srcEvt.metaKey)) || isTouchMultiSelectMode;
+    const isAltOnlySingle = !!(srcEvt && srcEvt.altKey); // 按住 Alt 键时仅单独移动当前节点（或触发靠近挂载父节点）
 
     if (layoutMode === "force") {
         if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -1499,19 +1660,13 @@ function dragstarted(event, d) {
     dragStartPositions.clear();
     clearDropCandidateHighlight();
 
+    let baseDragIds = new Set([d.id]);
+
     // 如果按住了 Shift/Ctrl 或者是多选模式，绝不在 mousedown 阶段清空已选中的其他卡片！
     if (isMultiModifier) {
-        nodes.forEach(n => {
-            if (selectedNodeIds.has(n.id) || n.id === d.id) {
-                dragStartPositions.set(n.id, { x: n.x, y: n.y });
-            }
-        });
+        selectedNodeIds.forEach(id => baseDragIds.add(id));
     } else if (selectedNodeIds.has(d.id) && selectedNodeIds.size > 1) {
-        nodes.forEach(n => {
-            if (selectedNodeIds.has(n.id)) {
-                dragStartPositions.set(n.id, { x: n.x, y: n.y });
-            }
-        });
+        selectedNodeIds.forEach(id => baseDragIds.add(id));
     } else {
         selectedNode = d;
         selectedNodeIds = new Set([d.id]);
@@ -1520,6 +1675,14 @@ function dragstarted(event, d) {
         renderEditor();
         updateFloatingActionBarsPosition();
     }
+
+    // XMind 核心直觉：拖拽父节点时，其所有下属子孙卡片默认自动整体跟随移动（按住 Alt 键可单独移动父卡片）
+    const moveIds = isAltOnlySingle ? baseDragIds : collectSubtreeNodeIds(baseDragIds);
+    nodes.forEach(n => {
+        if (moveIds.has(n.id)) {
+            dragStartPositions.set(n.id, { x: n.x, y: n.y });
+        }
+    });
 
     d.fx = d.x;
     d.fy = d.y;
@@ -2019,32 +2182,99 @@ function renameSelectedNode(targetNode = selectedNode) {
     startInlineCardEditById(targetNode.id, true);
 }
 
-// 5. 方向键 ↑↓←→：节点键盘高亮漫游
-function navigateNodes(direction) {
+// 4.5. Shift + Tab：提升/外缩选中子卡片层级 (XMind 经典 Outdent/Promote 快捷键)
+function promoteSelectedNode() {
     if (!selectedNode) return;
-    const parentId = selectedNode.parentId;
-    const siblings = nodes.filter(n => n.parentId === parentId);
-    siblings.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    const idx = siblings.findIndex(n => n.id === selectedNode.id);
+    if (!selectedNode.parentId) {
+        showToast("💡 当前卡片已经是顶层独立卡片");
+        return;
+    }
+    const oldParent = nodes.find(n => n.id === selectedNode.parentId);
+    const newParentId = oldParent ? oldParent.parentId : null;
+    selectedNode.parentId = newParentId;
+    sanitizeGraph();
+    if (layoutMode === "tree") tidyLayout();
+    else updateD3Graph();
+    renderPositions();
+    renderEditor();
+    scheduleSaveGraph(true);
+    showToast(newParentId ? `⬅️ 已将【${selectedNode.label}】提升一级` : `⬅️ 已将【${selectedNode.label}】提升为独立顶层卡片`);
+}
+
+// 5. 方向键 ↑↓←→：XMind 树分支 + 2D 自由空间智能几何漫游
+function navigateNodes(direction) {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const visibleNodes = nodes.filter(n => isNodeVisible(n, nodeMap));
+    if (visibleNodes.length === 0) return;
+
+    if (!selectedNode || !isNodeVisible(selectedNode, nodeMap)) {
+        selectedNode = visibleNodes[0];
+        selectedNodeIds = new Set([selectedNode.id]);
+        refreshNodeStyles();
+        renderEditor();
+        return;
+    }
+
+    // XMind 直觉：如果当前父节点处于折叠状态，按右方向键 (→) 先展开其子分支
+    if (direction === "ArrowRight" && selectedNode.collapsed && getDescendantCount(selectedNode.id) > 0) {
+        unfoldNodeBranch(selectedNode);
+        return;
+    }
 
     let nextNode = null;
-    if (direction === "ArrowUp") {
-        if (idx > 0) nextNode = siblings[idx - 1];
-    } else if (direction === "ArrowDown") {
-        if (idx >= 0 && idx < siblings.length - 1) nextNode = siblings[idx + 1];
-    } else if (direction === "ArrowLeft") {
-        if (parentId) nextNode = nodes.find(n => n.id === parentId);
-    } else if (direction === "ArrowRight") {
-        const children = nodes.filter(n => n.parentId === selectedNode.id);
-        children.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-        if (children.length > 0) nextNode = children[0];
+
+    // A. 在树状布局下优先沿父子/同级关系跳转
+    if (layoutMode === "tree") {
+        const parentId = selectedNode.parentId;
+        const siblings = visibleNodes.filter(n => n.parentId === parentId);
+        siblings.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const idx = siblings.findIndex(n => n.id === selectedNode.id);
+
+        if (direction === "ArrowUp" && idx > 0) nextNode = siblings[idx - 1];
+        else if (direction === "ArrowDown" && idx >= 0 && idx < siblings.length - 1) nextNode = siblings[idx + 1];
+        else if (direction === "ArrowLeft" && parentId) nextNode = nodeMap.get(parentId);
+        else if (direction === "ArrowRight") {
+            const children = visibleNodes.filter(n => n.parentId === selectedNode.id);
+            children.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+            if (children.length > 0) nextNode = children[0];
+        }
+    }
+
+    // B. 2D 空间最近邻方向锥寻路（支持自由摆放的卡片群与跨分支跳转）
+    if (!nextNode) {
+        const sx = Number.isFinite(selectedNode.x) ? selectedNode.x : 0;
+        const sy = Number.isFinite(selectedNode.y) ? selectedNode.y : 0;
+        let bestScore = Infinity;
+
+        visibleNodes.forEach(cand => {
+            if (cand.id === selectedNode.id) return;
+            const dx = (Number.isFinite(cand.x) ? cand.x : 0) - sx;
+            const dy = (Number.isFinite(cand.y) ? cand.y : 0) - sy;
+
+            let primary = 0;
+            let perp = 0;
+            if (direction === "ArrowRight") { primary = dx; perp = Math.abs(dy); }
+            else if (direction === "ArrowLeft") { primary = -dx; perp = Math.abs(dy); }
+            else if (direction === "ArrowDown") { primary = dy; perp = Math.abs(dx); }
+            else if (direction === "ArrowUp") { primary = -dy; perp = Math.abs(dx); }
+
+            if (primary > 8) {
+                const score = primary + perp * 1.65;
+                if (score < bestScore) {
+                    bestScore = score;
+                    nextNode = cand;
+                }
+            }
+        });
     }
 
     if (nextNode) {
         selectedNode = nextNode;
         selectedNodeIds = new Set([nextNode.id]);
+        selectedLink = null;
         refreshNodeStyles();
         renderEditor();
+        updateFloatingActionBarsPosition();
     }
 }
 
@@ -2458,17 +2688,40 @@ function initEvents() {
             }
         }
 
+        // OneNote 经典快捷键：Ctrl + 1 一键切换待办复选框 (To-Do Checkbox)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "1") {
+            if (selectedNode) {
+                e.preventDefault();
+                toggleTodoOnSelectedCard(selectedNode);
+                return;
+            }
+        }
+
         if (isEditing) return;
 
-        // 按住空格键 (Space) 开启临时抓手平移画布模式
+        // 按住空格键 (Space) 开启临时抓手平移画布模式；若在选中卡片上轻按一下空格松开则直接进入卡片编辑 (XMind 经典连招)
         if (e.code === "Space" && !e.ctrlKey && !e.metaKey && !e.altKey) {
             e.preventDefault();
             if (!isSpacePressed) {
                 isSpacePressed = true;
+                spacePanMoved = false;
                 const svgEl = document.getElementById("graph-svg");
                 if (svgEl) svgEl.style.cursor = "grab";
             }
             return;
+        }
+
+        // OneNote 核心直觉：当点击了画布空白处（无任何选中卡片）时，直接敲键盘打字即刻在鼠标位置生成新卡片并输入！
+        if (!selectedNode && selectedNodeIds.size === 0 && !selectedLink && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const isGlobalShortcutKey = ["b", "B", "m", "M", "g", "G"].includes(e.key);
+            if (!isGlobalShortcutKey && (e.key.length === 1 || e.key === "Process")) {
+                const initChar = e.key === "Process" ? "" : e.key;
+                if (initChar) e.preventDefault();
+                if (typeof window.spawnFreeCardAtCoords === "function") {
+                    window.spawnFreeCardAtCoords([lastCanvasMouseCoords.x, lastCanvasMouseCoords.y], initChar);
+                }
+                return;
+            }
         }
 
         // Ctrl+A / Cmd+A：全选画布上所有可见卡片
@@ -2510,10 +2763,11 @@ function initEvents() {
             return;
         }
 
-        // 3. Tab 键：新建分支子节点
+        // 3. Tab 键：新建分支子节点 | Shift + Tab：提升节点层级 (Outdent)
         if (e.key === "Tab") {
             e.preventDefault();
-            createChildNode();
+            if (e.shiftKey) promoteSelectedNode();
+            else createChildNode();
             return;
         }
 
@@ -2845,6 +3099,14 @@ function htmlToSafeMarkdown(html) {
             
             if (tag === "ul") {
                 const items = Array.from(node.childNodes).map(child => {
+                    if (child.nodeType === 1 && child.querySelector) {
+                        const cb = child.querySelector('input[type="checkbox"]');
+                        if (cb) {
+                            const isChecked = cb.checked || cb.hasAttribute("checked");
+                            const text = serializeNode(child).trim().replace(/^(\[[ xX]\]|[•·▪⁃‣\-\*])[ \t]*/, "");
+                            return `- [${isChecked ? "x" : " "}] ${text}`;
+                        }
+                    }
                     const text = serializeNode(child).trim();
                     if (!text) return "";
                     const cleanText = text.replace(/^[•·▪⁃‣\-\*][ \t]*/, "");
@@ -2916,16 +3178,24 @@ function renderMarkdownToHTML(text) {
 
     let html = escapeHTML(protectedText);
 
-    // 解析 Markdown 列表 (包含粘贴的实心圆点 • 和数字序号 1.)
+    // 解析 Markdown 列表 (包含 To-Do 复选框 - [ ] / - [x]、实心圆点 • 和数字序号 1.)
     const lines = html.split('\n');
     let inUl = false, inOl = false;
     let listProcessed = [];
+    let taskCounter = 0;
 
     lines.forEach(line => {
-        const isBullet = /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
+        const isTask = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(line);
+        const isBullet = !isTask && /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
         const isOrdered = /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
 
-        if (isBullet) {
+        if (isTask) {
+            if (inOl) { listProcessed.push("</ol>"); inOl = false; }
+            if (!inUl) { listProcessed.push("<ul>"); inUl = true; }
+            const checked = isTask[1].toLowerCase() === "x";
+            const tIdx = taskCounter++;
+            listProcessed.push(`<li class="task-list-item ${checked ? "task-done" : ""}"><input type="checkbox" class="canvas-todo-checkbox" data-task-index="${tIdx}" ${checked ? "checked" : ""}><span class="task-item-text">${isTask[2]}</span></li>`);
+        } else if (isBullet) {
             if (inOl) { listProcessed.push("</ol>"); inOl = false; }
             if (!inUl) { listProcessed.push("<ul>"); inUl = true; }
             listProcessed.push(`<li>${isBullet[1]}</li>`);
@@ -3723,6 +3993,11 @@ function initSelectionQuickBubble() {
             if (action === "red") applyFormatting("color-red");
             else if (action === "green") applyFormatting("color-green");
             else if (action === "highlight") applyFormatting("highlight");
+            else if (action === "bold") applyFormatting("bold");
+            else if (action === "underline") applyFormatting("underline");
+            else if (action === "todo") {
+                if (selectedNode) toggleTodoOnSelectedCard(selectedNode);
+            }
             else if (action === "clear") applyFormatting("clear");
             setTimeout(updateBubblePosition, 30);
         });
@@ -3872,9 +4147,21 @@ function compressImage(dataUrl, maxDimension, quality, callback) {
 
 document.addEventListener("keyup", (e) => {
     if (e.code === "Space" && isSpacePressed) {
+        const wasMoved = spacePanMoved;
         isSpacePressed = false;
+        spacePanMoved = false;
         const svgEl = document.getElementById("graph-svg");
         if (svgEl) svgEl.style.cursor = isMarqueeMode ? "default" : "grab";
+
+        // XMind 经典直觉：如果选中了一张卡片，且刚才只是轻按了一下空格键（没有拖动鼠标平移画布），则直接进入卡片文字编辑！
+        const isEditing = document.activeElement && (
+            document.activeElement.tagName === "TEXTAREA" ||
+            document.activeElement.tagName === "INPUT" ||
+            document.activeElement.isContentEditable
+        );
+        if (!wasMoved && !isEditing && selectedNode && selectedNodeIds.size === 1) {
+            startInlineCardEditById(selectedNode.id, false);
+        }
     }
 });
 
@@ -3922,7 +4209,8 @@ function initIntuitiveActionBarsAndContextMenu() {
         lbar.style.display = "none";
         lbar.innerHTML = `
             <span class="floating-bar-badge">🏹 已选中箭头</span>
-            <button class="floating-bar-btn primary" data-lact="reverse" title="调换这条箭头的父子指向（让另一端作为可折叠的父节点）">⇄ 反转父子方向</button>
+            <button class="floating-bar-btn primary" data-lact="label" title="在箭头中央添加或修改关系词说明（如：导致、抑制、混杂变量；也可直接双击箭头）">✏️ 写关系词</button>
+            <button class="floating-bar-btn" data-lact="reverse" title="调换这条箭头的父子指向（让另一端作为可折叠的父节点）">⇄ 反转父子方向</button>
             <button class="floating-bar-btn danger" data-lact="delete" title="只断开/删除这条箭头，保留两端的文字卡片 (Delete)">✂️ 删除此箭头</button>
         `;
         document.body.appendChild(lbar);
@@ -3932,7 +4220,8 @@ function initIntuitiveActionBarsAndContextMenu() {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 const act = btn.dataset.lact;
-                if (act === "reverse") reverseSelectedLink();
+                if (act === "label") promptEditSelectedLinkLabel();
+                else if (act === "reverse") reverseSelectedLink();
                 else if (act === "delete") deleteSelectedLink();
             });
         });
@@ -4155,6 +4444,8 @@ function copySelectedNodes() {
         isImage: n.isImage,
         imageUrl: n.imageUrl,
         isFocus: n.isFocus,
+        customWidth: n.customWidth,
+        edgeLabel: n.edgeLabel,
         x: n.x,
         y: n.y
     }));
@@ -4183,6 +4474,7 @@ function pasteCopiedNodesAt(targetCenterX, targetCenterY) {
             isImage: src.isImage,
             imageUrl: src.imageUrl,
             isFocus: src.isFocus,
+            customWidth: src.customWidth,
             createdAt: baseTs + idx,
             order: nodes.length + idx,
             x: nx,
@@ -4225,6 +4517,8 @@ function duplicateSelectedNodes() {
             isImage: src.isImage,
             imageUrl: src.imageUrl,
             isFocus: src.isFocus,
+            customWidth: src.customWidth,
+            edgeLabel: src.edgeLabel,
             createdAt: baseTs + idx,
             order: nodes.length + idx,
             x: nx,
@@ -4256,9 +4550,11 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
         const hasParent = !!targetNode.parentId;
         const hasKids = getDescendantCount(targetNode.id) > 0;
         menu.innerHTML = `
-            <div class="ctx-item" data-cact="edit">✏️ 编辑卡片文字 <span class="ctx-kbd">双击</span></div>
+            <div class="ctx-item" data-cact="edit">✏️ 编辑卡片文字 <span class="ctx-kbd">Space / 双击</span></div>
+            <div class="ctx-item" data-cact="todo">☑ 切换待办复选框 <span class="ctx-kbd">Ctrl+1</span></div>
             <div class="ctx-item" data-cact="child">➕ 衍生子卡片 <span class="ctx-kbd">Tab</span></div>
             <div class="ctx-item" data-cact="sibling">➕ 新增同级卡片 <span class="ctx-kbd">Enter</span></div>
+            ${hasParent ? `<div class="ctx-item" data-cact="promote">⬅️ 提升节点层级 <span class="ctx-kbd">Shift+Tab</span></div>` : ""}
             ${hasKids ? `<div class="ctx-item" data-cact="fold">📁 ${targetNode.collapsed ? "展开" : "折叠"}子分支 <span class="ctx-kbd">Ctrl+/</span></div>` : ""}
             ${hasParent ? `<div class="ctx-item" data-cact="unlink-parent">✂️ 断开与父卡片的箭头</div>` : ""}
             <div class="ctx-divider"></div>
@@ -4289,8 +4585,10 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
             const act = item.dataset.cact;
             hideCanvasContextMenu();
             if (act === "edit" && targetNode) startInlineCardEditById(targetNode.id, false);
+            else if (act === "todo" && targetNode) toggleTodoOnSelectedCard(targetNode);
             else if (act === "child") createChildNode();
             else if (act === "sibling") createSiblingNode();
+            else if (act === "promote") promoteSelectedNode();
             else if (act === "fold" && targetNode) toggleNodeFold(targetNode);
             else if (act === "unlink-parent" && targetNode) {
                 targetNode.parentId = null;
@@ -4338,3 +4636,135 @@ function hideCanvasContextMenu() {
     const menu = document.getElementById("canvas-context-menu");
     if (menu) menu.style.display = "none";
 }
+
+// ============================================================================
+// v3.0.0 OneNote + XMind 满配直觉引擎：箭头关系词编辑、卡片宽度拖拽与 To-Do 复选框切换
+// ============================================================================
+
+// 1. 双击箭头或点“✏️ 写关系词”在箭头中央添加/修改关系词（如“导致”、“抑制”、“混杂变量”）
+function promptEditSelectedLinkLabel() {
+    if (!selectedLink) return;
+    const sId = cleanNodeId(selectedLink.source);
+    const tId = cleanNodeId(selectedLink.target);
+
+    if (selectedLink.type === "relation") {
+        const rel = links.find(l => l.type === "relation" && (
+            (cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId) ||
+            (cleanNodeId(l.source) === tId && cleanNodeId(l.target) === sId)
+        ));
+        const currentLabel = (rel && rel.label) ? rel.label : (selectedLink.label || "");
+        const nextLabel = prompt("请输入这条箭头上的关系说明词（留空并确定即可清除关系词）：", currentLabel);
+        if (nextLabel === null) return;
+        const trimmed = nextLabel.trim();
+        if (rel) rel.label = trimmed;
+        selectedLink.label = trimmed;
+    } else {
+        const child = nodes.find(n => n.id === tId);
+        if (!child) return;
+        const currentLabel = child.edgeLabel || "";
+        const nextLabel = prompt("请输入这条箭头上的关系说明词（如：导致、抑制、混杂变量；留空即可清除）：", currentLabel);
+        if (nextLabel === null) return;
+        const trimmed = nextLabel.trim();
+        if (trimmed) child.edgeLabel = trimmed;
+        else delete child.edgeLabel;
+        selectedLink.label = trimmed;
+    }
+
+    sanitizeGraph();
+    updateD3Graph();
+    renderPositions();
+    updateFloatingActionBarsPosition();
+    scheduleSaveGraph(true);
+    showToast(selectedLink.label ? `🏷️ 已设置箭头关系词：「${selectedLink.label}」` : "🧹 已清除箭头关系词");
+}
+
+// 2. OneNote 风格：拖拽卡片右侧边缘自由调整卡片/图片宽度 (90px ~ 680px)
+function startCardWidthResize(event, d, handleEl) {
+    if (!d || !svg) return;
+    const cardEl = handleEl.closest(".canvas-note-card");
+    const startClientX = event.clientX;
+    const startW = (typeof d.customWidth === "number" && Number.isFinite(d.customWidth))
+        ? d.customWidth
+        : (cardEl ? cardEl.offsetWidth : (d._cardW || 150));
+    const zoomScale = (d3.zoomTransform(svg.node()) && d3.zoomTransform(svg.node()).k) || 1;
+
+    handleEl.classList.add("is-resizing");
+
+    const onMove = (ev) => {
+        const deltaX = (ev.clientX - startClientX) / zoomScale;
+        const nextW = Math.round(Math.max(96, Math.min(680, startW + deltaX)));
+        d.customWidth = nextW;
+        refreshNodeStyles();
+        renderPositions();
+        updateFloatingActionBarsPosition();
+    };
+
+    const onUp = () => {
+        handleEl.classList.remove("is-resizing");
+        window.removeEventListener("mousemove", onMove);
+        window.removeEventListener("mouseup", onUp);
+        scheduleSaveGraph(true);
+    };
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+}
+
+// 3. OneNote 风格：Ctrl + 1（或点气泡/右键菜单 ☑）一键为当前卡片切换 To-Do 待办复选框
+function toggleTodoOnSelectedCard(targetNode = selectedNode) {
+    if (!targetNode) return;
+    let raw = (targetNode.content || targetNode.label || "").trim();
+    if (!raw) raw = targetNode.label || "待办事项";
+
+    const lines = raw.split("\n");
+    const taskRegex = /^([ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?)\[([ xX])\][ \t]+(.*)$/;
+    const hasAnyTask = lines.some(l => taskRegex.test(l));
+
+    const updatedLines = lines.map((line, i) => {
+        const trimmed = line.trim();
+        if (!trimmed) return line;
+        if ( /^#{1,4}\s+/.test(trimmed) && lines.length > 1 && i === 0) return line;
+        const m = taskRegex.exec(line);
+        if (hasAnyTask) {
+            return m ? m[3] : line;
+        } else {
+            const cleanLine = line.replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]+/, "");
+            return `- [ ] ${cleanLine}`;
+        }
+    });
+
+    targetNode.content = updatedLines.join("\n");
+    refreshNodeStyles();
+    renderEditor();
+    scheduleSaveGraph(true);
+    showToast(hasAnyTask ? "🧹 已移除待办复选框" : "☑ 已添加待办复选框 (可直接点击画布卡片上的方框打勾！)");
+}
+
+// 4. 在画布卡片上直接点击第 N 个复选框时，实时切换 [ ] 与 [x] 状态
+function toggleNthTaskCheckboxInNode(node, taskIdx, isChecked) {
+    if (!node) return;
+    let raw = (node.content || node.label || "");
+    const lines = raw.split("\n");
+    const taskRegex = /^([ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?)\[([ xX])\]([ \t]+.*)$/;
+    let currentIdx = 0;
+
+    const nextLines = lines.map(line => {
+        const m = taskRegex.exec(line);
+        if (!m) return line;
+        if (currentIdx === taskIdx) {
+            currentIdx++;
+            const prefix = m[1] && m[1].trim() ? m[1] : "- ";
+            return `${prefix}[${isChecked ? "x" : " "}]${m[3]}`;
+        }
+        currentIdx++;
+        return line;
+    });
+
+    node.content = nextLines.join("\n");
+    refreshNodeStyles();
+    if (selectedNode && selectedNode.id === node.id) {
+        renderEditor();
+    }
+    scheduleSaveGraph(true);
+}
+

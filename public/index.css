@@ -1365,3 +1365,107 @@ html[data-theme="light"] .ctx-item {
     background: rgba(148, 163, 184, 0.2);
     margin: 5px 4px;
 }
+
+
+/* ==========================================================================
+   v3.0.0 OneNote + XMind 满配直觉操作套件：卡片宽度拖拽手柄、待办复选框、箭头关系词标签
+   ========================================================================== */
+
+.canvas-note-card {
+    position: relative;
+}
+
+/* OneNote 风格：卡片/图片右侧边缘拖拽调宽手柄 (.card-resize-handle) */
+.card-resize-handle {
+    position: absolute;
+    top: 4px;
+    right: -3px;
+    bottom: 4px;
+    width: 7px;
+    cursor: ew-resize;
+    border-radius: 4px;
+    background: transparent;
+    transition: background 0.15s ease;
+    z-index: 5;
+}
+
+.canvas-note-card:hover .card-resize-handle,
+.canvas-note-card.is-selected .card-resize-handle {
+    background: rgba(56, 189, 248, 0.28);
+}
+
+.card-resize-handle:hover,
+.card-resize-handle.is-resizing {
+    background: #38bdf8 !important;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
+}
+
+/* 自定义调宽后的图片卡片自动适配宽度 */
+.canvas-note-card.has-custom-width .canvas-card-img {
+    max-width: 100%;
+    max-height: 460px;
+    width: 100%;
+}
+
+/* OneNote 风格：画布卡片与富文本内直接可点击勾选的 To-Do 待办复选框 */
+.task-list-item {
+    list-style: none !important;
+    margin-left: -14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.canvas-todo-checkbox {
+    appearance: auto;
+    width: 14px;
+    height: 14px;
+    margin-top: 3px;
+    cursor: pointer;
+    accent-color: #10b981;
+    flex-shrink: 0;
+}
+
+.task-list-item.task-done .task-item-text {
+    text-decoration: line-through;
+    opacity: 0.62;
+}
+
+/* XMind / Miro 风格：箭头中央关系词胶囊标签 (.link-label-group) */
+.link-label-group {
+    cursor: pointer;
+    user-select: none;
+}
+
+.link-label-bg {
+    fill: rgba(15, 23, 42, 0.92);
+    stroke: rgba(56, 189, 248, 0.65);
+    stroke-width: 1.2px;
+    rx: 8px;
+    ry: 8px;
+    transition: stroke 0.15s ease, fill 0.15s ease;
+}
+
+html[data-theme="light"] .link-label-bg {
+    fill: rgba(255, 255, 255, 0.95);
+    stroke: rgba(79, 70, 229, 0.55);
+}
+
+.link-label-group:hover .link-label-bg,
+.link-label-group.is-selected .link-label-bg {
+    stroke: #fbbf24;
+    stroke-width: 1.8px;
+    filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.5));
+}
+
+.link-label-text {
+    fill: #e2e8f0;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    pointer-events: none;
+}
+
+html[data-theme="light"] .link-label-text {
+    fill: #1e293b;
+}

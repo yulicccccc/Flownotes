@@ -1,9 +1,19 @@
-# Project State: FlowNotes (v2.9.0)
+# Project State: FlowNotes (v3.0.0)
 
 ## Current Version & Status
-- **Current Version**: `v2.9.0`
+- **Current Version**: `v3.0.0`
 - **Latest Releases**:
+  - `v3.0.0`:
+    - **XMind Subtree Dragging (`collectSubtreeNodeIds`)**: Dragging a parent card moves its entire connected subtree together (`Alt + Drag` moves single card).
+    - **OneNote Click-Anywhere-and-Type on Empty Canvas**: Clicking empty canvas and typing a character spawns a card at `lastCanvasMouseCoords` and enters inline editing.
+    - **OneNote Card & Image Width Resize Handle (`.card-resize-handle`, `d.customWidth`)**: Drag right edge of any card/image to resize (`96px`–`680px`), double-click handle to reset.
+    - **OneNote Interactive To-Do Checkboxes (`Ctrl + 1`, `.canvas-todo-checkbox`)**: Directly clickable checkboxes on canvas cards.
+    - **XMind Relationship Labels on Arrows (`✏️ 写关系词` & `<g class="link-label-layer">`)**: Double-click any arrow or click `✏️ 写关系词` in `#link-action-bar` to add midpoint relationship badges.
+    - **XMind `Shift + Tab` Promote, `Space` Tap-to-Edit & 2D Spatial Arrow-Key Navigation (`↑` `↓` `←` `→`)**.
+    - **Expanded `#selection-quick-bubble` (`🔴` `🟢` `🟡` `B` `U` `☑` `🧹`)**.
   - `v2.9.0`:
+    - Default-on left-mouse rubber-band marquee selection (`#marquee-box`), `#multi-select-action-bar`, clickable arrows + `#link-action-bar`, `.node-quick-add-btn` (`+`), and `#canvas-context-menu`.
+  - `v2.8.0`:
     - **PWA Standalone Desktop/Mobile App (`public/manifest.json` + `public/sw.js` + `#btnInstallPwa`)**: Installable to taskbar/desktop/mobile with Network-First offline cache.
     - **High-Capacity `IndexedDB` Engine (`FlowNotesIDB` + `safeLocalStorageSet` + `allMapsMemoryCache`)**: Unlimited screenshot storage without `localStorage` 5MB `QuotaExceededError`.
     - **Multi-Device Cloud Sync Reliability (`autoCheckCloudGist` + `flushPendingSave` + bottom-left IO buttons)**: Auto-flushes pending saves on tab close/hide, auto-pulls newer cloud Gist data on startup/window focus, and wires up `#btn-sync`, `#btn-pull`, `#btn-import`.
@@ -17,7 +27,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V2.9.0_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.0.0_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

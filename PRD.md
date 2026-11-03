@@ -1,9 +1,18 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.9.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.0.0)
 
 ## Goal
-A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
+A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Full OneNote + XMind Muscle-Memory Intuitive Suite (v3.0.0 集齐 OneNote + XMind 全套直觉操作)**:
+  - **XMind Subtree Dragging (`collectSubtreeNodeIds`)**: Dragging any parent card automatically moves all of its connected children/descendants together as a unified branch! Holding `Alt + Drag` moves only the single card (or triggers proximity reparenting).
+  - **OneNote Click-Anywhere-and-Type on Empty Canvas**: Clicking any empty spot on the canvas and immediately typing on the keyboard spawns a new freeform card right at that cursor spot (`lastCanvasMouseCoords`) and types directly into it.
+  - **OneNote Right-Edge Card & Image Width Resize Handle (`.card-resize-handle`, `d.customWidth`)**: Every card and pasted screenshot has a draggable right-edge resize handle (`96px` to `680px`; double-click handle to reset to auto-width).
+  - **OneNote Interactive To-Do Checkboxes (`Ctrl + 1`, `- [ ]` / `- [x]`, `.canvas-todo-checkbox`)**: Pressing `Ctrl + 1` (or clicking `☑` in the selection bubble / context menu) toggles To-Do checkboxes that can be checked/unchecked with a single click directly on the canvas card.
+  - **XMind / Miro Relationship Labels on Arrows (`✏️ 写关系词` & Double-Click Arrow)**: Double-clicking any arrow or clicking `✏️ 写关系词` in `#link-action-bar` adds a relationship pill badge (`<g class="link-label-layer">`, e.g., `导致`, `抑制`, `混杂变量`) at the midpoint of the arrow that moves automatically when cards are dragged.
+  - **XMind `Shift + Tab` Node Promotion (`promoteSelectedNode`) & `Space` Tap-to-Edit**: Pressing `Shift + Tab` promotes a child card up one level; tapping `Space` on a selected card opens inline editing (while holding `Space + Drag` pans the canvas).
+  - **2D Spatial + Tree Arrow-Key Navigation (`navigateNodes`)**: Arrow keys (`↑` `↓` `←` `→`) unfold collapsed branches on `→`, navigate tree links in tree mode, and jump to the nearest card in the 2D directional cone in freeform mode.
+  - **Expanded Selection Quick Bubble (`🔴` `🟢` `🟡` `B` `U` `☑` `🧹`)**: Added Bold (`B`), Underline (`U`), and To-Do (`☑`) directly into `#selection-quick-bubble`.
 - **Intuitive Direct-Manipulation Interaction Suite (v2.9.0 直觉式框选、多选浮动工具栏、箭头点击反转/删除与右键菜单)**:
   - **Default Left-Mouse Drag Rubber-Band Selection (`isMarqueeMode = true` by default)**: Dragging with the left mouse button on empty canvas immediately draws a selection box (`#marquee-box`) with true AABB rectangle intersection (touching any card edge selects it; shrinking the box deselects it). Clicking empty canvas immediately deselects all cards/arrows. Canvas panning works smoothly via mouse wheel / two-finger scroll, `Space + Left Drag`, middle-mouse drag, or toggling `✋/🔳`.
   - **Fixed `Shift + Click` Multi-Selection**: Fixed `dragstarted` so `mousedown` never wipes `selectedNodeIds` when `Shift`/`Ctrl`/`☑️` is active.
@@ -69,4 +78,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.9.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.0.0_flownotes-eze.pages.dev_一键更新网站.bat`.

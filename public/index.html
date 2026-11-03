@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.9.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.0.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=2.9.0">
+    <link rel="stylesheet" href="index.css?v=3.0.0">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -165,12 +165,12 @@
                             <button class="hint-close-btn" id="btn-close-hint" title="关闭提示">×</button>
                         </div>
                         <div class="hint-body" id="hint-body">
-                            1. <b>双击空白 / Ctrl+V</b> 自由贴句子或截图（可随意“放到一坨”）<br>
-                            2. <b>双击卡片划选文字</b> 弹出 <b>🔴红 / 🟢绿 / 🟡亮 / 🧹</b> 胶囊直接标色<br>
-                            3. <b>Tab</b> 衍生带箭头子卡片 | <b>Enter</b> 建姊妹卡片（移动自动跟踪）<br>
+                            1. <b>点空白直接打字 / 双击空白 / Ctrl+V</b> 自由贴句子或截图（可随意“放到一坨”）<br>
+                            2. <b>双击卡片划选文字</b> 弹出 <b>🔴红 / 🟢绿 / 🟡亮 / B / U / ☑ / 🧹</b> 胶囊标色<br>
+                            3. <b>Tab</b> 建子卡 | <b>Shift+Tab</b> 升级 | <b>Enter</b> 建同级 | <b>拖父卡自动带子树移动</b><br>
                             4. <b>Shift+点选多卡按 L</b>（或拖卡片右侧 <b>➔</b>）连箭头（<b>默认先 make 的是父</b>）<br>
                             5. <b>点击卡片右侧 −/+N</b>（或 <b>Ctrl+/</b>）像思维导图一样折叠/展开分支<br>
-                            6. <b>Shift+拖拽 / B 键</b> 🔳 框选批量移动 | <b>M 键</b> 一键整理树状结构
+                            6. <b>双击箭头</b> 写关系词 | <b>拖卡片右边缘</b> 调宽 | <b>Ctrl+1</b> 待办复选框 | <b>M</b> 整理树状结构
                         </div>
                     </div>
 
@@ -259,7 +259,10 @@
                             <button class="bubble-btn" data-action="red" title="🔴 标红 (Ctrl+Shift+R)">🔴</button>
                             <button class="bubble-btn" data-action="green" title="🟢 标绿 (Ctrl+Shift+G)">🟢</button>
                             <button class="bubble-btn" data-action="highlight" title="🟡 高亮 (Ctrl+Shift+H)">🟡</button>
-                            <button class="bubble-btn" data-action="clear" title="🧹 擦除格式">🧹</button>
+                            <button class="bubble-btn" data-action="bold" title="B 加粗 (Ctrl+B)" style="font-weight:800;">B</button>
+                            <button class="bubble-btn" data-action="underline" title="U 下划线 (Ctrl+U)" style="text-decoration:underline; font-weight:700;">U</button>
+                            <button class="bubble-btn" data-action="todo" title="☑ 待办复选框 (Ctrl+1)">☑</button>
+                            <button class="bubble-btn" data-action="clear" title="🧹 擦除格式 (Ctrl+Shift+\)">🧹</button>
                         </div>
                         <div id="rich-editor" contenteditable="true" spellcheck="true"></div>
                         <textarea id="md-textarea" placeholder="在这里使用 Markdown 记录你的思考...&#10;&#10;使用 [[笔记名]] 快速引用关联卡片。"></textarea>
@@ -484,6 +487,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=2.9.0"></script>
+    <script src="app.js?v=3.0.0"></script>
 </body>
 </html>
