@@ -1,9 +1,12 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.2)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.3)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Long-Press Left Mouse / Long-Press Touch (`200ms`) Turns into Hand (`🖐️`) to Pan Canvas (`v3.1.3` 长按左键/长按触屏变小手平移画布 + 瞬拖框选完美共存)**:
+  - Holding down the left mouse button or 1-finger touch on empty canvas for **`200ms`** without dragging immediately turns the pointer into a grabbing hand (`#graph-svg.is-hand-panning` + floating `#canvas-hand-cursor` `🖐️` badge right under the cursor/finger) and smoothly pans the canvas 1:1 with the mouse/finger.
+  - Dragging immediately (`< 200ms`) draws the rubber-band marquee selection box (`#marquee-box`) to select multiple cards (works on both mouse and 1-finger touch). Two-finger pinch/drag zooms/pans via `d3.zoom`.
 - **Right Note Editor Panel Close (`×`) & Reopen Pill Fix (v3.1.2 修复右侧详细笔记面板无法叉掉的问题)**:
   - Added a dedicated **`×` (`#btn-close-editor`)** button inside `#editor-header` (next to `⭐`), wired `#closeBannerBtn` (`#owlBanner` `×`) to also close both the banner and `#editor-panel`, dynamically resized `#graph-svg` to 100% width when `#editor-panel` collapses, and added a top-right **`📖 展开详细笔记` (`#btn-reopen-editor-pill`)** floating pill to reopen `#editor-panel` with 1 click.
 - **Initial Freeform Card Transform Sync & Phantom Arrow Fix (v3.1.1 修复初始进入时只见悬空箭头不见卡片与拥挤箭头倒刺 Bug)**:

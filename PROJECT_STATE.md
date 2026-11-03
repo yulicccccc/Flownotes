@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.1.2)
+# Project State: FlowNotes (v3.1.3)
 
 ## Current Version & Status
-- **Current Version**: `v3.1.2`
+- **Current Version**: `v3.1.3`
 - **Latest Releases**:
+  - `v3.1.3`:
+    - **Long-Press Left Mouse / Long-Press Touch (`200ms`) Hand Panning (`🖐️`) + Immediate Drag Marquee Selection (`initMarqueeSelection` + `showCanvasHandCursor`)**: Holding left mouse button or 1-finger touch on empty canvas for `200ms` turns into a hand cursor (`grabbing` + floating `🖐️` badge `#canvas-hand-cursor`) and pans the canvas 1:1; dragging immediately (`< 200ms`) draws `#marquee-box` for rubber-band multi-selection.
   - `v3.1.2`:
     - **Right Note Editor Panel Close (`×`) & Top-Right Reopen Pill (`#btn-close-editor`, `#closeBannerBtn`, `#btn-reopen-editor-pill`)**: Added a dedicated `×` close button inside `#editor-header`, wired `#closeBannerBtn` so clicking the top-right `×` closes the banner & collapses `#editor-panel`, auto-resizes `#graph-svg` to full screen width, and shows a `📖 展开详细笔记` pill in the top-right corner when collapsed.
   - `v3.1.1`:
@@ -40,7 +42,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.1.2_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.1.3_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

@@ -1791,3 +1791,33 @@ html[data-theme="light"] .reopen-editor-pill {
     color: #1e293b;
     border-color: rgba(79, 70, 229, 0.4);
 }
+
+/* v3.1.3 长按鼠标左键 / 长触屏变成小手 (🖐️) 移动画布视觉指示器与手型光标 */
+#graph-svg.is-hand-panning,
+#graph-svg.is-hand-panning * {
+    cursor: grabbing !important;
+}
+
+.canvas-hand-cursor-badge {
+    position: fixed;
+    z-index: 15000;
+    pointer-events: none;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    margin-left: -20px;
+    margin-top: -24px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.88);
+    border: 2px solid #38bdf8;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.7), 0 6px 16px rgba(0, 0, 0, 0.45);
+    font-size: 21px;
+    animation: handBadgePopIn 0.14s cubic-bezier(0.18, 1.4, 0.38, 1);
+}
+
+@keyframes handBadgePopIn {
+    0% { transform: scale(0.4); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
