@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.0)
+# Project State: FlowNotes (v3.4.1)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.0`
+- **Current Version**: `v3.4.1`
 - **Latest Releases**:
+  - `v3.4.1`:
+    - **Obsidian & Miro Pure Intuitive Canvas Drag & Shift-Marquee Engine (`startCanvasPointerDown` + `moveCanvasPointer`)**: 100% deterministic canvas panning on left mouse drag, completely eliminating the flawed 130ms hold-timer that hijacked normal mouse dragging into unwanted marquee boxes. Shift + Left-Drag now provides 0ms marquee box selection with instant crosshair cursor cues.
   - `v3.4.0`:
     - **Native Excalidraw & PDF Visual Mindmap Importer Suite (`importExcalidrawFile` + `loadDemoExcalidrawMap`)**: Enables FlowNotes to directly import `.excalidraw` and Excalidraw JSON documents, faithfully extracting text cards, colors, embedded base64 images, and directional arrows into a dedicated new mindmap project. Also converted `1.pdf` into a standalone `1.excalidraw` file with 70 elements saved to Desktop and project assets, with 1-click loading from the Organizer drawer.
   - `v3.3.0`:
@@ -56,7 +58,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.4.0_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.4.1_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

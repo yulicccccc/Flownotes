@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.1)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Obsidian & Miro Pure Intuitive Canvas Drag & Shift-Marquee Engine (v3.4.1 彻底解决拉动画布总是变成框选的交互顽疾)**:
+  - **100% Deterministic Canvas Panning**: Left-click dragging on empty canvas pans the canvas at `0ms` zero delay with 120fps hardware-accelerated transform, completely eliminating the flawed 130ms hold-timer that previously hijacked normal mouse dragging into unintended marquee selections.
+  - **Zero-Confusion Shift-Marquee Selection**: Holding `Shift + Left-Drag` (or `Ctrl/Cmd + Left-Drag`) directly draws the selection rectangle, with live cursor crosshair visual confirmation when pressing `Shift`.
+  - **Dual Mode Support**: Clicking the `✋/🔳` toolbar button or pressing `B` toggles into Marquee Priority mode for single-handed / mouse-only box selection without keyboard.
+  - **Native Mouse Grabbing Cursor**: Cleaned up desktop mouse dragging to use native browser `cursor: grabbing` without distracting floating emoji bubbles.
 - **Native Excalidraw & PDF Visual Mindmap Importer Suite (v3.4.0 原生 Excalidraw 格式与 PDF 视觉脑图导入引擎)**:
   - **Excalidraw Native Import (`importExcalidrawFile`)**: Supports importing `.excalidraw` and Excalidraw JSON documents directly into FlowNotes via `⬆️ 导入` button or drag-and-drop. Automatically extracts and maps text elements, cards, colors (`#e03131` red, `#2f9e44` green, `#1971c2` sky), embedded base64 images (process diagrams, screenshots), and bound/unbound directional arrows into dedicated, fully interactive spatial mindmaps without overwriting existing projects.
   - **OneNote PDF to Excalidraw Converter (`convert_pdf_to_excalidraw.py`)**: Converted `"C:\Users\qchen\OneDrive - Professional Compounding Centers of America, Inc\Desktop\1.pdf"` into a high-fidelity standalone `1.excalidraw` file with 70 elements (61 text notes, 5 embedded process diagrams, 3 arrows, and 1 highlight container), saved directly to Desktop and project assets.
@@ -116,4 +121,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.1_flownotes-eze.pages.dev_一键更新网站.bat`.
