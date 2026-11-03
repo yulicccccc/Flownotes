@@ -2,6 +2,31 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v2.6.0] - 2026-11-03
+
+### 🌟 核心亮点 (Highlights)
+- **🏹 动态物理有向跟随箭头 (Sticky Tracking Directional Arrows)**：
+  - 彻底淘汰 OneNote 僵硬脱节的静态折线，所有连线升级为自适应计算的 SVG 有向物理箭头 (`#arrow-marker`, `#arrow-marker-relation`)。
+  - 连线采用精确几何算法在目标卡片/圆形外沿止步，确保箭头端点清晰醒目、绝不被遮挡。
+  - 拖拽任何节点时，连线自动实时拉长、缩短、旋转，磁吸跟随。
+- **🌲 箭头分支有向折叠与展开 (Directional Fold/Unfold)**：
+  - 遵循“先建为父、后建为子”原则（箭尾为父、箭头为子）。
+  - 点击父节点折叠徽章 (`+N` / `−`) 或按快捷键 `Ctrl + /`，下游所有子孙节点与连线一键收起/展开，保持画布清爽。
+- **🎨 零摩擦高频标注套件 (Zero-Friction Colors & Highlighting)**：
+  - **盲打全键盘流**：
+    - `Ctrl + Shift + R`: 🔴 瞬间标红 (核心科学问题 / 重点自变量)
+    - `Ctrl + Shift + G`: 🟢 瞬间标绿 (测量指标 / 因变量 / 关键特征)
+    - `Ctrl + Shift + H`: 🟡 瞬间高亮
+    - `Ctrl + Shift + \`: 🧹 瞬间清除所有格式与列表
+  - **划词悬浮微型调色胶囊 (`#selection-quick-bubble`)**：在编辑器中划选任意文字时，光标上方自适应浮出 🔴 🟢 🟡 🧹 极简药丸按钮，1次点击秒染色，彻底告别商业软件繁冗菜单！
+  - **工具栏快捷常驻按钮**：富文本工具栏新增直观的 🔴 红、🟢 绿、🟡 亮 预设按钮。
+- **📸 剪贴板直贴画布 (Clipboard Image & Text Direct Paste)**：
+  - 截图快捷键（`Win + Shift + S`）后在画布任何位置按 `Ctrl + V`，光标处直接生成独立悬浮图片卡片，并自动进行离线 Canvas 适度压缩防数据膨胀。
+  - 画布直接显示图片缩略卡片，支持选中按 `Tab` 衍生推导箭头，与其他笔记相互连结。
+  - 复制网页好句子后在画布空白处直接按 `Ctrl + V`，一秒生成独立思考卡片。
+
+---
+
 ## 🚀 [v2.5.4] - 2026-08-07
 
 ### 🌟 架构重构与 Bug 终极解决 (Architectural Refactor & Ultimate Fix)

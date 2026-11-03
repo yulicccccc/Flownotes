@@ -42,6 +42,7 @@ let selectedNode = null;
 let selectedNodeIds = new Set();
 let layoutMode = "tree"; // 默认使用整洁安全的 "tree" (XMind 模式)，点击 ✦ 按钮可切换为 Obsidian Q 弹网状模式
 let ghSyncTimer = null;
+let lastCanvasMouseCoords = { x: 450, y: 320 };
 
 // D3 全局引用
 let svg, simulation, zoom, zoomContainer;
@@ -150,6 +151,8 @@ document.addEventListener("DOMContentLoaded", () => {
     initStorage();
     initD3Mindmap();
     initEvents();
+    initSelectionQuickBubble();
+    initClipboardPaste();
     renderAll();
     initGhSyncUI();
     showOwlWisdom();
@@ -341,6 +344,39 @@ function initD3Mindmap() {
 
     zoomContainer = svg.append("g").attr("class", "zoom-container");
 
+    // SVG 有向箭头 Markers 定义 (用于动态自适应拓扑连线)
+    let defs = svg.select("defs");
+    if (defs.empty()) {
+        defs = svg.append("defs");
+    }
+    defs.selectAll(".flow-arrow-marker").remove();
+
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-marker")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 7)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto-start-reverse")
+        .append("path")
+        .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
+        .attr("fill", "rgba(129, 140, 248, 0.95)");
+
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-marker-relation")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 7)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto-start-reverse")
+        .append("path")
+        .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
+        .attr("fill", "rgba(56, 189, 248, 0.95)");
+
     // 链接层在节点层下面（z-order 正确）
     linkElements = zoomContainer.append("g").attr("class", "link-layer").selectAll("line");
     nodeElements = zoomContainer.append("g").attr("class", "node-layer").selectAll(".node-group");
@@ -360,6 +396,14 @@ function initD3Mindmap() {
 
     // 自定义滚轮行为：裸滚轮 = 平移画布，Ctrl+滚轮 = 缩放（与 reference 一致）
     svg.node().addEventListener("wheel", handleGraphWheel, { passive: false });
+
+    // 实时追踪鼠标在画布内部的坐标，便于 Ctrl+V 直接在光标处落子生成卡片
+    svg.on("mousemove.canvasCoords", (event) => {
+        const c = d3.pointer(event, zoomContainer.node());
+        if (c && Number.isFinite(c[0]) && Number.isFinite(c[1])) {
+            lastCanvasMouseCoords = { x: c[0], y: c[1] };
+        }
+    });
 
     // 双击画布空白处创建 100% 独立的全新根主题节点
     svg.on("dblclick", (event) => {
@@ -550,13 +594,39 @@ function handleGraphWheel(event) {
     zoom.translateBy(svg, -event.deltaX, -event.deltaY);
 }
 
+// 计算连接线两端坐标：精确在目标卡片/圆形边缘外侧收尾，保证有向箭头端点 100% 显式可见不被遮挡
+function getLinkCoords(d) {
+    const sx = Number.isFinite(d.source.x) ? d.source.x : 0;
+    const sy = Number.isFinite(d.source.y) ? d.source.y : 0;
+    let tx = Number.isFinite(d.target.x) ? d.target.x : 0;
+    let ty = Number.isFinite(d.target.y) ? d.target.y : 0;
+
+    const dx = tx - sx;
+    const dy = ty - sy;
+    const dist = Math.hypot(dx, dy);
+
+    // 根据目标节点是否为截图图片卡片自适应边缘偏移
+    const targetIsImg = d.target && d.target.isImage;
+    const targetR = targetIsImg ? 45 : (d.target.parentId === null ? 22 : 16);
+    const arrowOffset = targetR + 6;
+
+    if (dist > arrowOffset) {
+        tx = tx - (dx / dist) * arrowOffset;
+        ty = ty - (dy / dist) * arrowOffset;
+    }
+    return { sx, sy, tx, ty };
+}
+
 function renderPositions() {
     if (!linkElements || !nodeElements) return;
-    linkElements
-        .attr("x1", d => d.source.x)
-        .attr("y1", d => d.source.y)
-        .attr("x2", d => d.target.x)
-        .attr("y2", d => d.target.y);
+    linkElements.each(function(d) {
+        const c = getLinkCoords(d);
+        d3.select(this)
+            .attr("x1", c.sx)
+            .attr("y1", c.sy)
+            .attr("x2", c.tx)
+            .attr("y2", c.ty);
+    });
     nodeElements
         .attr("transform", d => `translate(${d.x},${d.y})`);
 }
@@ -570,14 +640,36 @@ function refreshNodeStyles() {
         const isSelected = selectedNodeIds.has(d.id);
         const isFocus = !!d.isFocus;
 
-        group.select(".node-circle")
-            .attr("r", r)
-            .style("fill", getNodeColor(d))
-            .style("stroke", isSelected ? "#fff" : (isFocus ? "#fbbf24" : "rgba(255,255,255,0.3)"))
-            .style("stroke-width", isSelected ? "4px" : (isFocus ? "3px" : "2px"));
+        const isImg = !!(d.isImage && d.imageUrl);
+        let imgPreview = group.select(".node-img-preview");
+
+        if (isImg) {
+            if (imgPreview.empty()) {
+                imgPreview = group.insert("image", ".node-label")
+                    .attr("class", "node-img-preview")
+                    .attr("width", 110)
+                    .attr("height", 68)
+                    .attr("x", -55)
+                    .attr("y", -34)
+                    .attr("preserveAspectRatio", "xMidYMid slice")
+                    .style("border-radius", "6px");
+            }
+            imgPreview.attr("href", d.imageUrl).style("display", "block");
+            group.select(".node-circle").style("display", "none");
+            group.select(".node-label").attr("dy", "50px");
+        } else {
+            if (!imgPreview.empty()) imgPreview.style("display", "none");
+            group.select(".node-circle")
+                .style("display", "block")
+                .attr("r", r)
+                .style("fill", getNodeColor(d))
+                .style("stroke", isSelected ? "#fff" : (isFocus ? "#fbbf24" : "rgba(255,255,255,0.3)"))
+                .style("stroke-width", isSelected ? "4px" : (isFocus ? "3px" : "2px"));
+
+            group.select(".node-label").attr("dy", (r + 15) + "px");
+        }
 
         group.select(".node-label")
-            .attr("dy", (r + 15) + "px")
             .text((isFocus ? "⭐ " : "") + d.label)
             .style("fill", isSelected ? "var(--node-text-selected)" : (isFocus ? "#fef08a" : "var(--node-text)"))
             .style("font-weight", isSelected || isFocus ? "bold" : "normal");
@@ -633,8 +725,9 @@ function updateD3Graph() {
 
     linkElements = linkElements.data(visibleLinks, linkDataKey).join("line")
         .attr("class", d => d.type === "relation" ? "link relation-link" : "link")
+        .attr("marker-end", d => d.type === "relation" ? "url(#arrow-marker-relation)" : "url(#arrow-marker)")
         .style("stroke", d => getLinkColor(d))
-        .style("opacity", d => d.type === "relation" ? 0.5 : 0.6);
+        .style("opacity", d => d.type === "relation" ? 0.6 : 0.75);
 
     nodeElements = nodeElements.data(visibleNodes, d => d.id).join(
         enter => {
@@ -934,10 +1027,10 @@ function tidyLayout() {
     if (linkElements) {
         linkElements
             .transition().duration(450).ease(d3.easeCubicInOut)
-            .attr("x1", d => d.source.x)
-            .attr("y1", d => d.source.y)
-            .attr("x2", d => d.target.x)
-            .attr("y2", d => d.target.y);
+            .attr("x1", d => getLinkCoords(d).sx)
+            .attr("y1", d => getLinkCoords(d).sy)
+            .attr("x2", d => getLinkCoords(d).tx)
+            .attr("y2", d => getLinkCoords(d).ty);
     }
 
     document.getElementById("btn-layout").dataset.active = "true";
@@ -1556,6 +1649,34 @@ function initEvents() {
             return;
         }
 
+        // 零摩擦高频标注快捷键：Ctrl+Shift+R (🔴标红), Ctrl+Shift+G (🟢标绿), Ctrl+Shift+H (🟡高亮), Ctrl+Shift+\ (🧹清除格式)
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+            if (e.key === "R" || e.code === "KeyR") {
+                e.preventDefault();
+                applyFormatting("color-red");
+                showToast("🔴 已应用红色标注");
+                return;
+            }
+            if (e.key === "G" || e.code === "KeyG") {
+                e.preventDefault();
+                applyFormatting("color-green");
+                showToast("🟢 已应用绿色标注");
+                return;
+            }
+            if (e.key === "H" || e.code === "KeyH") {
+                e.preventDefault();
+                applyFormatting("highlight");
+                showToast("🟡 已应用高亮标注");
+                return;
+            }
+            if (e.key === "\\" || e.code === "Backslash") {
+                e.preventDefault();
+                applyFormatting("clear");
+                showToast("🧹 已清除格式");
+                return;
+            }
+        }
+
         if (isEditing) return;
 
         // 1. Ctrl+Z / Cmd+Z 撤销
@@ -1760,6 +1881,14 @@ function applyFormatting(format) {
                 before = `<span style="color:${color}">`;
                 after = "</span>";
                 break;
+            case "color-red":
+                before = `<span style="color:#ef4444">`;
+                after = "</span>";
+                break;
+            case "color-green":
+                before = `<span style="color:#10b981">`;
+                after = "</span>";
+                break;
             default: return;
         }
 
@@ -1790,6 +1919,12 @@ function applyFormatting(format) {
             case "color":
                 const color = document.getElementById("md-color").value || "#ff6b6b";
                 document.execCommand("foreColor", false, color);
+                break;
+            case "color-red":
+                document.execCommand("foreColor", false, "#ef4444");
+                break;
+            case "color-green":
+                document.execCommand("foreColor", false, "#10b981");
                 break;
             case "code":
                 const range = sel.getRangeAt(0);
@@ -2611,4 +2746,194 @@ function showToast(msg) {
 
 function escapeHTML(str) {
     return (str || "").replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+}
+
+
+// --- v2.6.0 划词悬浮调色胶囊 (Selection Quick Bubble) ---
+function initSelectionQuickBubble() {
+    const bubble = document.getElementById("selection-quick-bubble");
+    const richEditor = document.getElementById("rich-editor");
+    if (!bubble || !richEditor) return;
+
+    function updateBubblePosition() {
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+            bubble.style.display = "none";
+            return;
+        }
+
+        const range = sel.getRangeAt(0);
+        if (!richEditor.contains(range.commonAncestorContainer)) {
+            bubble.style.display = "none";
+            return;
+        }
+
+        const text = sel.toString().trim();
+        if (!text) {
+            bubble.style.display = "none";
+            return;
+        }
+
+        const rect = range.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+            bubble.style.display = "none";
+            return;
+        }
+
+        bubble.style.display = "flex";
+        const bubbleWidth = bubble.offsetWidth || 140;
+        const left = Math.max(10, rect.left + (rect.width / 2) - (bubbleWidth / 2));
+        const top = Math.max(10, rect.top - 42);
+        bubble.style.left = `${left}px`;
+        bubble.style.top = `${top}px`;
+    }
+
+    richEditor.addEventListener("mouseup", () => setTimeout(updateBubblePosition, 20));
+    richEditor.addEventListener("keyup", (e) => {
+        if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Shift"].includes(e.key)) {
+            setTimeout(updateBubblePosition, 20);
+        }
+    });
+
+    document.addEventListener("mousedown", (e) => {
+        if (!bubble.contains(e.target) && !richEditor.contains(e.target)) {
+            bubble.style.display = "none";
+        }
+    });
+
+    bubble.querySelectorAll(".bubble-btn").forEach(btn => {
+        btn.addEventListener("mousedown", (e) => e.preventDefault());
+        btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const action = btn.dataset.action;
+            if (action === "red") applyFormatting("color-red");
+            else if (action === "green") applyFormatting("color-green");
+            else if (action === "highlight") applyFormatting("highlight");
+            else if (action === "clear") applyFormatting("clear");
+            setTimeout(updateBubblePosition, 30);
+        });
+    });
+}
+
+// --- v2.6.0 剪贴板截图直接贴画布与轻量压缩 ---
+function initClipboardPaste() {
+    window.addEventListener("paste", async (e) => {
+        const activeTag = document.activeElement ? document.activeElement.tagName : "";
+        const isEditing = activeTag === "INPUT" || activeTag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable);
+
+        const clipboardData = e.clipboardData || window.clipboardData;
+        if (!clipboardData) return;
+
+        // 1. 检测剪贴板是否含有图片 (如 Win+Shift+S 截图)
+        const items = clipboardData.items;
+        let imageFile = null;
+        if (items) {
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf("image") !== -1) {
+                    imageFile = items[i].getAsFile();
+                    break;
+                }
+            }
+        }
+
+        if (imageFile) {
+            e.preventDefault();
+            const reader = new FileReader();
+            reader.onload = (uploadEvent) => {
+                const rawDataUrl = uploadEvent.target.result;
+                compressImage(rawDataUrl, 1000, 0.85, (compressedDataUrl) => {
+                    const newId = `img_${Date.now()}`;
+                    const targetX = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.x)) ? lastCanvasMouseCoords.x : 450;
+                    const targetY = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.y)) ? lastCanvasMouseCoords.y : 320;
+
+                    const newNode = {
+                        id: newId,
+                        label: `📸 截图 ${nodes.length + 1}`,
+                        parentId: null, // 独立自由悬浮卡片
+                        content: `![截图](${compressedDataUrl})\n\n`,
+                        isImage: true,
+                        imageUrl: compressedDataUrl,
+                        order: nodes.length,
+                        x: targetX,
+                        y: targetY
+                    };
+
+                    nodes.push(newNode);
+                    selectedNode = newNode;
+                    selectedNodeIds = new Set([newId]);
+
+                    saveGraphToStorage();
+                    if (layoutMode === "tree") tidyLayout();
+                    else updateD3Graph();
+                    renderPositions();
+                    renderEditor();
+                    focusOnNode(newNode);
+                    showToast("📸 截图已成功粘贴为独立卡片 (可按 Tab 衍生箭头)！");
+                });
+            };
+            reader.readAsDataURL(imageFile);
+            return;
+        }
+
+        // 2. 如果当前不在编辑文字，且在画布空白处按了 Ctrl+V 粘贴纯文本
+        if (!isEditing) {
+            const text = clipboardData.getData("text/plain");
+            if (text && text.trim()) {
+                e.preventDefault();
+                const newId = `card_${Date.now()}`;
+                const trimmed = text.trim();
+                const firstLine = trimmed.split("\n")[0].slice(0, 25) || `笔记 ${nodes.length + 1}`;
+                const targetX = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.x)) ? lastCanvasMouseCoords.x : 450;
+                const targetY = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.y)) ? lastCanvasMouseCoords.y : 320;
+
+                const newNode = {
+                    id: newId,
+                    label: firstLine,
+                    parentId: null, // 独立自由悬浮卡片
+                    content: trimmed,
+                    order: nodes.length,
+                    x: targetX,
+                    y: targetY
+                };
+
+                nodes.push(newNode);
+                selectedNode = newNode;
+                selectedNodeIds = new Set([newId]);
+
+                saveGraphToStorage();
+                if (layoutMode === "tree") tidyLayout();
+                else updateD3Graph();
+                renderPositions();
+                renderEditor();
+                focusOnNode(newNode);
+                showToast(`📋 已粘贴为独立卡片: [[${firstLine}]]`);
+            }
+        }
+    });
+}
+
+function compressImage(dataUrl, maxDimension, quality, callback) {
+    const img = new Image();
+    img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDimension || h > maxDimension) {
+            if (w > h) {
+                h = Math.round((h * maxDimension) / w);
+                w = maxDimension;
+            } else {
+                w = Math.round((w * maxDimension) / h);
+                h = maxDimension;
+            }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressed = canvas.toDataURL("image/jpeg", quality);
+        callback(compressed);
+    };
+    img.onerror = () => callback(dataUrl);
+    img.src = dataUrl;
 }

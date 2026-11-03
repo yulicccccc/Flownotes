@@ -1,17 +1,34 @@
-# FlowNotes — Mindmap-First Knowledge Engine & Obsidian Sync
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.6.0)
 
 ## Goal
-A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes) deployed on Cloudflare Pages, with D3.js interactive graph workspace, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
+A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, with D3.js interactive graph workspace, sticky tracking directional arrow links, zero-friction high-frequency text coloring, clipboard image paste, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Spatial Infinite Canvas & Sticky Tracking Arrows (v2.6.0 空间自由沙盘与动态跟随箭头)**:
+  - **Dynamic Directional Arrows (物理有向箭头自适应伸缩跟随)**: All parent-child and relational links render crisp SVG directional arrowheads (`#arrow-marker`, `#arrow-marker-relation`).
+  - **Node Boundary Auto-Offset (智能边缘止步)**: Link lines automatically stop at the outer boundary of the target node or image card, ensuring the arrowhead is 100% visible and touches the border cleanly without being obscured.
+  - **Sticky Tracking (随心拖拽永不脱钩)**: Moving any node stretches, shrinks, and rotates all connected arrows in real-time.
+  - **Directional Fold/Unfold (有向分支收起与展开)**: "默认先建为父、后建为子"，点击父节点折叠徽章 (`+N` / `−`) 或快捷键 `Ctrl + /` 即可一键折叠或展开所有下游子分支。
+- **Zero-Friction Colors & Highlighting (v2.6.0 零摩擦高频标注套件)**:
+  - **Keyboard Stream (盲打式全键盘流)**:
+    - `Ctrl + Shift + R`: 🔴 瞬间标红 (核心科学问题 / 重点自变量)
+    - `Ctrl + Shift + G`: 🟢 瞬间标绿 (测量指标 / 因变量 / 关键特征)
+    - `Ctrl + Shift + H`: 🟡 瞬间荧光黄高亮 (`==highlight==` / `<mark>`)
+    - `Ctrl + Shift + \`: 🧹 瞬间清除格式与列表
+  - **Selection Quick Bubble (划词悬浮微型调色胶囊)**: When selecting text inside the editor, an ultra-fast floating pill pops up directly above the selection with 🔴, 🟢, 🟡, 🧹 instant action buttons.
+  - **Format Toolbar Presets**: Dedicated 1-click preset buttons on the editor toolbar (`🔴 红`, `🟢 绿`, `🟡 亮`, `🧹 擦除`).
+- **Global Clipboard Image & Text Paste (v2.6.0 剪贴板直贴画布)**:
+  - **Screenshot Direct Paste**: Press `Ctrl + V` anywhere on the canvas with screenshot/image data in the clipboard (`Win + Shift + S`) to spawn an independent floating image card at the cursor position.
+  - **Auto-Compress Engine**: Automatically scales and compresses images (max 1000px, 0.85 quality) to prevent storage and GitHub Gist sync explosion.
+  - **Canvas Text Paste**: Press `Ctrl + V` while viewing the canvas to spawn a new floating text card at the cursor position.
 - **Authentication System (`public/login.html`)**:
   - Golden-themed UI mockup available at `/login.html`.
   - Direct access enabled on `/index.html` to prevent any authentication blocking.
 - **Mindmap-First Visual Workspace (`public/`)**:
-  - D3.js SVG Mindmap canvas with D3 force simulation and XMind Tidy Tree layout engine (`🧭` / `M` key).
-  - **Full XMind Keyboard Shortcuts Suite (XMind 级快捷键全集)**:
+  - D3.js SVG canvas with D3 force simulation and XMind Tidy Tree layout engine (`🧭` / `M` key).
+  - **Full Keyboard Shortcuts Suite**:
     - `Enter`: 新建同级节点 (Add sibling node).
-    - `Tab`: 新建子分支节点 (Add child node).
+    - `Tab`: 新建子分支节点 (Add child node with directional arrow).
     - `双击空白处`: 创建 100% 独立的全新根主题节点 (Create independent root topic).
     - `Ctrl + Z` / `Cmd + Z`: 撤销历史步骤 (Undo history state).
     - `Ctrl + Y` / `Cmd + Shift + Z`: 重做历史步骤 (Redo history state).
@@ -25,9 +42,9 @@ A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes)
     - `Ctrl + ←` / `Ctrl + →` / `Ctrl + /`: 分支折叠 / 展开 / 切换 (Fold & Unfold branches).
     - `F` / `Ctrl + Shift + F`: ⭐ 划重点 / 设为核心关注节点并触发脉冲金光呼吸环 (Toggle Focus Node).
     - `Shift + 左键拖拽 / 🔳 框选`: 画布矩形框选多选节点 (Marquee Box Selection for batch node operations).
-    - **Drag-to-Reparent (拖拽靠近自动吸附重组父子分支关系)**: Drag any single node close to another node (< 75px) to show animated cyan/gold pulse pre-warning ring (`dropTargetPulse`) and automatically re-parent it upon mouse release!
+    - **Drag-to-Reparent**: Drag any single node close to another node (< 75px) to show animated cyan/gold pulse pre-warning ring (`dropTargetPulse`) and automatically re-parent it upon mouse release!
   - Side Markdown editor panel (`#editor-panel`) with Live Edit, Markdown Source, and Preview mode, complete with `📖` toggle button.
-  - **Full Rich Text List & Formatting Controls (列表管理与格式擦除控件)**:
+  - **Full Rich Text List & Formatting Controls**:
     - `-`: Toggle Unordered Bullet List (`<ul><li>`).
     - `1.`: Toggle Ordered Numbered List (`<ol><li>`).
     - `🧹`: One-click Clear Formatting & Remove Lists / Bullet Symbols.
@@ -37,8 +54,8 @@ A full-featured Mindmap-First personal knowledge and thinking system (FlowNotes)
 - **GitHub Gist Anti-Loss Sync & Data Protection Guardrail**:
   - Auto-linked to private Gist (`4e7cc31fd55d0614a69e31283319953d`).
   - Auto-commit history on every edit for 100% accidental deletion recovery with 8s rate-limiting cooling protection.
-  - **Data Protection Guardrail (防误擦除安全防护规则)**: If local total card count is less than 50% of remote count (and remote count > 3), push MUST be blocked to prevent data loss.
+  - **Data Protection Guardrail**: If local total card count is less than 50% of remote count (and remote count > 3), push MUST be blocked to prevent data loss.
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.5.4_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.6.0_flownotes-eze.pages.dev_一键更新网站.bat`.
