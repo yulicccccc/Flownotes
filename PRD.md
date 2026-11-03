@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.1)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Initial Freeform Card Transform Sync & Phantom Arrow Fix (v3.1.1 修复初始进入时只见悬空箭头不见卡片与拥挤箭头倒刺 Bug)**:
+  - **Synchronous Card `<g>` Transform on Startup (`refreshNodeStyles` + `updateD3Graph`)**: Fixed the bug where `layoutMode = "free"` called `simulation.stop()` on startup before any D3 `tick` fired, leaving `<g class="node-group">` stuck at `(0,0)` while `<line>` arrows were already drawn at `(450, 320)`. Now both `refreshNodeStyles()` and `updateD3Graph()` immediately apply `translate(d.x, d.y)` to every card on frame 0.
+  - **Anti-Overlap Arrow Clamping (`getLinkCoords`)**: When two cards overlap or touch closely so that `startPt` would cross past `endPt`, the arrow is cleanly hidden instead of rendering an inverted floating arrowhead stub.
+  - **Clean Initial Demo Coordinates (`DEFAULT_NODES` & `sanitizeGraph`)**: Removed the confusing demo dashed relation arrow (`node_2 -> node_4`) and spaced out the initial 4 demo cards cleanly (`240 -> 640 -> 990`).
 - **Proactive Self-Evolution Suite (v3.1.0 全局秒搜、智能全景缩放、高清图片灯箱、整卡底色染色与全工作台打通)**:
   - **Global Instant Search (`Ctrl + K` / `#searchInput` / `#quick-open`) & Hierarchical Outline Filter (`#outline-filter`)**: Press `Ctrl + K` or type in the top search bar to search across all cards and across all maps in `mapsManifest` (including special filters `🔴`, `🟢`, `⭐`, `待办`). Clicking or pressing `Enter` automatically unfolds collapsed ancestors (`unfoldAncestorsOf`) and smoothly pans/zooms (`focusOnNode`) straight to the card.
   - **One-Click Copy Outline as Clean Markdown (`copyOutlineAsMarkdown` / `#btn-copy-outline-md`)**: Copy the entire mindmap or any right-clicked subtree as hierarchical Markdown (`## / -`) for instant pasting into Word, Notion, or slides.
@@ -85,4 +89,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.1.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.1.1_flownotes-eze.pages.dev_一键更新网站.bat`.

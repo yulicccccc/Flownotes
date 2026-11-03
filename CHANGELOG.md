@@ -2,6 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.1.1] - 2026-11-03
+
+### 🐛 关键 Bug 修复：彻底解决刚进入页面时「只见悬空箭头、不见卡片」的渲染断层 (Bug Fixes)
+- **🎯 修复自由白板模式 (`layoutMode = "free"`) 初始加载时卡片停留在 `(0,0)` 的 Bug**：
+  - **原因定位**：此前在 `updateD3Graph()` 中，当处于默认的自由白板模式 (`free`) 时，`simulation.stop()` 会立即停止物理引擎，导致首帧 `tick` (`renderPositions`) 未触发；而 `refreshNodeStyles()` 只刷新了箭头连线 `<line>` 的坐标，未同步给卡片 `<g class="node-group">` 设置 `transform="translate(x,y)"`，导致所有卡片缩在左上角 `(0,0)` 被顶栏挡住，画面中间只剩下 4 条悬空的箭头！
+  - **彻底修复**：在 `refreshNodeStyles()` 和 `updateD3Graph()` 中强制首帧同步更新所有卡片的 `translate(d.x, d.y)`，确保一打开网页卡片与箭头 100% 严丝合缝同时就位。
+- **🛡️ 修复两张卡片紧挨或重叠时箭头反向倒刺 (`getLinkCoords`)**：
+  - 当两张卡片距离极近或边缘重叠导致起点越过终点时，自动隐藏重叠段箭头，绝不再出现悬空的小短箭头。
+- **🧹 清理初始默认示例中的多余虚线箭头 (`DEFAULT_LINKS` & `sanitizeGraph`)**：
+  - 移除了初始默认示例里容易让人误解的 `node_2 -> node_4` 蓝色虚线箭头，并将初始 4 张示例卡片排布为舒展清晰的左右树状间距。
+
+---
+
 ## 🚀 [v3.1.0] - 2026-11-03
 
 ### 🌟 核心升级：自我审计发现的 6 大体验短板一次性补齐 (Highlights)

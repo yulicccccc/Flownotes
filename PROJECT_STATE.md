@@ -1,8 +1,12 @@
-# Project State: FlowNotes (v3.1.0)
+# Project State: FlowNotes (v3.1.1)
 
 ## Current Version & Status
-- **Current Version**: `v3.1.0`
+- **Current Version**: `v3.1.1`
 - **Latest Releases**:
+  - `v3.1.1`:
+    - **Fixed Initial Freeform Card Transform Bug (`refreshNodeStyles` + `updateD3Graph`)**: Fixed the bug where `simulation.stop()` in `free` mode prevented the initial `tick` (`renderPositions`), leaving `<g class="node-group">` at `(0,0)` while only the `<line>` arrows were visible in the center of the canvas.
+    - **Fixed Overlapped Card Inverted Arrow Stub (`getLinkCoords`)**: Hides zero/negative-length arrows when two cards touch or overlap, preventing floating reversed arrowheads.
+    - **Cleaned Default Demo Nodes (`DEFAULT_NODES`, `DEFAULT_LINKS`, `sanitizeGraph`)**: Removed the confusing default dashed relation link (`node_2 -> node_4`) and spaced out the initial 4 demo cards cleanly.
   - `v3.1.0`:
     - **Global Instant Search (`Ctrl + K`, `#searchInput`, `#quick-open`) & Hierarchical Outline Filter (`#outline-filter`)**: Cross-map instant search with `🔴`/`🟢`/`⭐`/`待办` filters, auto-unfolding ancestors (`unfoldAncestorsOf`) on jump.
     - **One-Click Copy Outline as Markdown (`copyOutlineAsMarkdown` / `#btn-copy-outline-md`)**: Copy whole map or right-clicked branch as clean hierarchical Markdown.
@@ -34,7 +38,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.1.0_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.1.1_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

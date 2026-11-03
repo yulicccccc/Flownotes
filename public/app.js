@@ -11,17 +11,16 @@ const DEFAULT_PAT_TOKEN = "";
 
 // --- 初始默认图谱树节点 ---
 const DEFAULT_NODES = [
-    { id: "root_1", label: "核心概念", parentId: null, content: "# 核心概念\n\n欢迎来到 FlowNotes **思维导图优先 (Mindmap-First)** 知识库！\n\n- 在图谱中按 `Enter` 键建同级节点，按 `Tab` 键建子节点，按 `Ctrl+Z` 撤销。\n- 双击空白处创建独立的全新主题节点！", order: 0, x: 450, y: 320 },
-    { id: "node_2", label: "瞬时心流捕获", parentId: "root_1", content: "# 瞬时心流捕获\n\n以 Stream 形式无摩擦倾倒灵感，自动提取 `#标签` 与 `[[双链]]`。", order: 0, x: 250, y: 480 },
-    { id: "node_3", label: "卡片盒笔记法原则", parentId: "root_1", content: "# 卡片盒笔记法原则\n\n原子化观点 + 自底向上的关联支撑。", order: 1, x: 650, y: 480 },
-    { id: "node_4", label: "GitHub Gist 防误删", parentId: "node_3", content: "# GitHub Gist 防误删\n\n每一次修改产生独立 Commit，哪怕误删也能 100% 还原。", order: 0, x: 780, y: 620 }
+    { id: "root_1", label: "核心概念", parentId: null, content: "# 核心概念\n\n欢迎来到 FlowNotes **思维导图优先 (Mindmap-First)** 知识库！\n\n- 在图谱中按 `Enter` 键建同级节点，按 `Tab` 键建子节点，按 `Ctrl+Z` 撤销。\n- 双击空白处创建独立的全新主题节点！", order: 0, x: 240, y: 320 },
+    { id: "node_2", label: "瞬时心流捕获", parentId: "root_1", content: "# 瞬时心流捕获\n\n以 Stream 形式无摩擦倾倒灵感，自动提取 `#标签` 与 `[[双链]]`。", order: 0, x: 640, y: 200 },
+    { id: "node_3", label: "卡片盒笔记法原则", parentId: "root_1", content: "# 卡片盒笔记法原则\n\n原子化观点 + 自底向上的关联支撑。", order: 1, x: 640, y: 420 },
+    { id: "node_4", label: "GitHub Gist 防误删", parentId: "node_3", content: "# GitHub Gist 防误删\n\n每一次修改产生独立 Commit，哪怕误删也能 100% 还原。", order: 0, x: 990, y: 420 }
 ];
 
 const DEFAULT_LINKS = [
     { source: "root_1", target: "node_2" },
     { source: "root_1", target: "node_3" },
-    { source: "node_3", target: "node_4" },
-    { source: "node_2", target: "node_4", type: "relation" }
+    { source: "node_3", target: "node_4" }
 ];
 
 const DEFAULT_FLOW_STREAM = [
@@ -257,7 +256,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.1.0 loaded — Full Spatial Search, Fit-to-Screen, Image Lightbox, Card Tints & Dual-Link Workbench");
+    console.log("[FlowNotes] v3.1.1 loaded — Initial Freeform Card Transform Sync & Phantom Arrow Fix");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -505,17 +504,35 @@ function cleanLinks() {
     return [...treeLinks, ...relationLinks];
 }
 
-// 辅助：启动时清理孤儿链接 + 去重
+// 辅助：启动时清理孤儿链接 + 去重 + 修正初始默认演示坐标
 function sanitizeGraph() {
     const nodeIds = new Set(nodes.map(n => n.id));
-    // 清理孤立的 parentId 并补齐 createdAt 时间戳
+    // 清理孤立的 parentId 并补齐 createdAt 时间戳与有效坐标
     nodes.forEach((n, idx) => {
         if (n.parentId && !nodeIds.has(n.parentId)) n.parentId = null;
         if (typeof n.createdAt !== "number") {
             const m = String(n.id || "").match(/_(\d{10,})$/);
             n.createdAt = m ? parseInt(m[1], 10) : (1700000000000 + idx * 1000);
         }
+        if (!Number.isFinite(n.x)) n.x = 260 + (idx % 3) * 320;
+        if (!Number.isFinite(n.y)) n.y = 220 + Math.floor(idx / 3) * 180;
     });
+
+    // 若仍是旧版拥挤的 4 个初始演示节点坐标 (450,320 / 250,480)，自动升级为舒展树状坐标并清理旧演示虚线
+    if (nodes.length === 4) {
+        const r1 = nodes.find(n => n.id === "root_1");
+        const n2 = nodes.find(n => n.id === "node_2");
+        const n3 = nodes.find(n => n.id === "node_3");
+        const n4 = nodes.find(n => n.id === "node_4");
+        if (r1 && n2 && n3 && n4 && Math.round(r1.x) === 450 && Math.round(n2.x) === 250 && Math.round(n3.x) === 650) {
+            r1.x = 240; r1.y = 320; r1.fx = 240; r1.fy = 320;
+            n2.x = 640; n2.y = 200; n2.fx = 640; n2.fy = 200;
+            n3.x = 640; n3.y = 420; n3.fx = 640; n3.fy = 420;
+            n4.x = 990; n4.y = 420; n4.fx = 990; n4.fy = 420;
+            links = (links || []).filter(l => !(l.type === "relation" && cleanNodeId(l.source) === "node_2" && cleanNodeId(l.target) === "node_4"));
+        }
+    }
+
     // 去重并更新全局 links
     const seenLinks = new Set();
     links = cleanLinks().filter(l => {
@@ -928,20 +945,29 @@ function getLinkCoords(d) {
     const startPt = getRectEdgePoint(sxCenter, syCenter, sHalfW, sHalfH, dx, dy);
     const endPt = getRectEdgePoint(txCenter, tyCenter, tHalfW, tHalfH, -dx, -dy);
 
+    // 防重叠倒刺：当两张卡片紧贴或重叠导致起点越过终点时，收缩至中点避免出现悬空反向短箭头
+    if ((endPt.x - startPt.x) * dx + (endPt.y - startPt.y) * dy <= 0) {
+        const mx = (sxCenter + txCenter) / 2;
+        const my = (syCenter + tyCenter) / 2;
+        return { sx: mx, sy: my, tx: mx, ty: my };
+    }
+
     return { sx: startPt.x, sy: startPt.y, tx: endPt.x, ty: endPt.y };
 }
 
 function renderPositions() {
     if (!linkElements || !nodeElements) return;
     nodeElements
-        .attr("transform", d => `translate(${d.x},${d.y})`);
+        .attr("transform", d => `translate(${Number.isFinite(d.x) ? d.x : 450},${Number.isFinite(d.y) ? d.y : 320})`);
     linkElements.each(function(d) {
         const c = getLinkCoords(d);
+        const isOverlapped = Math.hypot(c.tx - c.sx, c.ty - c.sy) < 2;
         d3.select(this)
             .attr("x1", c.sx)
             .attr("y1", c.sy)
             .attr("x2", c.tx)
-            .attr("y2", c.ty);
+            .attr("y2", c.ty)
+            .style("visibility", isOverlapped ? "hidden" : "visible");
     });
     if (linkLabelElements) {
         linkLabelElements.each(function(d) {
@@ -1059,17 +1085,24 @@ function refreshNodeStyles() {
         group.classed("multi-selected", isSelected);
         group.classed("is-focus-node", isFocus);
         group.classed("is-collapsed", !!d.collapsed);
+
+        // 关键修复：在自由白板模式 (layoutMode === "free") 下仿真器处于 stop 状态，必须同步把每个卡片 <g> 定位到 (d.x, d.y)，防止卡片留在 (0,0) 而只剩箭头悬空！
+        const nx = Number.isFinite(d.x) ? d.x : 450;
+        const ny = Number.isFinite(d.y) ? d.y : 320;
+        group.attr("transform", `translate(${nx},${ny})`);
     });
 
     // 卡片尺寸变化后同步刷新箭头端点与关系词位置
     if (linkElements) {
         linkElements.each(function(d) {
             const c = getLinkCoords(d);
+            const isOverlapped = Math.hypot(c.tx - c.sx, c.ty - c.sy) < 2;
             d3.select(this)
                 .attr("x1", c.sx)
                 .attr("y1", c.sy)
                 .attr("x2", c.tx)
-                .attr("y2", c.ty);
+                .attr("y2", c.ty)
+                .style("visibility", isOverlapped ? "hidden" : "visible");
         });
     }
     if (linkLabelElements) {
@@ -1597,6 +1630,7 @@ function updateD3Graph() {
         simulation.alpha(0.15).restart();
     } else {
         simulation.stop();
+        renderPositions();
     }
 
     renderOutlineTree();
