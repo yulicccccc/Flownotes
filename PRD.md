@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.8.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v2.9.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Intuitive Direct-Manipulation Interaction Suite (v2.9.0 直觉式框选、多选浮动工具栏、箭头点击反转/删除与右键菜单)**:
+  - **Default Left-Mouse Drag Rubber-Band Selection (`isMarqueeMode = true` by default)**: Dragging with the left mouse button on empty canvas immediately draws a selection box (`#marquee-box`) with true AABB rectangle intersection (touching any card edge selects it; shrinking the box deselects it). Clicking empty canvas immediately deselects all cards/arrows. Canvas panning works smoothly via mouse wheel / two-finger scroll, `Space + Left Drag`, middle-mouse drag, or toggling `✋/🔳`.
+  - **Fixed `Shift + Click` Multi-Selection**: Fixed `dragstarted` so `mousedown` never wipes `selectedNodeIds` when `Shift`/`Ctrl`/`☑️` is active.
+  - **Floating Multi-Select Action Bar (`#multi-select-action-bar`)**: Automatically appears right above the selection when 2+ cards are selected, offering 1-click **`➔ 连箭头 (先建为父)`**, **`⛓️ 顺序串联`**, **`📐 垂直排齐`**, **`📐 水平排齐`**, **`⭐ 重点`**, **`🧬 克隆`**, and **`🗑️ 删除`**.
+  - **Clickable Arrows & Floating Arrow Action Bar (`#link-action-bar`)**: Clicking any arrow highlights it and pops up **`⇄ 反转父子方向`** and **`✂️ 删除此箭头 (Del)`** (deletes only the arrow while keeping the cards).
+  - **OneNote-Style Click-Selected-Card-to-Edit & `+` Quick-Sprout Button**: Clicking an already-selected card enters inline text editing; every card also shows a green `+` button on its right edge to sprout a child card with 1 mouse click.
+  - **Right-Click Context Menu (`#canvas-context-menu`) & Clipboard (`Ctrl+A`, `Ctrl+C`, `Ctrl+V`, `Ctrl+D`)**: Full desktop context menu on both cards and empty canvas, plus card copy/paste/duplicate.
 - **PWA Standalone App, High-Capacity IndexedDB & Multi-Device Auto-Sync (v2.8.0 独立桌面应用、无限图片容量与多端无感同步)**:
   - **PWA Standalone Mode (`public/manifest.json` + `public/sw.js`)**: Supports 1-click installation to Windows/macOS Desktop & Taskbar or iOS/Android Home Screen (`#btnInstallPwa`), with Network-First offline Service Worker caching so it opens instantaneously anywhere, online or offline.
   - **High-Capacity `IndexedDB` Storage (`FlowNotesIDB` + `safeLocalStorageSet`)**: Breaks through browser `localStorage`'s 5MB limit by persisting the full multi-map bundle (`flownotes_full_bundle`) in `IndexedDB` + in-memory cache (`allMapsMemoryCache`), allowing hundreds of MBs of screenshots without `QuotaExceededError`.
@@ -62,4 +69,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.8.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V2.9.0_flownotes-eze.pages.dev_一键更新网站.bat`.

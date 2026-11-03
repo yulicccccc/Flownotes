@@ -1,9 +1,9 @@
-# Project State: FlowNotes (v2.8.0)
+# Project State: FlowNotes (v2.9.0)
 
 ## Current Version & Status
-- **Current Version**: `v2.8.0`
+- **Current Version**: `v2.9.0`
 - **Latest Releases**:
-  - `v2.8.0`:
+  - `v2.9.0`:
     - **PWA Standalone Desktop/Mobile App (`public/manifest.json` + `public/sw.js` + `#btnInstallPwa`)**: Installable to taskbar/desktop/mobile with Network-First offline cache.
     - **High-Capacity `IndexedDB` Engine (`FlowNotesIDB` + `safeLocalStorageSet` + `allMapsMemoryCache`)**: Unlimited screenshot storage without `localStorage` 5MB `QuotaExceededError`.
     - **Multi-Device Cloud Sync Reliability (`autoCheckCloudGist` + `flushPendingSave` + bottom-left IO buttons)**: Auto-flushes pending saves on tab close/hide, auto-pulls newer cloud Gist data on startup/window focus, and wires up `#btn-sync`, `#btn-pull`, `#btn-import`.
@@ -17,16 +17,16 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V2.8.0_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V2.9.0_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
-1. **Freeform Spatial Dumping ("放到一坨", v2.8.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.
-2. **Direct On-Canvas Rich Text & Image Cards + Inline Editing (v2.8.0)**: `<foreignObject>` cards directly display 🔴 red, 🟢 green, 🟡 yellow highlights, and 📸 images on the canvas; double-click to edit and highlight directly on the canvas.
-3. **"默认先 make 的是父" Foldable Arrow Connections (v2.8.0)**: Multi-select + `L` key sorts by `createdAt` ascending so earlier-created card = Parent (`Parent ➔ Child`), plus `.node-connect-port` drag handle; all arrow-connected parents support fold/unfold (`+N` / `−`).
-4. **Dynamic Directional Arrows (v2.6.0 - v2.8.0)**: Sticky tracking SVG arrowheads stopping at exact rectangular card boundaries.
-5. **Zero-Friction Color & Highlight Suite (v2.6.0 - v2.8.0)**: `Ctrl+Shift+R/G/H/\` and selection floating bubble (`#selection-quick-bubble` mounted on `document.body`).
-6. **Global Clipboard Image & Text Paste (v2.6.0 - v2.8.0)**: `Ctrl+V` spawns independent floating cards at mouse cursor coordinates without camera jumps.
-7. **Zero-Lag Debounced Persistence & IME Guard (v2.8.0)**: 360ms debounced `scheduleSaveGraph` + IME `isImeComposing` guard.
+1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.
+2. **Direct On-Canvas Rich Text & Image Cards + Inline Editing (v2.9.0)**: `<foreignObject>` cards directly display 🔴 red, 🟢 green, 🟡 yellow highlights, and 📸 images on the canvas; double-click to edit and highlight directly on the canvas.
+3. **"默认先 make 的是父" Foldable Arrow Connections (v2.9.0)**: Multi-select + `L` key sorts by `createdAt` ascending so earlier-created card = Parent (`Parent ➔ Child`), plus `.node-connect-port` drag handle; all arrow-connected parents support fold/unfold (`+N` / `−`).
+4. **Dynamic Directional Arrows (v2.6.0 - v2.9.0)**: Sticky tracking SVG arrowheads stopping at exact rectangular card boundaries.
+5. **Zero-Friction Color & Highlight Suite (v2.6.0 - v2.9.0)**: `Ctrl+Shift+R/G/H/\` and selection floating bubble (`#selection-quick-bubble` mounted on `document.body`).
+6. **Global Clipboard Image & Text Paste (v2.6.0 - v2.9.0)**: `Ctrl+V` spawns independent floating cards at mouse cursor coordinates without camera jumps.
+7. **Zero-Lag Debounced Persistence & IME Guard (v2.9.0)**: 360ms debounced `scheduleSaveGraph` + IME `isImeComposing` guard.
 8. **Single Source of Truth Tree Links (v2.5.4)**: All tree links dynamically derived from `node.parentId` in `cleanLinks()`.
 9. **Full Rich Text List & Formatting Controls (v2.5.0)**: `1.`, `-`, `🧹` clean formatting.
 10. **Marquee Box Multi-Selection Engine (v2.4.0)**: `Shift + Drag` / `🔳` box selection + `Shift + Click` multi-selection.
