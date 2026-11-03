@@ -1469,3 +1469,281 @@ html[data-theme="light"] .link-label-bg {
 html[data-theme="light"] .link-label-text {
     fill: #1e293b;
 }
+
+/* ==========================================================================
+   v3.1.0 终极自我进化套件样式：卡片底色染色、全局搜索结果、高清图片灯箱与双链胶囊
+   ========================================================================== */
+
+.ctx-swatch-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 10px;
+    gap: 8px;
+}
+
+.ctx-swatch-label {
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+}
+
+.card-bg-swatch-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.card-bg-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+    padding: 0;
+    font-size: 11px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.9);
+    transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+
+.card-bg-swatch:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
+
+.card-bg-swatch.swatch-rose { background: #e11d48; }
+.card-bg-swatch.swatch-emerald { background: #059669; }
+.card-bg-swatch.swatch-amber { background: #d97706; }
+.card-bg-swatch.swatch-sky { background: #0284c7; }
+.card-bg-swatch.swatch-violet { background: #7c3aed; }
+
+/* 整卡语义背景底色 (深色模式与浅色模式自适应) */
+.canvas-note-card[data-card-bg="rose"] {
+    background: linear-gradient(135deg, rgba(136, 19, 55, 0.88), rgba(76, 5, 25, 0.92)) !important;
+    border-color: #fb7185 !important;
+}
+.canvas-note-card[data-card-bg="emerald"] {
+    background: linear-gradient(135deg, rgba(6, 95, 70, 0.88), rgba(6, 78, 59, 0.92)) !important;
+    border-color: #34d399 !important;
+}
+.canvas-note-card[data-card-bg="amber"] {
+    background: linear-gradient(135deg, rgba(146, 64, 14, 0.88), rgba(120, 53, 15, 0.92)) !important;
+    border-color: #fbbf24 !important;
+}
+.canvas-note-card[data-card-bg="sky"] {
+    background: linear-gradient(135deg, rgba(7, 89, 133, 0.88), rgba(12, 74, 110, 0.92)) !important;
+    border-color: #38bdf8 !important;
+}
+.canvas-note-card[data-card-bg="violet"] {
+    background: linear-gradient(135deg, rgba(91, 33, 182, 0.88), rgba(76, 29, 149, 0.92)) !important;
+    border-color: #a78bfa !important;
+}
+
+html[data-theme="light"] .canvas-note-card[data-card-bg="rose"] {
+    background: #ffe4e6 !important;
+    border-color: #f43f5e !important;
+}
+html[data-theme="light"] .canvas-note-card[data-card-bg="emerald"] {
+    background: #d1fae5 !important;
+    border-color: #10b981 !important;
+}
+html[data-theme="light"] .canvas-note-card[data-card-bg="amber"] {
+    background: #fef3c7 !important;
+    border-color: #f59e0b !important;
+}
+html[data-theme="light"] .canvas-note-card[data-card-bg="sky"] {
+    background: #e0f2fe !important;
+    border-color: #0ea5e9 !important;
+}
+html[data-theme="light"] .canvas-note-card[data-card-bg="violet"] {
+    background: #ede9fe !important;
+    border-color: #8b5cf6 !important;
+}
+
+/* Ctrl+K 全局即时搜索结果项 */
+.quick-result-item {
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: background 0.14s ease, border-color 0.14s ease;
+    margin-bottom: 4px;
+}
+
+.quick-result-item:hover,
+.quick-result-item.is-active {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: rgba(99, 102, 241, 0.45);
+}
+
+.quick-result-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.quick-result-title {
+    color: var(--text-color, #f8fafc);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quick-result-badges {
+    font-size: 11px;
+}
+
+.quick-result-map {
+    font-size: 10.5px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+
+.quick-result-snippet {
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.quick-empty-hint {
+    padding: 18px 12px;
+    text-align: center;
+    color: var(--text-muted, #94a3b8);
+    font-size: 12.5px;
+}
+
+/* 大纲树一键复制 Markdown 按钮与层级样式 */
+.outline-copy-md-btn {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    margin-left: auto;
+    margin-right: 6px;
+}
+
+.outline-copy-md-btn:hover {
+    background: rgba(99, 102, 241, 0.38);
+    color: #fff;
+}
+
+.outline-edge-pill {
+    font-size: 10px;
+    padding: 0 5px;
+    border-radius: 6px;
+    background: rgba(56, 189, 248, 0.18);
+    color: #38bdf8;
+    margin-right: 4px;
+}
+
+.outline-row.is-active {
+    background: rgba(99, 102, 241, 0.22);
+    font-weight: 600;
+}
+
+/* 双击截图卡片全屏高清灯箱放大镜 (HD Image Lightbox) */
+.img-lightbox-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 6, 23, 0.88);
+    backdrop-filter: blur(8px);
+    z-index: 12000;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.img-lightbox-toolbar {
+    width: min(92vw, 1100px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding: 8px 14px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 10px;
+}
+
+.img-lightbox-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #f8fafc;
+}
+
+.img-lightbox-img {
+    max-width: 92vw;
+    max-height: 82vh;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    cursor: zoom-out;
+}
+
+/* 心流送入脑图按钮与双链反向链接胶囊 */
+.flow-to-canvas-btn {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.45);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.flow-to-canvas-btn:hover {
+    background: rgba(16, 185, 129, 0.35);
+    color: #fff;
+}
+
+.flow-delete-btn {
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    border: none;
+    font-size: 15px;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+.flow-delete-btn:hover {
+    color: #f87171;
+}
+
+.backlink-pill {
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    font-size: 12px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.backlink-pill:hover {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.15);
+}
+
+.empty-sub-hint {
+    font-size: 12px;
+    color: var(--text-muted, #94a3b8);
+    opacity: 0.75;
+    padding: 4px 0;
+}

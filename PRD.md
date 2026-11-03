@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.0.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.1.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Proactive Self-Evolution Suite (v3.1.0 全局秒搜、智能全景缩放、高清图片灯箱、整卡底色染色与全工作台打通)**:
+  - **Global Instant Search (`Ctrl + K` / `#searchInput` / `#quick-open`) & Hierarchical Outline Filter (`#outline-filter`)**: Press `Ctrl + K` or type in the top search bar to search across all cards and across all maps in `mapsManifest` (including special filters `🔴`, `🟢`, `⭐`, `待办`). Clicking or pressing `Enter` automatically unfolds collapsed ancestors (`unfoldAncestorsOf`) and smoothly pans/zooms (`focusOnNode`) straight to the card.
+  - **One-Click Copy Outline as Clean Markdown (`copyOutlineAsMarkdown` / `#btn-copy-outline-md`)**: Copy the entire mindmap or any right-clicked subtree as hierarchical Markdown (`## / -`) for instant pasting into Word, Notion, or slides.
+  - **True Bounding-Box Fit-to-Screen (`fitCanvasToAllNodes` on `⛶` `#btn-fit` & `Ctrl + 0`)**: Computes the exact bounding box `(minX, minY, maxX, maxY)` of all visible cards on the 2D canvas and smoothly scales/centers them in the viewport.
+  - **HD Image Lightbox (`openImageLightbox`) & Desktop Drag-and-Drop (`initCanvasDragAndDrop`)**: Double-clicking any screenshot card opens a full-screen HD Image Lightbox with caption editing; dragging image files or `.json` backups from Windows Explorer directly onto `#graph-container` drops them at the cursor position.
+  - **Whole-Card Semantic Background Tints (`d.cardBgColor`, `🎨 卡片底色`) & Expand/Collapse All**: Supports 6 semantic card background tints (`🌌 默认`, `🌹 绯红`, `🌿 翡翠`, `🟡 琥珀`, `💎 晴空`, `🔮 紫晶`) in both the multi-select bar and right-click menu, plus 1-click Expand All / Collapse All branches.
+  - **Complete Secondary Workbenches (`#pane-flow`, `#pane-editor`, `#pane-ai`)**: Flow Capture items have a 1-click **`🚀 送入脑图`** button; Dual-Link Library computes live `🔗 链入 (Backlinks)`, `↗️ 链出 (Outbound)`, and `🦉 猫头鹰建议链接`; AI Assistant generates a real-time structural radar of focus stars, red questions, green metrics, and todos.
 - **Full OneNote + XMind Muscle-Memory Intuitive Suite (v3.0.0 集齐 OneNote + XMind 全套直觉操作)**:
   - **XMind Subtree Dragging (`collectSubtreeNodeIds`)**: Dragging any parent card automatically moves all of its connected children/descendants together as a unified branch! Holding `Alt + Drag` moves only the single card (or triggers proximity reparenting).
   - **OneNote Click-Anywhere-and-Type on Empty Canvas**: Clicking any empty spot on the canvas and immediately typing on the keyboard spawns a new freeform card right at that cursor spot (`lastCanvasMouseCoords`) and types directly into it.
@@ -78,4 +85,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.0.0_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.1.0_flownotes-eze.pages.dev_一键更新网站.bat`.

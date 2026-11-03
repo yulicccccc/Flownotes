@@ -257,13 +257,14 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.0.0 loaded — Full OneNote + XMind Intuitive Interaction Suite");
+    console.log("[FlowNotes] v3.1.0 loaded — Full Spatial Search, Fit-to-Screen, Image Lightbox, Card Tints & Dual-Link Workbench");
     initStorage();
     initD3Mindmap();
     initEvents();
     initSelectionQuickBubble();
     initIntuitiveActionBarsAndContextMenu();
     initClipboardPaste();
+    initV31Enhancements();
     renderAll();
     initGhSyncUI();
     initPwaAndLifecycleSync();
@@ -1002,6 +1003,7 @@ function refreshNodeStyles() {
                 .classed("is-focus", isFocus)
                 .classed("is-image-card", !!(d.isImage && d.imageUrl))
                 .classed("has-custom-width", hasCustomW)
+                .attr("data-card-bg", d.cardBgColor || null)
                 .style("width", hasCustomW ? `${d.customWidth}px` : null)
                 .style("max-width", hasCustomW ? "none" : null)
                 .style("--card-accent", borderColor);
@@ -1089,8 +1091,7 @@ function startInlineCardEditById(nodeId, selectAll = false, cursorAtEnd = false)
 function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false) {
     if (!d || !groupEl) return;
     if (d.isImage && d.imageUrl) {
-        const ti = document.getElementById("title-input");
-        if (ti && !ti.disabled) { ti.focus(); ti.select(); }
+        openImageLightbox(d);
         return;
     }
     const group = d3.select(groupEl);
@@ -2339,15 +2340,53 @@ function toggleRelationLink() {
     showToast(`🔗 已将最先创建的【${parentNode.label}】设为父节点，连向 ${connectedCount} 个子卡片（支持折叠展开）！`);
 }
 
-function renderOutlineTree() {
+function renderOutlineTree(filterQuery = "") {
     const treeEl = document.getElementById("outline-tree");
     if (!treeEl) return;
     treeEl.innerHTML = "";
+    const filterInput = document.getElementById("outline-filter");
+    const q = (typeof filterQuery === "string" && filterQuery.length > 0)
+        ? filterQuery.trim().toLowerCase()
+        : (filterInput ? filterInput.value.trim().toLowerCase() : "");
+
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const childrenByParent = new Map();
+    nodes.forEach(n => childrenByParent.set(n.id, []));
     nodes.forEach(n => {
+        if (n.parentId && childrenByParent.has(n.parentId)) {
+            childrenByParent.get(n.parentId).push(n);
+        }
+    });
+    childrenByParent.forEach(list => list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+
+    const roots = nodes.filter(n => !n.parentId || !nodeMap.has(n.parentId));
+    roots.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const orderedWithDepth = [];
+    const visited = new Set();
+    function walk(node, depth) {
+        if (!node || visited.has(node.id)) return;
+        visited.add(node.id);
+        orderedWithDepth.push({ node, depth });
+        (childrenByParent.get(node.id) || []).forEach(child => walk(child, depth + 1));
+    }
+    roots.forEach(r => walk(r, 0));
+    nodes.forEach(n => { if (!visited.has(n.id)) orderedWithDepth.push({ node: n, depth: 0 }); });
+
+    orderedWithDepth.forEach(({ node: n, depth }) => {
+        if (q) {
+            const hay = `${n.label || ""} ${n.content || ""} ${n.edgeLabel || ""}`.toLowerCase();
+            if (!hay.includes(q)) return;
+        }
         const row = document.createElement("div");
-        row.className = "outline-row";
-        row.innerHTML = `<span>${n.parentId === null ? "🌳" : "📄"}</span><span>${escapeHTML(n.label)}</span>`;
+        row.className = "outline-row" + (selectedNode && selectedNode.id === n.id ? " is-active" : "");
+        row.style.paddingLeft = `${10 + Math.min(depth, 7) * 14}px`;
+        const icon = n.isImage ? "🖼️" : (n.parentId === null ? "🌳" : "📄");
+        const star = n.isFocus ? "⭐ " : "";
+        const edgeTag = n.edgeLabel ? `<span class="outline-edge-pill">${escapeHTML(n.edgeLabel)}</span>` : "";
+        row.innerHTML = `<span>${icon}</span>${edgeTag}<span class="outline-label-text">${star}${escapeHTML(n.label)}</span>`;
         row.addEventListener("click", () => {
+            unfoldAncestorsOf(n);
             focusOnNode(n);
         });
         treeEl.appendChild(row);
@@ -2464,7 +2503,7 @@ function initEvents() {
     // 图谱视图控制按钮 + 触屏/鼠标单手快捷建卡与多选按钮
     document.getElementById("btn-zoom-in").addEventListener("click", () => svg.transition().call(zoom.scaleBy, 1.25));
     document.getElementById("btn-zoom-out").addEventListener("click", () => svg.transition().call(zoom.scaleBy, 0.8));
-    document.getElementById("btn-fit").addEventListener("click", () => svg.transition().call(zoom.transform, d3.zoomIdentity));
+    document.getElementById("btn-fit").addEventListener("click", () => fitCanvasToAllNodes());
     document.getElementById("btn-relation").addEventListener("click", toggleRelationLink);
 
     const btnAddChild = document.getElementById("btn-add-child");
@@ -2646,6 +2685,11 @@ function initEvents() {
                           document.activeElement.isContentEditable;
 
         if (e.key === "Escape") {
+            const lb = document.getElementById("img-lightbox-modal");
+            if (lb && lb.style.display !== "none") {
+                lb.style.display = "none";
+                return;
+            }
             document.getElementById("quick-open").hidden = true;
             document.getElementById("article-modal").hidden = true;
             document.getElementById("outline-panel").hidden = true;
@@ -2657,6 +2701,20 @@ function initEvents() {
             if (document.activeElement && document.activeElement !== document.body) {
                 document.activeElement.blur();
             }
+            return;
+        }
+
+        // Ctrl+K / Cmd+K：随时呼出全局即时搜索跳转面板 (Quick Open)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "k" || e.key === "K")) {
+            e.preventDefault();
+            openQuickSearchModal();
+            return;
+        }
+
+        // Ctrl+0 / Cmd+0：一键智能缩放全景适配所有可见卡片 (Fit to Screen)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === "0") {
+            e.preventDefault();
+            fitCanvasToAllNodes();
             return;
         }
 
@@ -3277,12 +3335,57 @@ function renderEditor() {
 
 function renderFlowStream() {
     const listEl = document.getElementById("flowList");
+    const countEl = document.getElementById("flowCount");
+    const tagSelect = document.getElementById("flowTagFilter");
     if (!listEl) return;
-    listEl.innerHTML = "";
+
+    const allTags = new Set();
     flowStream.forEach(item => {
+        const matches = String(item.content || "").match(/#[^\s#]+/g) || [];
+        matches.forEach(t => allTags.add(t));
+    });
+    if (tagSelect) {
+        const currentVal = tagSelect.value || "all";
+        tagSelect.innerHTML = `<option value="all">全部分类/标签</option>` +
+            Array.from(allTags).map(t => `<option value="${escapeHTML(t)}">${escapeHTML(t)}</option>`).join("");
+        if (allTags.has(currentVal)) tagSelect.value = currentVal;
+    }
+
+    const activeTag = tagSelect ? tagSelect.value : "all";
+    const filtered = activeTag === "all"
+        ? flowStream
+        : flowStream.filter(item => String(item.content || "").includes(activeTag));
+
+    if (countEl) countEl.textContent = String(filtered.length);
+    listEl.innerHTML = "";
+
+    filtered.forEach(item => {
         const card = document.createElement("div");
         card.className = "flow-card";
-        card.innerHTML = `<div class="flow-card-meta"><span>⚡ 思考流</span><span>${item.timestamp}</span></div><div class="flow-card-content">${escapeHTML(item.content)}</div>`;
+        card.innerHTML = `
+            <div class="flow-card-meta">
+                <span>⚡ 思考流</span>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span>${escapeHTML(item.timestamp || "")}</span>
+                    <button class="flow-to-canvas-btn" title="一键将这条灵感发送为脑图画布上的自由卡片">🚀 送入脑图</button>
+                    <button class="flow-delete-btn" title="删除此条心流">×</button>
+                </div>
+            </div>
+            <div class="flow-card-content">${renderMarkdownToHTML(item.content || "")}</div>
+        `;
+        const sendBtn = card.querySelector(".flow-to-canvas-btn");
+        if (sendBtn) {
+            sendBtn.addEventListener("click", () => sendFlowItemToCanvas(item));
+        }
+        const delBtn = card.querySelector(".flow-delete-btn");
+        if (delBtn) {
+            delBtn.addEventListener("click", () => {
+                flowStream = flowStream.filter(f => f.id !== item.id);
+                saveFlowsToStorage();
+                renderFlowStream();
+                showToast("🗑️ 已删除心流记录");
+            });
+        }
         listEl.appendChild(card);
     });
 }
@@ -3290,17 +3393,29 @@ function renderFlowStream() {
 function renderSidebarNotesList() {
     const container = document.getElementById("notesListItems");
     if (!container) return;
+    const filterInput = document.getElementById("noteListFilter");
+    const q = filterInput ? filterInput.value.trim().toLowerCase() : "";
     container.innerHTML = "";
+
     nodes.forEach(note => {
+        if (q) {
+            const hay = `${note.label || ""} ${note.content || ""}`.toLowerCase();
+            if (!hay.includes(q)) return;
+        }
         const item = document.createElement("div");
         item.className = `note-item ${selectedNode && selectedNode.id === note.id ? "active" : ""}`;
-        item.innerHTML = `<div class="note-item-title">${escapeHTML(note.label)}</div>`;
+        const star = note.isFocus ? "⭐ " : "";
+        item.innerHTML = `<div class="note-item-title">${star}${escapeHTML(note.label)}</div>`;
         item.addEventListener("click", () => {
-            focusOnNode(note);
+            selectedNode = note;
+            selectedNodeIds = new Set([note.id]);
             renderSidebarNotesList();
+            renderEditor();
+            syncDeepNotePaneWithSelectedNode();
         });
         container.appendChild(item);
     });
+    syncDeepNotePaneWithSelectedNode();
 }
 
 // --- GitHub Gist 双向同步与卡片数实时追踪 ---
@@ -4178,6 +4293,14 @@ function initIntuitiveActionBarsAndContextMenu() {
             <button class="floating-bar-btn" data-act="connect-chain" title="按创建时间先后顺序依次串联箭头 (1 ➔ 2 ➔ 3)">⛓️ 顺序串联</button>
             <button class="floating-bar-btn" data-act="align-v" title="将选中卡片左对齐并垂直等距排齐">📐 垂直排齐</button>
             <button class="floating-bar-btn" data-act="align-h" title="将选中卡片水平对齐并等距排齐">📐 水平排齐</button>
+            <div class="card-bg-swatch-row" title="批量为选中卡片设置背景底色标签">
+                <button class="card-bg-swatch" data-bg="" title="默认深空底色">🌌</button>
+                <button class="card-bg-swatch swatch-rose" data-bg="rose" title="🌹 绯红底色 (核心问题/风险)"></button>
+                <button class="card-bg-swatch swatch-emerald" data-bg="emerald" title="🌿 翡翠底色 (结论/测量指标)"></button>
+                <button class="card-bg-swatch swatch-amber" data-bg="amber" title="🟡 琥珀底色 (核心假设/警示)"></button>
+                <button class="card-bg-swatch swatch-sky" data-bg="sky" title="💎 晴空底色 (方法/概念)"></button>
+                <button class="card-bg-swatch swatch-violet" data-bg="violet" title="🔮 紫晶底色 (文献/灵感)"></button>
+            </div>
             <button class="floating-bar-btn" data-act="focus" title="批量设为/取消重点 (F)">⭐ 重点</button>
             <button class="floating-bar-btn" data-act="duplicate" title="批量克隆卡片 (Ctrl+D)">🧬 克隆</button>
             <button class="floating-bar-btn danger" data-act="delete" title="批量删除选中卡片 (Delete)">🗑️ 删除</button>
@@ -4197,6 +4320,12 @@ function initIntuitiveActionBarsAndContextMenu() {
                 else if (act === "duplicate") duplicateSelectedNodes();
                 else if (act === "delete") deleteSelectedNode();
                 updateFloatingActionBarsPosition();
+            });
+        });
+        bar.querySelectorAll(".card-bg-swatch").forEach(sw => {
+            sw.addEventListener("click", (e) => {
+                e.stopPropagation();
+                setCardBgColor(sw.dataset.bg || "");
             });
         });
     }
@@ -4446,6 +4575,7 @@ function copySelectedNodes() {
         isFocus: n.isFocus,
         customWidth: n.customWidth,
         edgeLabel: n.edgeLabel,
+        cardBgColor: n.cardBgColor,
         x: n.x,
         y: n.y
     }));
@@ -4475,6 +4605,7 @@ function pasteCopiedNodesAt(targetCenterX, targetCenterY) {
             imageUrl: src.imageUrl,
             isFocus: src.isFocus,
             customWidth: src.customWidth,
+            cardBgColor: src.cardBgColor,
             createdAt: baseTs + idx,
             order: nodes.length + idx,
             x: nx,
@@ -4519,6 +4650,7 @@ function duplicateSelectedNodes() {
             isFocus: src.isFocus,
             customWidth: src.customWidth,
             edgeLabel: src.edgeLabel,
+            cardBgColor: src.cardBgColor,
             createdAt: baseTs + idx,
             order: nodes.length + idx,
             x: nx,
@@ -4549,8 +4681,9 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
     if (targetNode) {
         const hasParent = !!targetNode.parentId;
         const hasKids = getDescendantCount(targetNode.id) > 0;
+        const isImg = !!(targetNode.isImage && targetNode.imageUrl);
         menu.innerHTML = `
-            <div class="ctx-item" data-cact="edit">✏️ 编辑卡片文字 <span class="ctx-kbd">Space / 双击</span></div>
+            <div class="ctx-item" data-cact="edit">${isImg ? "🔍 高清放大查看图片" : "✏️ 编辑卡片文字"} <span class="ctx-kbd">Space / 双击</span></div>
             <div class="ctx-item" data-cact="todo">☑ 切换待办复选框 <span class="ctx-kbd">Ctrl+1</span></div>
             <div class="ctx-item" data-cact="child">➕ 衍生子卡片 <span class="ctx-kbd">Tab</span></div>
             <div class="ctx-item" data-cact="sibling">➕ 新增同级卡片 <span class="ctx-kbd">Enter</span></div>
@@ -4558,7 +4691,20 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
             ${hasKids ? `<div class="ctx-item" data-cact="fold">📁 ${targetNode.collapsed ? "展开" : "折叠"}子分支 <span class="ctx-kbd">Ctrl+/</span></div>` : ""}
             ${hasParent ? `<div class="ctx-item" data-cact="unlink-parent">✂️ 断开与父卡片的箭头</div>` : ""}
             <div class="ctx-divider"></div>
+            <div class="ctx-swatch-line">
+                <span class="ctx-swatch-label">🎨 卡片底色</span>
+                <div class="card-bg-swatch-row">
+                    <button class="card-bg-swatch" data-bg="" title="默认深空底色">🌌</button>
+                    <button class="card-bg-swatch swatch-rose" data-bg="rose" title="🌹 绯红底色 (核心问题/风险)"></button>
+                    <button class="card-bg-swatch swatch-emerald" data-bg="emerald" title="🌿 翡翠底色 (结论/指标)"></button>
+                    <button class="card-bg-swatch swatch-amber" data-bg="amber" title="🟡 琥珀底色 (核心假设)"></button>
+                    <button class="card-bg-swatch swatch-sky" data-bg="sky" title="💎 晴空底色 (方法/概念)"></button>
+                    <button class="card-bg-swatch swatch-violet" data-bg="violet" title="🔮 紫晶底色 (文献/灵感)"></button>
+                </div>
+            </div>
+            <div class="ctx-divider"></div>
             <div class="ctx-item" data-cact="focus">⭐ ${targetNode.isFocus ? "取消重点" : "设为重点"} <span class="ctx-kbd">F</span></div>
+            <div class="ctx-item" data-cact="copy-subtree-md">📋 复制此分支为 Markdown</div>
             <div class="ctx-item" data-cact="duplicate">🧬 克隆此卡片 <span class="ctx-kbd">Ctrl+D</span></div>
             <div class="ctx-divider"></div>
             <div class="ctx-item danger" data-cact="delete">🗑️ 删除卡片 <span class="ctx-kbd">Del</span></div>
@@ -4566,25 +4712,41 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
     } else {
         menu.innerHTML = `
             <div class="ctx-item" data-cact="new-here">✨ 在此处新建自由卡片 <span class="ctx-kbd">双击空白</span></div>
+            <div class="ctx-item" data-cact="search">🔍 全局搜索卡片/内容 <span class="ctx-kbd">Ctrl+K</span></div>
             <div class="ctx-item" data-cact="select-all">☑️ 全选所有卡片 <span class="ctx-kbd">Ctrl+A</span></div>
             <div class="ctx-divider"></div>
+            <div class="ctx-item" data-cact="expand-all">📂 展开全图所有折叠分支</div>
+            <div class="ctx-item" data-cact="collapse-all">📁 折叠全图所有分支</div>
+            <div class="ctx-item" data-cact="copy-all-md">📋 复制全图大纲为 Markdown</div>
+            <div class="ctx-divider"></div>
             <div class="ctx-item" data-cact="tidy">🧭 一键整理为树状结构 <span class="ctx-kbd">M</span></div>
-            <div class="ctx-item" data-cact="fit">⛶ 居中适配全景视图</div>
+            <div class="ctx-item" data-cact="fit">⛶ 智能全景缩放适配 <span class="ctx-kbd">Ctrl+0</span></div>
         `;
     }
 
     menu.style.display = "block";
-    const menuW = menu.offsetWidth || 210;
-    const menuH = menu.offsetHeight || 240;
+    const menuW = menu.offsetWidth || 225;
+    const menuH = menu.offsetHeight || 280;
     menu.style.left = `${Math.min(window.innerWidth - menuW - 10, clientX)}px`;
     menu.style.top = `${Math.min(window.innerHeight - menuH - 10, clientY)}px`;
+
+    menu.querySelectorAll(".card-bg-swatch").forEach(sw => {
+        sw.addEventListener("click", (e) => {
+            e.stopPropagation();
+            hideCanvasContextMenu();
+            setCardBgColor(sw.dataset.bg || "", targetNode);
+        });
+    });
 
     menu.querySelectorAll(".ctx-item").forEach(item => {
         item.addEventListener("click", (e) => {
             e.stopPropagation();
             const act = item.dataset.cact;
             hideCanvasContextMenu();
-            if (act === "edit" && targetNode) startInlineCardEditById(targetNode.id, false);
+            if (act === "edit" && targetNode) {
+                if (targetNode.isImage && targetNode.imageUrl) openImageLightbox(targetNode);
+                else startInlineCardEditById(targetNode.id, false);
+            }
             else if (act === "todo" && targetNode) toggleTodoOnSelectedCard(targetNode);
             else if (act === "child") createChildNode();
             else if (act === "sibling") createSiblingNode();
@@ -4599,35 +4761,21 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
                 showToast("✂️ 已断开与父卡片的箭头");
             }
             else if (act === "focus") toggleNodeFocus(targetNode);
+            else if (act === "copy-subtree-md" && targetNode) copyOutlineAsMarkdown(targetNode);
             else if (act === "duplicate") duplicateSelectedNodes();
             else if (act === "delete") deleteSelectedNode();
             else if (act === "new-here") {
-                const nowTs = Date.now();
-                const newId = `root_${nowTs}`;
-                const newNode = {
-                    id: newId,
-                    label: `新笔记 ${nodes.length + 1}`,
-                    parentId: null,
-                    content: `新笔记 ${nodes.length + 1}`,
-                    createdAt: nowTs,
-                    order: nodes.length,
-                    x: lastCanvasMouseCoords.x,
-                    y: lastCanvasMouseCoords.y,
-                    fx: lastCanvasMouseCoords.x,
-                    fy: lastCanvasMouseCoords.y
-                };
-                nodes.push(newNode);
-                selectedNode = newNode;
-                selectedNodeIds = new Set([newId]);
-                scheduleSaveGraph(true);
-                updateD3Graph();
-                renderPositions();
-                renderEditor();
-                setTimeout(() => startInlineCardEditById(newId, true), 50);
+                if (typeof window.spawnFreeCardAtCoords === "function") {
+                    window.spawnFreeCardAtCoords([lastCanvasMouseCoords.x, lastCanvasMouseCoords.y], "");
+                }
             }
+            else if (act === "search") openQuickSearchModal();
             else if (act === "select-all") selectAllVisibleNodes();
+            else if (act === "expand-all") expandOrCollapseAllBranches(false);
+            else if (act === "collapse-all") expandOrCollapseAllBranches(true);
+            else if (act === "copy-all-md") copyOutlineAsMarkdown(null);
             else if (act === "tidy") tidyLayout();
-            else if (act === "fit") svg.transition().call(zoom.transform, d3.zoomIdentity);
+            else if (act === "fit") fitCanvasToAllNodes();
         });
     });
 }
@@ -4767,4 +4915,806 @@ function toggleNthTaskCheckboxInNode(node, taskIdx, isChecked) {
     }
     scheduleSaveGraph(true);
 }
+
+// ============================================================================
+// v3.1.0 终极自我进化套件：
+// 1. Ctrl+K 跨图谱全局秒搜与大纲实时筛选 + 一键复制大纲为 Markdown
+// 2. ⛶ (Ctrl+0) 真正的包围盒智能全景自适应缩放 (fitCanvasToAllNodes)
+// 3. 🖼️ 截图双击高清灯箱放大镜 (HD Lightbox) + 桌面图片/JSON 直接拖拽上画布
+// 4. 🎨 整卡语义底色染色 (Card Tints) + 全图分支一键展开/折叠
+// 5. ⚡ 心流捕获一键送入脑图 + 📝 双链反向链接实时引擎 + ✨ AI 知识结构雷达
+// ============================================================================
+
+function initV31Enhancements() {
+    initGlobalQuickSearch();
+    initCanvasDragAndDrop();
+    initSecondaryWorkbenches();
+}
+
+// 1. 自动展开目标卡片的所有折叠祖先，确保跳转聚焦时卡片一定可见
+function unfoldAncestorsOf(node) {
+    if (!node) return;
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    let curr = node;
+    let changed = false;
+    const visited = new Set();
+    while (curr && curr.parentId && !visited.has(curr.id)) {
+        visited.add(curr.id);
+        const parent = nodeMap.get(curr.parentId);
+        if (parent && parent.collapsed) {
+            parent.collapsed = false;
+            changed = true;
+        }
+        curr = parent;
+    }
+    if (changed) {
+        if (layoutMode === "tree") tidyLayout();
+        else updateD3Graph();
+        renderPositions();
+    }
+}
+
+// 2. ⛶ / Ctrl+0：计算画布上所有可见卡片的真实包围盒 (Bounding Box) 并平滑居中缩放适配视口
+function fitCanvasToAllNodes() {
+    if (!svg || !zoom) return;
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const visibleNodes = nodes.filter(n => isNodeVisible(n, nodeMap));
+    if (visibleNodes.length === 0) {
+        svg.transition().duration(420).call(zoom.transform, d3.zoomIdentity);
+        return;
+    }
+
+    const container = document.getElementById("graph-container");
+    const viewW = (container && container.clientWidth) ? container.clientWidth : 900;
+    const viewH = (container && container.clientHeight) ? container.clientHeight : 620;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    visibleNodes.forEach(n => {
+        const cx = Number.isFinite(n.x) ? n.x : 450;
+        const cy = Number.isFinite(n.y) ? n.y : 320;
+        const hw = (n._cardW || 130) / 2 + 24;
+        const hh = (n._cardH || 42) / 2 + 24;
+        if (cx - hw < minX) minX = cx - hw;
+        if (cy - hh < minY) minY = cy - hh;
+        if (cx + hw > maxX) maxX = cx + hw;
+        if (cy + hh > maxY) maxY = cy + hh;
+    });
+
+    const boxW = Math.max(160, maxX - minX);
+    const boxH = Math.max(120, maxY - minY);
+    const pad = 72;
+    const scaleX = (viewW - pad * 2) / boxW;
+    const scaleY = (viewH - pad * 2) / boxH;
+    const nextScale = Math.max(0.18, Math.min(1.25, Math.min(scaleX, scaleY)));
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const transform = d3.zoomIdentity
+        .translate(viewW / 2, viewH / 2)
+        .scale(nextScale)
+        .translate(-centerX, -centerY);
+
+    svg.transition().duration(460).ease(d3.easeCubicOut).call(zoom.transform, transform);
+    showToast(`⛶ 已智能居中适配全图 (${visibleNodes.length} 张可见卡片)`);
+}
+
+// 3. 整卡语义背景底色设置 (Heptabase / OneNote / XMind 风格)
+const CARD_BG_LABELS = {
+    "": "🌌 默认深空",
+    "rose": "🌹 绯红底色 (核心问题/风险)",
+    "emerald": "🌿 翡翠底色 (结论/测量指标)",
+    "amber": "🟡 琥珀底色 (核心假设/警示)",
+    "sky": "💎 晴空底色 (方法/概念)",
+    "violet": "🔮 紫晶底色 (文献/灵感)"
+};
+
+function setCardBgColor(colorKey = "", singleFallbackNode = null) {
+    const targetList = selectedNodeIds.size > 0
+        ? nodes.filter(n => selectedNodeIds.has(n.id))
+        : (singleFallbackNode ? [singleFallbackNode] : (selectedNode ? [selectedNode] : []));
+    if (targetList.length === 0) return;
+
+    targetList.forEach(n => {
+        if (colorKey) n.cardBgColor = colorKey;
+        else delete n.cardBgColor;
+    });
+    refreshNodeStyles();
+    scheduleSaveGraph(true);
+    showToast(`🎨 已设为 ${CARD_BG_LABELS[colorKey] || "默认底色"}`);
+}
+
+// 4. 全图一键展开或折叠所有分支
+function expandOrCollapseAllBranches(shouldCollapse = false) {
+    const parentIds = new Set(nodes.map(n => n.parentId).filter(Boolean));
+    let count = 0;
+    nodes.forEach(n => {
+        if (parentIds.has(n.id)) {
+            if (shouldCollapse && n.parentId !== null) {
+                n.collapsed = true;
+                count++;
+            } else if (!shouldCollapse && n.collapsed) {
+                n.collapsed = false;
+                count++;
+            }
+        }
+    });
+    if (shouldCollapse && count === 0) {
+        nodes.forEach(n => {
+            if (parentIds.has(n.id)) {
+                n.collapsed = true;
+                count++;
+            }
+        });
+    }
+    if (layoutMode === "tree") tidyLayout();
+    else updateD3Graph();
+    renderPositions();
+    scheduleSaveGraph(true);
+    showToast(shouldCollapse ? `📁 已折叠 ${count} 个父级分支` : "📂 已展开全图所有折叠分支");
+}
+
+// 5. 一键将全图或选中分支导出/复制为干净的层级 Markdown 大纲
+function copyOutlineAsMarkdown(rootNode = null) {
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    const childrenByParent = new Map();
+    nodes.forEach(n => childrenByParent.set(n.id, []));
+    nodes.forEach(n => {
+        if (n.parentId && childrenByParent.has(n.parentId)) {
+            childrenByParent.get(n.parentId).push(n);
+        }
+    });
+    childrenByParent.forEach(list => list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+
+    const roots = rootNode
+        ? [rootNode]
+        : nodes.filter(n => !n.parentId || !nodeMap.has(n.parentId)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const lines = [];
+    const visited = new Set();
+
+    function serializeBranch(n, depth) {
+        if (!n || visited.has(n.id)) return;
+        visited.add(n.id);
+        const edgePrefix = n.edgeLabel ? `【${n.edgeLabel}】➔ ` : "";
+        const starPrefix = n.isFocus ? "⭐ " : "";
+        const rawBody = (n.content || n.label || "未命名").replace(/<[^>]+>/g, "").trim();
+        const bodyLines = rawBody.split("\n").map(s => s.trim()).filter(Boolean);
+        const headLine = bodyLines[0] || n.label || "未命名";
+
+        if (depth === 0) {
+            lines.push(`## ${starPrefix}${edgePrefix}${headLine}`);
+            bodyLines.slice(1).forEach(sub => lines.push(`  ${sub}`));
+        } else {
+            const indent = "  ".repeat(depth - 1);
+            lines.push(`${indent}- ${starPrefix}${edgePrefix}${headLine}`);
+            bodyLines.slice(1).forEach(sub => lines.push(`${indent}  ${sub}`));
+        }
+        (childrenByParent.get(n.id) || []).forEach(child => serializeBranch(child, depth + 1));
+    }
+
+    roots.forEach(r => {
+        serializeBranch(r, 0);
+        lines.push("");
+    });
+
+    const mdOutput = lines.join("\n").trim();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(mdOutput).then(() => {
+            showToast(rootNode ? `📋 已复制【${rootNode.label}】分支 Markdown 大纲到剪贴板！` : `📋 已复制全图 Markdown 大纲 (${visited.size} 张卡片) 到剪贴板！`);
+        }).catch(() => {
+            prompt("请复制以下 Markdown 大纲：", mdOutput);
+        });
+    } else {
+        prompt("请复制以下 Markdown 大纲：", mdOutput);
+    }
+}
+
+// 6. Ctrl+K 全局即时搜索面板 (#quick-open / #searchInput / #outline-filter)
+function openQuickSearchModal(initialQuery = "") {
+    const modal = document.getElementById("quick-open");
+    const input = document.getElementById("quick-input");
+    if (!modal || !input) return;
+    modal.hidden = false;
+    if (typeof initialQuery === "string" && initialQuery.length > 0) {
+        input.value = initialQuery;
+    }
+    input.focus();
+    input.select();
+    renderQuickSearchResults(input.value);
+}
+
+function renderQuickSearchResults(rawQuery = "") {
+    const resultsEl = document.getElementById("quick-results");
+    if (!resultsEl) return;
+    const q = (rawQuery || "").trim().toLowerCase();
+
+    // 收集当前图谱以及所有其他图谱中的匹配卡片
+    const matches = [];
+    const currentMapTitle = mapsManifest.find(m => m.id === activeMapId)?.title || "当前图谱";
+
+    function checkNodeMatch(n, mapId, mapTitle) {
+        const title = String(n.label || "");
+        const body = String(n.content || "");
+        const edge = String(n.edgeLabel || "");
+        const isRed = body.includes("#ef4444") || body.includes("rgb(239, 68, 68)");
+        const isGreen = body.includes("#10b981") || body.includes("rgb(16, 185, 129)");
+        const isTodo = /\[[ xX]\]/.test(body);
+
+        if (!q) {
+            matches.push({ node: n, mapId, mapTitle, isRed, isGreen, isTodo, score: (n.isFocus ? 0 : 1) });
+            return;
+        }
+        if ((q === "红" || q === "red" || q === "🔴") && isRed) {
+            matches.push({ node: n, mapId, mapTitle, isRed, isGreen, isTodo, score: 0 });
+            return;
+        }
+        if ((q === "绿" || q === "green" || q === "🟢") && isGreen) {
+            matches.push({ node: n, mapId, mapTitle, isRed, isGreen, isTodo, score: 0 });
+            return;
+        }
+        if ((q === "重点" || q === "star" || q === "⭐") && n.isFocus) {
+            matches.push({ node: n, mapId, mapTitle, isRed, isGreen, isTodo, score: 0 });
+            return;
+        }
+        if ((q === "todo" || q === "待办" || q === "☑") && isTodo) {
+            matches.push({ node: n, mapId, mapTitle, isRed, isGreen, isTodo, score: 0 });
+            return;
+        }
+
+        const hay = `${title} ${body.replace(/<[^>]+>/g, " ")} ${edge}`.toLowerCase();
+        if (hay.includes(q)) {
+            const inTitle = title.toLowerCase().includes(q) ? 0 : 1;
+            matches.push({ node: n, mapId, mapTitle, isRed, isGreen, isTodo, score: inTitle });
+        }
+    }
+
+    nodes.forEach(n => checkNodeMatch(n, activeMapId, currentMapTitle));
+
+    // 如果有查询词，同时检索其他图谱的卡片，支持一键跨图谱直达！
+    if (q) {
+        mapsManifest.forEach(m => {
+            if (m.id === activeMapId) return;
+            const mData = allMapsMemoryCache[m.id];
+            if (mData && Array.isArray(mData.nodes)) {
+                mData.nodes.forEach(n => checkNodeMatch(n, m.id, m.title));
+            }
+        });
+    }
+
+    matches.sort((a, b) => a.score - b.score);
+    const topMatches = matches.slice(0, 35);
+
+    if (topMatches.length === 0) {
+        resultsEl.innerHTML = `<div class="quick-empty-hint">未找到匹配的卡片（可搜标题、正文、关系词，或输入 🔴 / 🟢 / ⭐ / 待办 筛选）</div>`;
+        return;
+    }
+
+    resultsEl.innerHTML = "";
+    topMatches.forEach((item, idx) => {
+        const row = document.createElement("div");
+        row.className = "quick-result-item" + (idx === 0 ? " is-active" : "");
+        const cleanSnippet = String(item.node.content || "")
+            .replace(/!\[.*?\]\(.*?\)/g, "[图片]")
+            .replace(/<[^>]+>/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 75);
+        const badges = [
+            item.node.isFocus ? "⭐" : "",
+            item.isRed ? "🔴" : "",
+            item.isGreen ? "🟢" : "",
+            item.isTodo ? "☑" : "",
+            item.node.edgeLabel ? `🏷️${escapeHTML(item.node.edgeLabel)}` : ""
+        ].filter(Boolean).join(" ");
+
+        row.innerHTML = `
+            <div class="quick-result-main">
+                <span class="quick-result-title">${escapeHTML(item.node.label || "未命名")}</span>
+                <span class="quick-result-badges">${badges}</span>
+                <span class="quick-result-map">${escapeHTML(item.mapTitle)}</span>
+            </div>
+            <div class="quick-result-snippet">${escapeHTML(cleanSnippet)}</div>
+        `;
+        row.addEventListener("click", () => {
+            document.getElementById("quick-open").hidden = true;
+            if (item.mapId !== activeMapId) {
+                switchActiveMap(item.mapId);
+            }
+            const target = nodes.find(n => n.id === item.node.id);
+            if (target) {
+                // 确保切回思维图谱主工作台
+                const graphTabBtn = document.querySelector('.nav-tab[data-tab="graph"]');
+                if (graphTabBtn && !graphTabBtn.classList.contains("active")) graphTabBtn.click();
+                unfoldAncestorsOf(target);
+                setTimeout(() => focusOnNode(target), 60);
+            }
+        });
+        resultsEl.appendChild(row);
+    });
+}
+
+function initGlobalQuickSearch() {
+    const topSearch = document.getElementById("searchInput");
+    const quickModal = document.getElementById("quick-open");
+    const quickInput = document.getElementById("quick-input");
+    const outlineFilter = document.getElementById("outline-filter");
+
+    // 在大纲抽屉顶部注入“📋 复制 MD”快捷按钮
+    const outlineHeader = document.querySelector("#outline-panel .outline-header");
+    if (outlineHeader && !document.getElementById("btn-copy-outline-md")) {
+        const copyBtn = document.createElement("button");
+        copyBtn.id = "btn-copy-outline-md";
+        copyBtn.className = "outline-copy-md-btn";
+        copyBtn.title = "一键将当前思维导图大纲复制为层级 Markdown (可直接粘贴到 Word / Notion / 汇报材料)";
+        copyBtn.textContent = "📋 复制 MD";
+        copyBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            copyOutlineAsMarkdown(null);
+        });
+        const closeBtn = document.getElementById("btn-outline-close");
+        outlineHeader.insertBefore(copyBtn, closeBtn);
+    }
+
+    if (topSearch) {
+        topSearch.addEventListener("focus", () => {
+            openQuickSearchModal(topSearch.value);
+        });
+        topSearch.addEventListener("input", () => {
+            openQuickSearchModal(topSearch.value);
+        });
+    }
+
+    if (quickModal && quickInput) {
+        quickModal.addEventListener("click", (e) => {
+            if (e.target === quickModal) quickModal.hidden = true;
+        });
+        quickInput.addEventListener("input", () => {
+            renderQuickSearchResults(quickInput.value);
+        });
+        quickInput.addEventListener("keydown", (e) => {
+            const rows = Array.from(document.querySelectorAll("#quick-results .quick-result-item"));
+            if (rows.length === 0) return;
+            let activeIdx = rows.findIndex(r => r.classList.contains("is-active"));
+            if (e.key === "ArrowDown") {
+                e.preventDefault();
+                if (activeIdx >= 0) rows[activeIdx].classList.remove("is-active");
+                activeIdx = (activeIdx + 1) % rows.length;
+                rows[activeIdx].classList.add("is-active");
+                rows[activeIdx].scrollIntoView({ block: "nearest" });
+            } else if (e.key === "ArrowUp") {
+                e.preventDefault();
+                if (activeIdx >= 0) rows[activeIdx].classList.remove("is-active");
+                activeIdx = (activeIdx - 1 + rows.length) % rows.length;
+                rows[activeIdx].classList.add("is-active");
+                rows[activeIdx].scrollIntoView({ block: "nearest" });
+            } else if (e.key === "Enter") {
+                e.preventDefault();
+                const targetRow = rows[activeIdx >= 0 ? activeIdx : 0];
+                if (targetRow) targetRow.click();
+            }
+        });
+    }
+
+    if (outlineFilter) {
+        outlineFilter.addEventListener("input", () => {
+            renderOutlineTree(outlineFilter.value);
+        });
+    }
+}
+
+// 7. 🖼️ 双击截图卡片打开全屏高清灯箱放大镜 (HD Image Lightbox) + 拖拽桌面图片文件直接落入画布
+function openImageLightbox(node) {
+    if (!node || !node.imageUrl) return;
+    let modal = document.getElementById("img-lightbox-modal");
+    if (!modal) {
+        modal = document.createElement("div");
+        modal.id = "img-lightbox-modal";
+        modal.className = "img-lightbox-overlay";
+        modal.innerHTML = `
+            <div class="img-lightbox-toolbar">
+                <span class="img-lightbox-title" id="img-lightbox-caption">📸 截图高清预览</span>
+                <div style="display:flex; gap:8px;">
+                    <button class="floating-bar-btn" id="img-lightbox-rename-btn">✏️ 修改图片图注</button>
+                    <button class="floating-bar-btn danger" id="img-lightbox-close-btn">✕ 关闭 (Esc)</button>
+                </div>
+            </div>
+            <img id="img-lightbox-view" class="img-lightbox-img" src="" alt="高清预览" />
+        `;
+        document.body.appendChild(modal);
+
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal || e.target.id === "img-lightbox-close-btn") {
+                modal.style.display = "none";
+            }
+        });
+    }
+
+    const imgEl = document.getElementById("img-lightbox-view");
+    const capEl = document.getElementById("img-lightbox-caption");
+    const renBtn = document.getElementById("img-lightbox-rename-btn");
+
+    if (imgEl) imgEl.src = node.imageUrl;
+    if (capEl) capEl.textContent = node.label || "📸 截图高清预览";
+    if (renBtn) {
+        renBtn.onclick = (e) => {
+            e.stopPropagation();
+            const nextCaption = prompt("请输入截图卡片的图注标题：", node.label || "");
+            if (nextCaption !== null && nextCaption.trim()) {
+                node.label = nextCaption.trim();
+                if (capEl) capEl.textContent = node.label;
+                refreshNodeStyles();
+                renderEditor();
+                scheduleSaveGraph(true);
+                showToast("✏️ 已更新截图说明文字");
+            }
+        };
+    }
+    modal.style.display = "flex";
+}
+
+function initCanvasDragAndDrop() {
+    const container = document.getElementById("graph-container");
+    if (!container) return;
+
+    container.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+    });
+
+    container.addEventListener("drop", (e) => {
+        e.preventDefault();
+        const files = e.dataTransfer && e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        const coords = zoomContainer ? d3.pointer(e, zoomContainer.node()) : [450, 320];
+        Array.from(files).forEach((file, idx) => {
+            if (file.type && file.type.startsWith("image/")) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    compressImage(ev.target.result, 1100, 0.86, (compressedUrl) => {
+                        const nowTs = Date.now() + idx;
+                        const newId = `img_${nowTs}`;
+                        const tx = (Number.isFinite(coords[0]) ? coords[0] : 450) + idx * 36;
+                        const ty = (Number.isFinite(coords[1]) ? coords[1] : 320) + idx * 36;
+                        const cleanName = (file.name || "").replace(/\.[^.]+$/, "") || `📸 截图 ${nodes.length + 1}`;
+                        const newNode = {
+                            id: newId,
+                            label: cleanName,
+                            parentId: null,
+                            content: `![${cleanName}](${compressedUrl})\n\n`,
+                            isImage: true,
+                            imageUrl: compressedUrl,
+                            createdAt: nowTs,
+                            order: nodes.length,
+                            x: tx,
+                            y: ty,
+                            fx: tx,
+                            fy: ty
+                        };
+                        nodes.push(newNode);
+                        selectedNode = newNode;
+                        selectedNodeIds = new Set([newId]);
+                        scheduleSaveGraph(true);
+                        updateD3Graph();
+                        renderPositions();
+                        renderEditor();
+                        showToast(`🖼️ 已将图片【${cleanName}】拖入画布！(双击图片可高清放大)`);
+                    });
+                };
+                reader.readAsDataURL(file);
+            } else if (file.name && file.name.endsWith(".json")) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const parsed = JSON.parse(ev.target.result);
+                        applyParsedBackupData(parsed);
+                        saveGraphToStorage(true);
+                        showToast(`📥 已成功拖入导入备份 (${nodes.length} 张卡片)！`);
+                    } catch (err) {
+                        showToast("❌ JSON 备份文件解析失败");
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+    });
+}
+
+// 8. ⚡ 心流捕获、📝 双链笔记库与 ✨ 智慧助手三大辅助工作台全功能打通
+function sendFlowItemToCanvas(item) {
+    if (!item || !item.content) return;
+    const nowTs = Date.now();
+    const newId = `flow_${nowTs}`;
+    const raw = item.content.trim();
+    const firstLine = raw.split("\n")[0].replace(/#[^\s#]+/g, "").trim().slice(0, 32) || `心流卡片 ${nodes.length + 1}`;
+    const newNode = {
+        id: newId,
+        label: firstLine,
+        parentId: selectedNode ? selectedNode.id : null,
+        content: raw,
+        createdAt: nowTs,
+        order: nodes.length,
+        x: (selectedNode && Number.isFinite(selectedNode.x)) ? selectedNode.x + 220 : 480,
+        y: (selectedNode && Number.isFinite(selectedNode.y)) ? selectedNode.y + 40 : 320
+    };
+    newNode.fx = newNode.x;
+    newNode.fy = newNode.y;
+    nodes.push(newNode);
+    sanitizeGraph();
+    updateD3Graph();
+    renderPositions();
+    scheduleSaveGraph(true);
+
+    // 切回脑图画布并聚焦到新生成的卡片
+    const graphTabBtn = document.querySelector('.nav-tab[data-tab="graph"]');
+    if (graphTabBtn) graphTabBtn.click();
+    setTimeout(() => focusOnNode(newNode), 120);
+    showToast(`🚀 已将心流灵感送入脑图画布：【${firstLine}】`);
+}
+
+function syncDeepNotePaneWithSelectedNode() {
+    const titleEl = document.getElementById("noteTitleInput");
+    const contentEl = document.getElementById("noteContentInput");
+    const tagsEl = document.getElementById("noteTagsInput");
+    const timeEl = document.getElementById("noteUpdatedTime");
+    const backlinksEl = document.getElementById("backlinksList");
+    const outboundEl = document.getElementById("outboundList");
+    const suggestEl = document.getElementById("aiSuggestLinks");
+
+    if (!titleEl || !contentEl) return;
+    if (!selectedNode) {
+        titleEl.value = "";
+        contentEl.value = "";
+        if (tagsEl) tagsEl.value = "";
+        if (backlinksEl) backlinksEl.innerHTML = `<div class="empty-sub-hint">暂无链入卡片</div>`;
+        if (outboundEl) outboundEl.innerHTML = `<div class="empty-sub-hint">暂无链出卡片</div>`;
+        return;
+    }
+
+    titleEl.value = selectedNode.label || "";
+    contentEl.value = selectedNode.content || "";
+    const tagMatches = String(selectedNode.content || "").match(/#[^\s#]+/g) || [];
+    if (tagsEl) tagsEl.value = (selectedNode.tags && selectedNode.tags.length > 0) ? selectedNode.tags.join(", ") : tagMatches.join(", ");
+    if (timeEl) timeEl.textContent = `实时同步 · ID: ${selectedNode.id.slice(-6)}`;
+
+    // 计算 🔗 链入本笔记 (Backlinks: 父卡片 + 正文中通过 [[标题]] 引用了本卡片的卡片)
+    if (backlinksEl) {
+        const inbound = nodes.filter(n => {
+            if (n.id === selectedNode.id) return false;
+            if (selectedNode.parentId === n.id) return true;
+            return String(n.content || "").includes(`[[${selectedNode.label}]]`);
+        });
+        backlinksEl.innerHTML = inbound.length === 0
+            ? `<div class="empty-sub-hint">暂无上级或引用卡片</div>`
+            : inbound.map(n => `<div class="backlink-pill" data-nid="${escapeHTML(n.id)}">⬅️ ${escapeHTML(n.label)}</div>`).join("");
+        backlinksEl.querySelectorAll(".backlink-pill").forEach(el => {
+            el.addEventListener("click", () => {
+                const target = nodes.find(x => x.id === el.dataset.nid);
+                if (target) { selectedNode = target; selectedNodeIds = new Set([target.id]); renderSidebarNotesList(); renderEditor(); }
+            });
+        });
+    }
+
+    // 计算 ↗️ 本文链接到 (Outbound: 子卡片 + 本文中 [[笔记名]] 指向的卡片)
+    if (outboundEl) {
+        const wikiMatches = Array.from(String(selectedNode.content || "").matchAll(/\[\[([^\]]+)\]\]/g)).map(m => m[1].trim());
+        const outbound = nodes.filter(n => {
+            if (n.id === selectedNode.id) return false;
+            if (n.parentId === selectedNode.id) return true;
+            return wikiMatches.includes(n.label);
+        });
+        outboundEl.innerHTML = outbound.length === 0
+            ? `<div class="empty-sub-hint">暂无下属分支或 [[双链]]</div>`
+            : outbound.map(n => `<div class="backlink-pill" data-nid="${escapeHTML(n.id)}">➔ ${escapeHTML(n.label)}</div>`).join("");
+        outboundEl.querySelectorAll(".backlink-pill").forEach(el => {
+            el.addEventListener("click", () => {
+                const target = nodes.find(x => x.id === el.dataset.nid);
+                if (target) { selectedNode = target; selectedNodeIds = new Set([target.id]); renderSidebarNotesList(); renderEditor(); }
+            });
+        });
+    }
+
+    // 计算 🦉 猫头鹰潜在关联建议
+    if (suggestEl) {
+        const keywords = String(selectedNode.label || "").split(/[\s,，、/]+/).filter(w => w.length >= 2);
+        const suggestions = nodes.filter(n => {
+            if (n.id === selectedNode.id || n.parentId === selectedNode.id || selectedNode.parentId === n.id) return false;
+            return keywords.some(kw => String(n.content || "").includes(kw) || String(n.label || "").includes(kw));
+        }).slice(0, 5);
+        suggestEl.innerHTML = suggestions.length === 0
+            ? `<div class="empty-sub-hint">可在正文输入 [[卡片名]] 建立双链</div>`
+            : suggestions.map(n => `<div class="backlink-pill suggest" data-nid="${escapeHTML(n.id)}" title="点击在末尾插入 [[${escapeHTML(n.label)}]] 双链">✨ 关联 [[${escapeHTML(n.label)}]]</div>`).join("");
+        suggestEl.querySelectorAll(".backlink-pill.suggest").forEach(el => {
+            el.addEventListener("click", () => {
+                const target = nodes.find(x => x.id === el.dataset.nid);
+                if (!target || !selectedNode) return;
+                selectedNode.content = `${(selectedNode.content || "").trim()}\n\n关联参考：[[${target.label}]]`;
+                syncDeepNotePaneWithSelectedNode();
+                renderEditor();
+                scheduleSaveGraph(true);
+                showToast(`🔗 已插入双链 [[${target.label}]]`);
+            });
+        });
+    }
+}
+
+function initSecondaryWorkbenches() {
+    // A. ⚡ 心流捕获工作台绑定
+    const flowInput = document.getElementById("flowInputText");
+    const addFlowBtn = document.getElementById("addFlowBtn");
+    const flowTagFilter = document.getElementById("flowTagFilter");
+
+    const submitFlowCapture = () => {
+        if (!flowInput) return;
+        const text = flowInput.value.trim();
+        if (!text) {
+            showToast("💡 请先输入心流内容");
+            return;
+        }
+        flowStream.unshift({
+            id: `f_${Date.now()}`,
+            content: text,
+            timestamp: new Date().toLocaleString("zh-CN", { hour12: false })
+        });
+        flowInput.value = "";
+        saveFlowsToStorage();
+        renderFlowStream();
+        showToast("⚡ 已记录瞬时心流 (点击卡片上的“🚀 送入脑图”可一键生成脑图卡片)");
+    };
+
+    if (addFlowBtn) addFlowBtn.addEventListener("click", submitFlowCapture);
+    if (flowInput) {
+        flowInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey)) {
+                e.preventDefault();
+                submitFlowCapture();
+            }
+        });
+    }
+    document.querySelectorAll(".quick-tags .tag-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+            if (!flowInput) return;
+            const tag = chip.dataset.tag || "";
+            flowInput.value = `${flowInput.value.trim()} ${tag} `.trimStart();
+            flowInput.focus();
+        });
+    });
+    if (flowTagFilter) {
+        flowTagFilter.addEventListener("change", () => renderFlowStream());
+    }
+
+    // B. 📝 双链笔记库工作台绑定
+    const noteFilter = document.getElementById("noteListFilter");
+    const newNoteBtn = document.getElementById("newNoteBtn");
+    const saveNoteBtn = document.getElementById("saveNoteBtn");
+    const deleteNoteBtn = document.getElementById("deleteNoteBtn");
+    const noteTitleInput = document.getElementById("noteTitleInput");
+    const noteContentInput = document.getElementById("noteContentInput");
+
+    if (noteFilter) {
+        noteFilter.addEventListener("input", () => renderSidebarNotesList());
+    }
+    if (newNoteBtn) {
+        newNoteBtn.addEventListener("click", () => {
+            const nowTs = Date.now();
+            const newNode = {
+                id: `note_${nowTs}`,
+                label: `深度笔记 ${nodes.length + 1}`,
+                parentId: null,
+                content: `# 深度笔记 ${nodes.length + 1}\n\n`,
+                createdAt: nowTs,
+                order: nodes.length,
+                x: 460 + (nodes.length % 5) * 40,
+                y: 300 + (nodes.length % 5) * 40
+            };
+            nodes.push(newNode);
+            selectedNode = newNode;
+            selectedNodeIds = new Set([newNode.id]);
+            updateD3Graph();
+            renderSidebarNotesList();
+            renderEditor();
+            scheduleSaveGraph(true);
+            if (noteTitleInput) { noteTitleInput.focus(); noteTitleInput.select(); }
+            showToast("✨ 已新建深度笔记卡片");
+        });
+    }
+    if (saveNoteBtn) {
+        saveNoteBtn.addEventListener("click", () => {
+            if (!selectedNode) return;
+            if (noteTitleInput) selectedNode.label = noteTitleInput.value.trim() || "未命名";
+            if (noteContentInput) selectedNode.content = noteContentInput.value;
+            refreshNodeStyles();
+            renderSidebarNotesList();
+            renderEditor();
+            saveGraphToStorage(true);
+            showToast("💾 笔记修改已保存并同步至脑图画布");
+        });
+    }
+    if (noteTitleInput) {
+        noteTitleInput.addEventListener("input", () => {
+            if (!selectedNode) return;
+            selectedNode.label = noteTitleInput.value.trim() || "未命名";
+            refreshNodeStyles();
+            renderEditor();
+            scheduleSaveGraph(true);
+        });
+    }
+    if (noteContentInput) {
+        noteContentInput.addEventListener("input", () => {
+            if (!selectedNode) return;
+            selectedNode.content = noteContentInput.value;
+            refreshNodeStyles();
+            renderEditor();
+            syncDeepNotePaneWithSelectedNode();
+            scheduleSaveGraph(true);
+        });
+    }
+    if (deleteNoteBtn) {
+        deleteNoteBtn.addEventListener("click", () => {
+            deleteSelectedNode();
+            renderSidebarNotesList();
+        });
+    }
+
+    // C. ✨ 智慧助手工作台绑定 (知识结构雷达与思考发散器)
+    const runAnalysisBtn = document.getElementById("runAnalysisBtn");
+    const reportBox = document.getElementById("aiReportBox");
+    const aiNoteSelector = document.getElementById("aiNoteSelector");
+    const generatePromptBtn = document.getElementById("generatePromptBtn");
+    const aiPromptOutput = document.getElementById("aiPromptOutput");
+
+    const populateAiNoteSelector = () => {
+        if (!aiNoteSelector) return;
+        aiNoteSelector.innerHTML = nodes.map(n => `<option value="${escapeHTML(n.id)}">${escapeHTML(n.label)}</option>`).join("");
+        if (selectedNode) aiNoteSelector.value = selectedNode.id;
+    };
+
+    document.querySelectorAll('.nav-tab[data-tab="ai"]').forEach(btn => {
+        btn.addEventListener("click", populateAiNoteSelector);
+    });
+
+    if (runAnalysisBtn && reportBox) {
+        runAnalysisBtn.addEventListener("click", () => {
+            const roots = nodes.filter(n => !n.parentId);
+            const focusNodes = nodes.filter(n => n.isFocus);
+            const redNodes = nodes.filter(n => String(n.content || "").includes("#ef4444"));
+            const greenNodes = nodes.filter(n => String(n.content || "").includes("#10b981"));
+            const todoNodes = nodes.filter(n => /\[ \]/.test(String(n.content || "")));
+            const childSet = new Set(nodes.map(n => n.parentId).filter(Boolean));
+            const orphans = nodes.filter(n => !n.parentId && !childSet.has(n.id));
+
+            reportBox.innerHTML = `
+                <div style="line-height:1.75; font-size:13px;">
+                    <div>📊 <b>当前图谱概览</b>：共 <b>${nodes.length}</b> 张卡片 | 顶层主题 <b>${roots.length}</b> 个 | 独立自由卡 <b>${orphans.length}</b> 张</div>
+                    <div>⭐ <b>核心重点卡片 (${focusNodes.length})</b>：${focusNodes.map(n => `<code>${escapeHTML(n.label)}</code>`).join("、") || "暂未标记 (按 F 键可标重点)"}</div>
+                    <div>🔴 <b>红色核心问题/痛点 (${redNodes.length})</b>：${redNodes.map(n => `<span style="color:#f87171">${escapeHTML(n.label)}</span>`).join("、") || "暂无"}</div>
+                    <div>🟢 <b>绿色关键指标/变量 (${greenNodes.length})</b>：${greenNodes.map(n => `<span style="color:#34d399">${escapeHTML(n.label)}</span>`).join("、") || "暂无"}</div>
+                    <div>☑ <b>未完成待办事项 (${todoNodes.length})</b>：${todoNodes.map(n => escapeHTML(n.label)).join("、") || "全部已完成 🎉"}</div>
+                </div>
+            `;
+            showToast("🦉 已生成当前思维图谱结构诊断报告");
+        });
+    }
+
+    if (generatePromptBtn && aiPromptOutput) {
+        generatePromptBtn.addEventListener("click", () => {
+            const targetId = aiNoteSelector ? aiNoteSelector.value : (selectedNode ? selectedNode.id : "");
+            const target = nodes.find(n => n.id === targetId) || selectedNode || nodes[0];
+            if (!target) return;
+            const cleanBody = String(target.content || target.label || "").replace(/<[^>]+>/g, "").trim();
+            aiPromptOutput.innerHTML = `
+                <div style="line-height:1.7; font-size:13px;">
+                    <div>🎯 <b>针对卡片【${escapeHTML(target.label)}】的深度追问与发散建议：</b></div>
+                    <ol style="margin:6px 0 0 18px; padding:0;">
+                        <li><b>因果与机制追问 (🔴 标红问题)</b>：导致「${escapeHTML(target.label)}」发生的核心驱动因素或混杂变量是什么？</li>
+                        <li><b>可量化指标 (🟢 标绿变量)</b>：在实验或业务中，我们可以用哪 2~3 个客观指标来度量「${escapeHTML( cleanBody.slice(0, 28) )}」？</li>
+                        <li><b>反向证伪思考</b>：如果该假设不成立，最可能在哪一个环节出现断层？（可在脑图中按 <code>Tab</code> 衍生子卡片记录）</li>
+                    </ol>
+                </div>
+            `;
+            showToast(`🌱 已为【${target.label}】生成深度发散思考框架`);
+        });
+    }
+}
+
 

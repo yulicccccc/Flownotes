@@ -1,8 +1,15 @@
-# Project State: FlowNotes (v3.0.0)
+# Project State: FlowNotes (v3.1.0)
 
 ## Current Version & Status
-- **Current Version**: `v3.0.0`
+- **Current Version**: `v3.1.0`
 - **Latest Releases**:
+  - `v3.1.0`:
+    - **Global Instant Search (`Ctrl + K`, `#searchInput`, `#quick-open`) & Hierarchical Outline Filter (`#outline-filter`)**: Cross-map instant search with `🔴`/`🟢`/`⭐`/`待办` filters, auto-unfolding ancestors (`unfoldAncestorsOf`) on jump.
+    - **One-Click Copy Outline as Markdown (`copyOutlineAsMarkdown` / `#btn-copy-outline-md`)**: Copy whole map or right-clicked branch as clean hierarchical Markdown.
+    - **True Bounding-Box Fit-to-Screen (`fitCanvasToAllNodes` on `⛶` `#btn-fit` & `Ctrl + 0`)**: Computes exact `(minX, minY, maxX, maxY)` of visible cards and centers/scales them into the viewport.
+    - **HD Image Lightbox (`openImageLightbox`) & Desktop File Drag-and-Drop (`initCanvasDragAndDrop`)**: Double-click any screenshot card to inspect at full resolution; drag image files or `.json` backups from Explorer onto canvas.
+    - **Whole-Card Semantic Background Tints (`d.cardBgColor`) & Expand/Collapse All (`expandOrCollapseAllBranches`)**.
+    - **Secondary Workbenches Fully Wired (`initSecondaryWorkbenches`)**: `🚀 送入脑图` in Flow Capture, live `[[双链]]` Backlinks/Outbound in Note Library, and Structural Radar in AI Assistant.
   - `v3.0.0`:
     - **XMind Subtree Dragging (`collectSubtreeNodeIds`)**: Dragging a parent card moves its entire connected subtree together (`Alt + Drag` moves single card).
     - **OneNote Click-Anywhere-and-Type on Empty Canvas**: Clicking empty canvas and typing a character spawns a card at `lastCanvasMouseCoords` and enters inline editing.
@@ -27,7 +34,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.0.0_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.1.0_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

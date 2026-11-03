@@ -1,30 +1,29 @@
 @echo off
 chcp 65001 >nul
 echo ===================================================
-echo   FlowNotes V3.0.0 - Auto Deploy to Cloudflare Pages
-echo   Target Domain: flownotes-eze.pages.dev
+echo   FlowNotes V3.1.0 - Auto Deploy to Cloudflare Pages
+echo   Target: flownotes-eze.pages.dev
 echo ===================================================
 echo.
 
 cd /d "%~dp0"
 
-:: Check if portable node exists
 if not exist "node\node.exe" (
-    echo [ERROR] Portable Node.js not found in .\node\node.exe
+    echo [ERROR] Portable Node.js not found in node\node.exe
     pause
     exit /b 1
 )
 
-echo [1/2] Connecting to Cloudflare...
+echo [1/2] Connecting to Cloudflare Pages (flownotes)...
 set PATH=%~dp0node;%PATH%
 set CLOUDFLARE_ACCOUNT_ID=c7507f82f5078e81f58c2fcc1e7bfbdb
 set NODE_OPTIONS=--dns-result-order=ipv4first
 
-:: Run wrangler deploy
 call .\node\npx.cmd --yes wrangler pages deploy public --project-name flownotes --branch main
 
 echo.
 echo ===================================================
-echo   Deployment finished! (V3.0.0 -> flownotes-eze.pages.dev)
+echo   Deployment finished!
+echo   Live URL: https://flownotes-eze.pages.dev
 echo ===================================================
 pause
