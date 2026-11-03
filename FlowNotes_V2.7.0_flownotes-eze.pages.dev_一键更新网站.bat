@@ -17,6 +17,7 @@ if not exist "node\node.exe" (
 
 echo [1/2] Connecting to Cloudflare Pages (project: flownotes)...
 set PATH=%~dp0node;%PATH%
+set CLOUDFLARE_ACCOUNT_ID=c7507f82f5078e81f58c2fcc1e7bfbdb
 
 :: Run wrangler deploy
 call .\node\npx.cmd --yes wrangler pages deploy public --project-name flownotes --branch main
