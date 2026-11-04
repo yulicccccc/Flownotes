@@ -94,7 +94,7 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: 'TsangerXuanSanM W03', 'TsangerXuanSanM', '仓耳玄三', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
     background-color: var(--bg-main);
     color: var(--text-primary);
     line-height: 1.6;
@@ -996,7 +996,7 @@ body {
     border-left: 4px solid var(--card-accent);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     color: var(--text-primary, #f1f5f9);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: 'TsangerXuanSanM W03', 'TsangerXuanSanM', '仓耳玄三', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
     font-size: 13.5px;
     line-height: 1.5;
     cursor: grab;
@@ -1375,93 +1375,100 @@ html[data-theme="light"] .ctx-item {
     position: relative;
 }
 
-/* v3.3.0 智能分向调整卡片尺寸与对角线等比缩放字号手柄 (.card-resize-handle) */
+/* v3.4.2 智能分向调整卡片尺寸与对角线等比缩放字号手柄 (.card-resize-handle) */
 .card-resize-handle {
     position: absolute;
     background: transparent;
     transition: background 0.14s ease, transform 0.14s ease, opacity 0.14s ease;
-    z-index: 6;
+    z-index: 10;
     user-select: none;
     touch-action: none;
+}
+.card-resize-handle::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    pointer-events: auto;
 }
 
 /* 1. 左右拉手柄 (.handle-e 右侧边缘 / .handle-w 左侧边缘)：仅调整卡片宽度，文字自动换行自适应 */
 .card-resize-handle.handle-e {
     top: 4px;
-    right: -3px;
-    bottom: 13px;
-    width: 7px;
+    right: -4px;
+    bottom: 14px;
+    width: 8px;
     cursor: ew-resize;
     border-radius: 4px;
 }
 
 .card-resize-handle.handle-w {
     top: 4px;
-    left: -3px;
-    bottom: 13px;
-    width: 7px;
+    left: -4px;
+    bottom: 14px;
+    width: 8px;
     cursor: ew-resize;
     border-radius: 4px;
 }
 
 /* 2. 上下拉手柄 (.handle-s 底部边缘)：仅调整卡片高度，排版自适应 */
 .card-resize-handle.handle-s {
-    left: 13px;
-    right: 13px;
-    bottom: -3px;
-    height: 7px;
+    left: 14px;
+    right: 14px;
+    bottom: -4px;
+    height: 8px;
     cursor: ns-resize;
     border-radius: 4px;
 }
 
 /* 3. 拉对角线手柄 (.handle-se 右下对角 / .handle-sw 左下对角)：框框与字体大小按比例同步缩放！ */
 .card-resize-handle.handle-se {
-    right: -4px;
-    bottom: -4px;
-    width: 14px;
-    height: 14px;
+    right: -5px;
+    bottom: -5px;
+    width: 22px;
+    height: 22px;
     cursor: nwse-resize;
-    border-radius: 4px;
-    z-index: 8;
+    border-radius: 5px;
+    z-index: 12;
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
-    font-size: 9px;
+    font-size: 11px;
     line-height: 1;
-    padding: 1px;
+    padding: 2px;
     color: transparent;
 }
 
 .card-resize-handle.handle-sw {
-    left: -4px;
-    bottom: -4px;
-    width: 12px;
-    height: 12px;
+    left: -5px;
+    bottom: -5px;
+    width: 18px;
+    height: 18px;
     cursor: nesw-resize;
-    border-radius: 4px;
-    z-index: 8;
+    border-radius: 5px;
+    z-index: 12;
 }
 
 .canvas-note-card:hover .card-resize-handle.handle-e,
 .canvas-note-card.is-selected .card-resize-handle.handle-e {
-    background: rgba(56, 189, 248, 0.25);
+    background: rgba(56, 189, 248, 0.45);
 }
 
 .canvas-note-card:hover .card-resize-handle.handle-s,
 .canvas-note-card.is-selected .card-resize-handle.handle-s {
-    background: rgba(56, 189, 248, 0.2);
+    background: rgba(56, 189, 248, 0.4);
 }
 
 .canvas-note-card:hover .card-resize-handle.handle-se,
 .canvas-note-card.is-selected .card-resize-handle.handle-se {
-    color: rgba(56, 189, 248, 0.85);
+    color: rgba(56, 189, 248, 0.95);
+    background: rgba(56, 189, 248, 0.2);
 }
 
 .card-resize-handle:hover,
 .card-resize-handle.is-resizing {
     background: #38bdf8 !important;
     color: #0f172a !important;
-    box-shadow: 0 0 8px rgba(56, 189, 248, 0.85);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.95);
 }
 
 /* 拖拽缩放时的实时浮动 HUD 提示胶囊 (显示宽度/高度自适应 或 对角线字号缩放比例) */

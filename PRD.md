@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.1)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.2)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote Native Spatial Fonts, Collision Nudge & Rich Span Color Suite (v3.4.2 还原 OneNote 原生字体、碰撞自动避让与局部文字色彩)**:
+  - **OneNote Favorite Font Stack (`TsangerXuanSanM W03` / 仓耳玄三)**: System defaults to user's favorite OneNote font `TsangerXuanSanM W03`, falling back to `仓耳玄三`, `Inter`, `Microsoft YaHei` across cards, editor, and UI.
+  - **OneNote Collision Nudge on Resize (`applyOneNoteResizeNudge`)**: When resizing a card expands into neighboring cards, neighboring cards automatically shift downward/outward to prevent content obscuration. Directly moving a card allows free overlap without shifting ("放到一坨", 自由重合).
+  - **Generous Rock-Solid Resize Handles**: Expanded `.card-resize-handle` hit-zones with a generous 20px grab area (`::before`), clear hover glow, and moved port/badge buttons to `halfW + 20` to eliminate overlap on the right border.
+  - **OneNote Uniform Card Frames & Precise Per-Span Text Coloring**: Stripped whole-card pink/green background dyes; all card frames maintain clean, cohesive dark backgrounds while individual keywords ("合成丁酸", "年龄", "通路丰度") retain red (`#ef4444`) and green (`#10b981`) text colors.
 - **Obsidian & Miro Pure Intuitive Canvas Drag & Shift-Marquee Engine (v3.4.1 彻底解决拉动画布总是变成框选的交互顽疾)**:
   - **100% Deterministic Canvas Panning**: Left-click dragging on empty canvas pans the canvas at `0ms` zero delay with 120fps hardware-accelerated transform, completely eliminating the flawed 130ms hold-timer that previously hijacked normal mouse dragging into unintended marquee selections.
   - **Zero-Confusion Shift-Marquee Selection**: Holding `Shift + Left-Drag` (or `Ctrl/Cmd + Left-Drag`) directly draws the selection rectangle, with live cursor crosshair visual confirmation when pressing `Shift`.
@@ -121,4 +126,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.1_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.2_flownotes-eze.pages.dev_一键更新网站.bat`.

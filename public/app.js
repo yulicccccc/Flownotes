@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.1 loaded — Obsidian & Miro Intuitive Canvas Panning & Shift-Marquee Suite");
+    console.log("[FlowNotes] v3.4.2 loaded — OneNote Native Spatial Fonts, Collision Nudge & Rich Span Color Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -525,6 +525,13 @@ function sanitizeGraph() {
         }
         if (!Number.isFinite(n.x)) n.x = 260 + (idx % 3) * 320;
         if (!Number.isFinite(n.y)) n.y = 220 + Math.floor(idx / 3) * 180;
+    });
+
+    // v3.4.2 还原 OneNote 原生视觉：清理 Excalidraw 导入节点误染色的整卡背景色，确保所有卡片框保持统一，仅文字局部标色
+    nodes.forEach(n => {
+        if (n.id && n.id.startsWith("ex_") && (n.cardBgColor === "rose" || n.cardBgColor === "emerald")) {
+            delete n.cardBgColor;
+        }
     });
 
     // 若仍是旧版拥挤的 4 个初始演示节点坐标 (450,320 / 250,480)，自动升级为舒展树状坐标并清理旧演示虚线
@@ -1331,7 +1338,7 @@ function refreshNodeStyles() {
         const badge = group.select(".node-fold-badge");
         if (descCount > 0) {
             badge.style("display", "block")
-                .attr("transform", `translate(${halfW + 11}, ${-Math.min(halfH - 4, 10)})`);
+                .attr("transform", `translate(${halfW + 20}, ${-Math.min(halfH - 4, 10)})`);
             badge.select(".fold-circle")
                 .attr("r", 9)
                 .style("fill", d.collapsed ? "#ef4444" : "rgba(30, 41, 59, 0.9)")
@@ -1346,14 +1353,14 @@ function refreshNodeStyles() {
             badge.style("display", "none");
         }
 
-        // 右侧 + 一键建子卡按钮与 ➔ 拖拽连线手柄
+        // 右侧 + 一键建子卡按钮与 ➔ 拖拽连线手柄 (留出充足间距，绝不遮挡 .handle-e 右侧缩放拉动手柄)
         const quickAdd = group.select(".node-quick-add-btn");
         if (!quickAdd.empty()) {
-            quickAdd.attr("transform", `translate(${halfW + 12}, ${descCount > 0 ? 4 : -9})`);
+            quickAdd.attr("transform", `translate(${halfW + 20}, ${descCount > 0 ? 4 : -9})`);
         }
         const port = group.select(".node-connect-port");
         if (!port.empty()) {
-            port.attr("transform", `translate(${halfW + 12}, ${descCount > 0 ? 21 : 9})`);
+            port.attr("transform", `translate(${halfW + 20}, ${descCount > 0 ? 21 : 9})`);
         }
 
         group.classed("multi-selected", isSelected);
@@ -4266,19 +4273,17 @@ function importExcalidrawFile(parsed, fileName = "") {
             const nodeId = `ex_${nowTs}_${idx}`;
             elementToNodeId.set(el.id, nodeId);
 
-            // 识别高亮或标色
-            let cardBg = "";
-            let styledContent = rawText;
-            const stroke = (el.strokeColor || "").toLowerCase();
-            if (stroke === "#e03131" || stroke === "#fa0000" || stroke === "#c92a2a" || stroke === "#ff8787") {
-                cardBg = "rose";
-                styledContent = `<span style="color:#ef4444">${rawText}</span>`;
-            } else if (stroke === "#2f9e44" || stroke === "#00b050" || stroke === "#2b8a3e" || stroke === "#51cf66") {
-                cardBg = "emerald";
-                styledContent = `<span style="color:#10b981">${rawText}</span>`;
-            } else if (stroke === "#1971c2" || stroke === "#1c7ed6" || stroke === "#339af0") {
-                cardBg = "sky";
-                styledContent = `<span style="color:#38bdf8">${rawText}</span>`;
+            // 识别局部文字标色 (同 OneNote: 仅改变内部文字颜色，绝不改变整个卡片框底色)
+            let styledContent = (el.customData && el.customData.richHtml) ? el.customData.richHtml : rawText;
+            if (!el.customData || !el.customData.richHtml) {
+                const stroke = (el.strokeColor || "").toLowerCase();
+                if (stroke === "#e03131" || stroke === "#fa0000" || stroke === "#c92a2a" || stroke === "#ff8787") {
+                    styledContent = `<span style="color:#ef4444">${rawText}</span>`;
+                } else if (stroke === "#2f9e44" || stroke === "#00b050" || stroke === "#2b8a3e" || stroke === "#51cf66") {
+                    styledContent = `<span style="color:#10b981">${rawText}</span>`;
+                } else if (stroke === "#1971c2" || stroke === "#1c7ed6" || stroke === "#339af0") {
+                    styledContent = `<span style="color:#38bdf8">${rawText}</span>`;
+                }
             }
 
             const customW = Math.round(Math.max(80, Math.min(960, el.width || 160)));
@@ -4299,7 +4304,7 @@ function importExcalidrawFile(parsed, fileName = "") {
                 customWidth: customW,
                 customHeight: customH,
                 customFontSize: customFont,
-                cardBgColor: cardBg
+                cardBgColor: ""
             });
         } else if (el.type === "image") {
             const fileData = files[el.fileId];
@@ -5673,6 +5678,71 @@ function resetCardCustomSize(d) {
     showToast("📏 已恢复卡片默认字号与自适应尺寸");
 }
 
+// OneNote 经典碰撞自动避让机制 (v3.4.2)：
+// 1. 当拉大/缩放某张卡片尺寸时，如果它碰撞到了邻近的其他卡片，被碰撞的卡片自动顺滑下移/右移避让，避免遮挡内容；
+// 2. 但如果是直接选中卡片用鼠标拖动位移，绝不触发避让，从而达到随心所欲自由重合叠放（“放到一坨”）的效果！
+function applyOneNoteResizeNudge(resizedNode) {
+    if (!resizedNode || !nodes) return;
+    const rW = (typeof resizedNode.customWidth === "number" && Number.isFinite(resizedNode.customWidth))
+        ? resizedNode.customWidth
+        : (resizedNode._cardW || 150);
+    const rH = (typeof resizedNode.customHeight === "number" && Number.isFinite(resizedNode.customHeight))
+        ? resizedNode.customHeight
+        : (resizedNode._cardH || 40);
+
+    const rLeft = resizedNode.x - rW / 2;
+    const rRight = resizedNode.x + rW / 2;
+    const rTop = resizedNode.y - rH / 2;
+    const rBottom = resizedNode.y + rH / 2;
+
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    let anyNudged = false;
+
+    // 按 y 坐标从小到大排序避让
+    const otherNodes = nodes.filter(n => n.id !== resizedNode.id && isNodeVisible(n, nodeMap));
+    otherNodes.sort((a, b) => a.y - b.y);
+
+    otherNodes.forEach(other => {
+        const oW = (typeof other.customWidth === "number" && Number.isFinite(other.customWidth))
+            ? other.customWidth
+            : (other._cardW || 150);
+        const oH = (typeof other.customHeight === "number" && Number.isFinite(other.customHeight))
+            ? other.customHeight
+            : (other._cardH || 40);
+
+        const oLeft = other.x - oW / 2;
+        const oRight = other.x + oW / 2;
+        const oTop = other.y - oH / 2;
+        const oBottom = other.y + oH / 2;
+
+        const overlapX = Math.min(rRight, oRight) - Math.max(rLeft, oLeft);
+        const overlapY = Math.min(rBottom, oBottom) - Math.max(rTop, oTop);
+
+        if (overlapX > 0 && overlapY > 0) {
+            anyNudged = true;
+            // OneNote 避让法则：下方卡片向下挪出间距，右侧卡片向右挪出间距
+            if (other.y >= resizedNode.y - 12) {
+                const shiftY = Math.round(overlapY + 16);
+                other.y += shiftY;
+                if (typeof other.fy === "number") other.fy = other.y;
+            } else if (other.x >= resizedNode.x) {
+                const shiftX = Math.round(overlapX + 18);
+                other.x += shiftX;
+                if (typeof other.fx === "number") other.fx = other.x;
+            } else {
+                const shiftY = Math.round(overlapY + 16);
+                other.y += shiftY;
+                if (typeof other.fy === "number") other.fy = other.y;
+            }
+        }
+    });
+
+    if (anyNudged) {
+        renderPositions();
+        refreshNodeStyles();
+    }
+}
+
 function startCardResize(event, d, handleEl, mode = "e") {
     if (!d || !svg) return;
     const cardEl = handleEl.closest(".canvas-note-card");
@@ -5766,6 +5836,12 @@ function startCardResize(event, d, handleEl, mode = "e") {
         window.removeEventListener("touchmove", onTouchMove);
         window.removeEventListener("touchend", onUp);
         window.removeEventListener("touchcancel", onUp);
+
+        // OneNote 直觉：缩放调整完成后自动避让碰撞卡片
+        applyOneNoteResizeNudge(d);
+        refreshNodeStyles();
+        renderPositions();
+        updateFloatingActionBarsPosition();
         scheduleSaveGraph(true);
     };
 

@@ -186,6 +186,7 @@ text_dict = page.get_text("dict")
 for b in text_dict["blocks"]:
     if b["type"] == 0:
         lines_text = []
+        lines_html = []
         is_red = False
         is_green = False
         is_gray = False
@@ -193,23 +194,34 @@ for b in text_dict["blocks"]:
         
         for line in b["lines"]:
             line_str = ""
+            line_html_parts = []
             for span in line["spans"]:
                 c = span["color"]
                 r = (c >> 16) & 255
                 g = (c >> 8) & 255
                 b_col = c & 255
-                if r > 180 and g < 60 and b_col < 60:
+                raw_s = span["text"]
+                line_str += raw_s
+                
+                safe_s = raw_s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                if r > 160 and g < 100 and b_col < 100:
                     is_red = True
-                elif g > 130 and r < 60 and b_col < 100:
+                    line_html_parts.append(f'<span style="color:#ef4444">{safe_s}</span>')
+                elif g > 120 and r < 100 and b_col < 120:
                     is_green = True
-                elif r > 100 and r == g and g == b_col:
-                    is_gray = True
+                    line_html_parts.append(f'<span style="color:#10b981">{safe_s}</span>')
+                elif b_col > 160 and r < 100 and g < 150:
+                    line_html_parts.append(f'<span style="color:#38bdf8">{safe_s}</span>')
+                else:
+                    line_html_parts.append(safe_s)
+
                 if span["size"] > max_font_size:
                     max_font_size = span["size"]
-                line_str += span["text"]
             lines_text.append(line_str)
+            lines_html.append("".join(line_html_parts))
         
         full_text = "\n".join(lines_text).strip()
+        full_html = "<br>".join(lines_html).strip()
         if not full_text:
             continue
         
@@ -221,7 +233,7 @@ for b in text_dict["blocks"]:
         x = bbox[0] * SCALE + OFFSET_X
         y = bbox[1] * SCALE + OFFSET_Y
         
-        # 颜色映射
+        # 颜色映射 (标题用蓝，其他默认中性，具体文字颜色由 richHtml 内嵌)
         stroke_color = "#1e1e1e"
         if is_red:
             stroke_color = "#e03131"
@@ -268,6 +280,7 @@ for b in text_dict["blocks"]:
             "link": None,
             "locked": False,
             "text": full_text,
+            "customData": {"richHtml": full_html},
             "fontSize": font_size,
             "fontFamily": 1,
             "textAlign": "left",
