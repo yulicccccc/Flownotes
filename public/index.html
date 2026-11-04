@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.9)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.4.9">
+    <link rel="stylesheet" href="index.css?v=3.5.0">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -44,7 +44,9 @@
                 </div>
                 <div class="logo-text">
                     <h1>FlowNotes</h1>
-                    <span class="badge-local" id="currentMapBadge" style="cursor:pointer;" title="点击打开图谱组织器切换导图项目">🧠 默认思维导图</span>
+                </div>
+                <div class="badge-local onenote-breadcrumb" id="currentMapBadge" style="cursor:pointer;" title="点击打开 OneNote 笔记本中心">
+                    <span>🧠 默认思维导图</span>
                 </div>
             </div>
 
@@ -187,28 +189,42 @@
                         </div>
                     </div>
 
-                    <!-- 🗂️ 图谱组织器 Panel -->
-                    <aside id="organizer-panel" hidden>
-                        <div class="outline-header">
-                            <span class="outline-title">🗂️ 思维图谱管理库 (Organizer)</span>
-                            <button class="outline-close" id="btn-organizer-close" title="关闭">×</button>
-                        </div>
-                        <div class="organizer-creator">
-                            <div style="display:flex; gap:6px; margin-bottom:8px;">
-                                <select id="newMapIconSelect" style="width:75px; background:var(--input-bg); color:var(--text-color); border:1px solid var(--panel-border); border-radius:4px; padding:4px;">
-                                    <option value="💼">💼 工作面试</option>
-                                    <option value="📚">📚 课程学习</option>
-                                    <option value="🧠">🧠 思考研讨</option>
-                                    <option value="💡">💡 创意灵感</option>
-                                    <option value="📝">📝 个人项目</option>
-                                    <option value="🎯">🎯 目标规划</option>
-                                </select>
-                                <input id="newMapTitleInput" type="text" autocomplete="off" placeholder="输入新图谱名称 (如: 面试课)..." style="flex:1; background:var(--input-bg); color:var(--text-color); border:1px solid var(--panel-border); border-radius:4px; padding:4px 8px; font-size:12px; outline:none;">
+                    <!-- 🗂️ OneNote 现代化树状笔记本抽屉 (Organizer v3.5.0) -->
+                    <aside id="organizer-panel" hidden class="onenote-tree-drawer">
+                        <div class="onenote-tree-header">
+                            <div class="onenote-header-title">
+                                <span class="onenote-header-icon">🗂️</span>
+                                <span class="onenote-header-text">OneNote 笔记本中心</span>
                             </div>
-                            <button id="btnCreateMap" class="btn btn-primary" style="width:100%; height:28px; padding:0; font-size:12px; font-weight:bold;">+ 新建思维图谱</button>
-                            <button id="btnLoadExcalidrawDemo" class="btn" style="width:100%; height:28px; padding:0; font-size:11.5px; font-weight:600; margin-top:6px; background:rgba(56, 189, 248, 0.15); border:1px solid rgba(56, 189, 248, 0.5); color:#38bdf8;" title="直接载入已由 1.pdf 转换的 Excalidraw 宏基因组学思维导图">🎨 一键导入《1.pdf (AI Biologist 宏基因组)》导图</button>
+                            <button class="outline-close" id="btn-organizer-close" title="关闭 (Esc)">×</button>
                         </div>
-                        <div id="organizerMapList" style="flex:1; overflow-y:auto; padding:10px 8px; display:flex; flex-direction:column; gap:8px;"></div>
+                        <div class="onenote-search-box">
+                            <input type="search" id="onenote-tree-search" placeholder="🔍 搜索笔记本、分区或页面..." autocomplete="off" spellcheck="false">
+                        </div>
+                        <div class="onenote-tree-actions-bar">
+                            <button class="onenote-action-btn" id="btnTreeNewNotebook" title="➕ 新建笔记本 (Notebook)">
+                                <span>📔+ 本</span>
+                            </button>
+                            <button class="onenote-action-btn" id="btnTreeNewSection" title="➕ 新建彩色分区 (Section)">
+                                <span>📑+ 分区</span>
+                            </button>
+                            <button class="onenote-action-btn primary" id="btnTreeNewPage" title="➕ 新建思维沙盘页面 (Page)">
+                                <span>📄+ 页面</span>
+                            </button>
+                            <button class="onenote-action-btn highlight" id="btnLoadExcalidrawDemo" title="🎨 导入 1.pdf (AI Biologist) 宏基因组导图">
+                                <span>🎨 1.pdf</span>
+                            </button>
+                        </div>
+                        <div id="organizerMapList" class="onenote-tree-body">
+                            <!-- 动态渲染 OneNote 3级可折叠树：笔记本 ➔ 彩色分区 ➔ 页面 -->
+                        </div>
+                        <div class="onenote-tree-footer">
+                            <span id="onenote-tree-stats">共 1 个笔记本 · 2 个分区 · 2 个页面</span>
+                            <div class="onenote-footer-btns">
+                                <button class="btn btn-xs btn-secondary" id="btnCollapseAllTree" title="全部折叠">📁 折叠</button>
+                                <button class="btn btn-xs btn-secondary" id="btnExpandAllTree" title="全部展开">📂 展开</button>
+                            </div>
+                        </div>
                     </aside>
 
                     <!-- 大纲树抽屉 -->
@@ -679,6 +695,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.4.9"></script>
+    <script src="app.js?v=3.5.0"></script>
 </body>
 </html>

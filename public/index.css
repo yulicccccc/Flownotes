@@ -796,6 +796,388 @@ body {
     color: var(--text-color);
 }
 
+/* ==========================================
+   v3.5.0: OneNote 现代化树状层级抽屉 (OneNote 3-Tier Tree Navigation)
+   ========================================== */
+#organizer-panel.onenote-tree-drawer {
+    width: 350px;
+    max-width: 90vw;
+    background: rgba(15, 23, 42, 0.94);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+
+html[data-theme="light"] #organizer-panel.onenote-tree-drawer {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(203, 213, 225, 0.85);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+}
+
+.onenote-tree-header {
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.onenote-header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--text-primary, #f1f5f9);
+}
+
+.onenote-search-box {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.onenote-search-box input {
+    width: 100%;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 6px;
+    padding: 0 10px;
+    font-size: 12px;
+    color: var(--text-primary, #f1f5f9);
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.onenote-search-box input:focus {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.08);
+}
+
+html[data-theme="light"] .onenote-search-box input {
+    background: rgba(15, 23, 42, 0.04);
+    border-color: rgba(203, 213, 225, 0.8);
+    color: #1e293b;
+}
+
+.onenote-tree-actions-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.onenote-action-btn {
+    flex: 1;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-primary, #e2e8f0);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.onenote-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: #38bdf8;
+    color: #38bdf8;
+}
+
+.onenote-action-btn.primary {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: rgba(99, 102, 241, 0.5);
+    color: #818cf8;
+}
+
+.onenote-action-btn.primary:hover {
+    background: rgba(99, 102, 241, 0.35);
+    color: #ffffff;
+}
+
+.onenote-action-btn.highlight {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+}
+
+.onenote-action-btn.highlight:hover {
+    background: rgba(56, 189, 248, 0.25);
+}
+
+html[data-theme="light"] .onenote-action-btn {
+    background: rgba(15, 23, 42, 0.04);
+    color: #334155;
+    border-color: rgba(203, 213, 225, 0.9);
+}
+
+/* 树状滚动区 */
+.onenote-tree-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* 笔记本节点 (Tier 1) */
+.tree-nb-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 6px;
+}
+
+.tree-nb-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary, #f1f5f9);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.12s ease;
+    gap: 6px;
+}
+
+.tree-nb-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+html[data-theme="light"] .tree-nb-item:hover {
+    background: rgba(15, 23, 42, 0.05);
+}
+
+.tree-caret {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+    color: var(--text-secondary, #94a3b8);
+    transition: transform 0.18s ease;
+}
+
+.tree-caret.expanded {
+    transform: rotate(90deg);
+}
+
+.tree-nb-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tree-count-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.15);
+    color: var(--text-secondary, #94a3b8);
+}
+
+.tree-node-actions {
+    display: none;
+    align-items: center;
+    gap: 3px;
+}
+
+.tree-nb-item:hover .tree-node-actions,
+.tree-sec-item:hover .tree-node-actions,
+.tree-page-item:hover .tree-node-actions {
+    display: flex;
+}
+
+.tree-act-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 4px;
+    border-radius: 3px;
+    line-height: 1;
+}
+
+.tree-act-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary, #f1f5f9);
+}
+
+/* 分区节点 (Tier 2 - OneNote 彩色药丸标签) */
+.tree-sec-group {
+    display: flex;
+    flex-direction: column;
+    margin-left: 14px;
+    border-left: 1.5px solid rgba(148, 163, 184, 0.16);
+    padding-left: 6px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.tree-sec-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+    cursor: pointer;
+    user-select: none;
+    gap: 6px;
+    transition: background 0.12s ease;
+}
+
+.tree-sec-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="light"] .tree-sec-item:hover {
+    background: rgba(15, 23, 42, 0.04);
+}
+
+/* OneNote 招牌彩色药丸条 */
+.tree-sec-pill {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+}
+
+.tree-sec-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 页面节点 (Tier 3 - 思维沙盘页面) */
+.tree-page-group {
+    display: flex;
+    flex-direction: column;
+    margin-left: 18px;
+    border-left: 1px dashed rgba(148, 163, 184, 0.18);
+    padding-left: 6px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    gap: 2px;
+}
+
+.tree-page-item {
+    display: flex;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: var(--text-secondary, #cbd5e1);
+    cursor: pointer;
+    user-select: none;
+    gap: 6px;
+    transition: all 0.14s ease;
+    border: 1px solid transparent;
+}
+
+.tree-page-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary, #ffffff);
+}
+
+html[data-theme="light"] .tree-page-item:hover {
+    background: rgba(15, 23, 42, 0.04);
+    color: #1e293b;
+}
+
+.tree-page-item.is-active-page {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+    font-weight: 600;
+}
+
+html[data-theme="light"] .tree-page-item.is-active-page {
+    background: rgba(79, 70, 229, 0.08);
+    border-color: rgba(79, 70, 229, 0.35);
+    color: #4f46e5;
+}
+
+.tree-page-title {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tree-page-cards {
+    font-size: 10px;
+    color: var(--text-secondary, #94a3b8);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 1px 5px;
+    border-radius: 4px;
+}
+
+/* 抽屉底部 */
+.onenote-tree-footer {
+    padding: 8px 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.14);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-secondary, #94a3b8);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+/* 顶部 OneNote 面包屑 Pills */
+.onenote-breadcrumb {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 14px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    color: var(--text-primary, #e2e8f0);
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    max-width: 340px;
+    overflow: hidden;
+    margin-left: 8px;
+    user-select: none;
+    cursor: pointer;
+}
+
+.onenote-breadcrumb:hover {
+    background: rgba(56, 189, 248, 0.18);
+    border-color: #38bdf8;
+}
+
+.onenote-breadcrumb .bc-sep {
+    color: rgba(148, 163, 184, 0.5);
+    font-size: 10px;
+}
+
+.onenote-breadcrumb .sec-tag {
+    padding-left: 5px;
+}
+
 .outline-header {
     padding: 12px 16px;
     border-bottom: 1px solid var(--panel-border);

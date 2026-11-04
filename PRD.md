@@ -1,9 +1,22 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.9)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote 3-Tier Collapsible Tree Notebook Center (v3.5.0 OneNote 3级树状层级笔记本中心)**:
+  - **完整 OneNote 三级体系 (【笔记本 📔】➔【彩色分区 📑】➔【页面/思维沙盘 📄】)**：
+    - 告别旧版扁平拥挤的 280px 浮层，彻底升级为现代化左侧可折叠抽屉（`.onenote-tree-drawer`），完美契合大规模文献、课题研究与多主题思维沙盘沉淀；
+    - 笔记本支持新建、重命名、删除与卡片总量统计；
+    - 分区支持 OneNote 招牌彩色药丸条（亮天蓝、紫罗兰、薄荷绿、琥珀黄、玫红、粉桃、靛蓝、青碧等）、一键循环换色（`🎨`）、重命名与安全删除；
+    - 页面支持快速新建、重命名、复制副本、跨分区跨笔记本自由移动（`🚚`）与一键删除；
+  - **实时模糊过滤搜索与一键折叠/展开**：
+    - 抽屉顶部提供实时搜索框（`#onenote-tree-search`），键入关键词即时筛选笔记本、分区或思维沙盘页面，自动智能展开匹配项的父级节点；
+    - 抽屉底部提供「📁 折叠」与「📂 展开」全部按钮，展开/折叠状态持久化记忆至 `localStorage`；
+  - **顶部导航栏多级动态彩色面包屑 (`#currentMapBadge`)**：
+    - 呈现 `📔 笔记本 / 📑 分区 / 📄 页面` 层次分明的优雅面包屑 Pills，分区名称携带专属彩色指示标，点击即可秒开 OneNote 目录树；
+  - **全量跨端漫游与云同步无缝适配**：
+    - `notebooksManifest` 与 `sectionsManifest` 深度整合进 `FlowNotesIDB` 与 GitHub Gist 备份同步流（`pushToGhGist` & `applyParsedBackupData`），多设备即时互通。
 - **Pomodoro Focus Growth Analytics & Multi-Device Cloud Sync Suite (v3.4.9 番茄专注长进分析与多端云同步套件)**:
   - **专注长进趋势看板 (Focus Growth & Trends Dashboard)**：在「行动证据库」中新增可视化长进看板，包含近 7 天每日专注时长微型趋势柱状图（`#pomoGrowthChart`），实时标注每日投入分钟与高亮当天；计算并展示 4 项成长洞察指标：本周累计投入时长、日均专注时长、近 7 天单日峰值投入、以及与上周同期的周环比长进幅度（如 `↑ 较上周长进 +25%` 或 `🌱 稳步积累中`），让用户直观看见自己随时间流逝而不断成长的专注能力。
   - **GitHub Gist 多端云同步打通**：在 `pushToGhGist` 中将 `pomoEvidenceLog` 和 `pomoSettings` 纳入云端全量数据包，并在 `applyParsedBackupData` 中实现云端与本地证据记录的智能去重合并与时间倒序重排，换手机、平板、办公电脑均能 100% 漫游同步专注记录与 Streak 连击！

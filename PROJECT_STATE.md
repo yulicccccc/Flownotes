@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.9)
+# Project State: FlowNotes (v3.5.0)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.9`
+- **Current Version**: `v3.5.0`
 - **Latest Releases**:
+  - `v3.5.0`:
+    - **OneNote 3-Tier Collapsible Tree Notebook Center (`.onenote-tree-drawer` + `notebooksManifest` + `sectionsManifest` + 3-Tier Breadcrumb + Real-Time Search + Cross-Section Page Migration)**: Upgraded the flat, cramped Organizer into a modern OneNote 3-tier collapsible tree navigation drawer. Structures personal knowledge hierarchically across **Notebooks 📔 ➔ Color-Coded Sections 📑 ➔ Pages / Sandboxes 📄**. Supports full CRUD for notebooks and sections, signature OneNote section pastel color pills (`#38bdf8`, `#a855f7`, `#10b981`, `#f59e0b`, `#f43f5e`, `#ec4899`, etc.) with one-click cyclic color switching (`🎨`), real-time keyword tree filtering (`#onenote-tree-search`), expand/collapse all with persistent state, page duplication and moving across sections (`🚚`), dynamic 3-tier navbar breadcrumb pills (`#currentMapBadge`), and seamless integration into GitHub Gist cloud sync and high-capacity IndexedDB.
   - `v3.4.9`:
     - **Pomodoro Focus Growth Analytics & Multi-Device Cloud Sync Suite (`pomo-growth-card` + `pomoGrowthChart` + GitHub Gist Cloud Sync + IndexedDB Dual-Save)**: Added focus progress tracking and multi-device cloud synchronization for the Pomodoro Evidence Suite. Features a 7-day focus mini bar chart with daily minutes and weekday labels, weekly focus total, daily average, 7-day personal best peak, and week-over-week growth percentage (`↑ +X% 较上周长进` or `🌱 稳步积累中`). Fully integrates Pomodoro evidence into GitHub Gist multi-map backups with smart cloud deduplication and merging, plus dual IndexedDB persistence and auto-cloud sync on session completion.
   - `v3.4.8`:

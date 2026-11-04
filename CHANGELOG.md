@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.0] - 2026-11-04
+
+### 🗂️ OneNote 3级树状层级笔记本中心 (OneNote 3-Tier Collapsible Tree Notebook Center)
+- **📔 完整 OneNote 三级体系 (【笔记本 📔】➔【彩色分区 📑】➔【页面/思维沙盘 📄】)**：
+  - 重构左侧抽屉为现代化 `.onenote-tree-drawer`，取代旧版扁平狭窄的浮动弹窗，轻松管理海量笔记、课题沙盘与学术研讨；
+  - 笔记本：支持新建、重命名、级联安全删除与页面卡片总量统计；
+  - 分区：支持 OneNote 招牌彩色药丸条（亮天蓝、紫罗兰、薄荷绿、琥珀黄、玫红、粉桃、靛蓝、青碧等）、一键循环换色（`🎨`）、重命名与删除；
+  - 页面：支持快速新建、重命名、复制副本、跨分区跨笔记本自由移动（`🚚`）与安全删除；
+- **🔍 实时模糊过滤搜索与一键全部折叠/展开**：
+  - 抽屉顶部新增实时搜索框（`#onenote-tree-search`），键入关键词即时过滤树状节点，并自动智能展开匹配项的父级节点；
+  - 底部提供「📁 折叠」与「📂 展开」全部按钮，展开/折叠状态持久化记忆至 `localStorage`；
+- **🧭 顶部导航栏多级动态彩色面包屑 (`#currentMapBadge`)**：
+  - 呈现 `📔 笔记本 / 📑 分区 / 📄 页面` 层次分明的优雅面包屑 Pills，分区名称携带专属彩色指示标，点击即可秒开 OneNote 目录树；
+- **☁️ 全量跨端漫游与云同步无缝适配**：
+  - `notebooksManifest` 与 `sectionsManifest` 深度整合进 `FlowNotesIDB` 与 GitHub Gist 备份同步流（`pushToGhGist` & `applyParsedBackupData`），多设备即时互通。
+
 ## 🚀 [v3.4.9] - 2026-11-03
 
 ### 📈 番茄专注长进分析与多端云同步套件 (Focus Growth & Cloud Sync Highlights)

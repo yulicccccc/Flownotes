@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.9 loaded — Pomodoro Focus Growth Analytics & Multi-Device Cloud Sync Suite");
+    console.log("[FlowNotes] v3.5.0 loaded — OneNote 3-Tier Collapsible Tree Notebook Center");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -318,11 +318,73 @@ function initPwaAndLifecycleSync() {
     setTimeout(() => autoCheckCloudGist(true), 900);
 }
 
-// --- 多图谱全局状态管理 ---
+// --- OneNote 3级树状层级全局状态管理 (v3.5.0) ---
+let notebooksManifest = [];
+let sectionsManifest = [];
 let mapsManifest = [];
 let activeMapId = "map_default";
+let expandedTreeNodes = new Set();
+let organizerTreeFilter = "";
+
+const ONENOTE_SECTION_COLORS = [
+    "#38bdf8", // 亮天蓝
+    "#a855f7", // 紫罗兰
+    "#10b981", // 薄荷绿
+    "#f59e0b", // 琥珀黄
+    "#f43f5e", // 玫红
+    "#ec4899", // 粉桃
+    "#6366f1", // 靛蓝
+    "#14b8a6", // 青碧
+    "#84cc16"  // 浅柠檬绿
+];
 
 function initStorage() {
+    // 1. 初始化笔记本 Manifest (Tier 1)
+    try {
+        const savedNbs = localStorage.getItem("flownotes_notebooks_manifest");
+        notebooksManifest = savedNbs ? JSON.parse(savedNbs) : [];
+    } catch (e) {
+        notebooksManifest = [];
+    }
+    if (!Array.isArray(notebooksManifest) || notebooksManifest.length === 0) {
+        notebooksManifest = [{
+            id: "nb_default",
+            title: "AI Biologist 课题研究",
+            icon: "📔",
+            createdAt: new Date().toLocaleDateString()
+        }];
+        safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+    }
+
+    // 2. 初始化彩色分区 Manifest (Tier 2)
+    try {
+        const savedSecs = localStorage.getItem("flownotes_sections_manifest");
+        sectionsManifest = savedSecs ? JSON.parse(savedSecs) : [];
+    } catch (e) {
+        sectionsManifest = [];
+    }
+    if (!Array.isArray(sectionsManifest) || sectionsManifest.length === 0) {
+        sectionsManifest = [
+            { id: "sec_default", notebookId: "nb_default", title: "核心思维沙盘", color: "#38bdf8", order: 0 },
+            { id: "sec_literature", notebookId: "nb_default", title: "文献与假说研讨", color: "#a855f7", order: 1 },
+            { id: "sec_notes", notebookId: "nb_default", title: "快速笔记与待办", color: "#10b981", order: 2 }
+        ];
+        safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+    }
+
+    // 3. 初始化展开折叠状态 (localStorage)
+    try {
+        const rawExpanded = localStorage.getItem("flownotes_tree_expanded");
+        if (rawExpanded) {
+            expandedTreeNodes = new Set(JSON.parse(rawExpanded));
+        } else {
+            expandedTreeNodes = new Set(["nb_default", "sec_default", "sec_literature", "sec_notes"]);
+        }
+    } catch (e) {
+        expandedTreeNodes = new Set(["nb_default", "sec_default", "sec_literature", "sec_notes"]);
+    }
+
+    // 4. 初始化思维图谱/沙盘页面 Manifest (Tier 3)
     const savedManifest = localStorage.getItem("flownotes_maps_manifest");
     const savedActiveId = localStorage.getItem("flownotes_active_map_id");
 
@@ -346,6 +408,8 @@ function initStorage() {
             id: "map_default",
             title: "默认思维导图",
             icon: "🧠",
+            notebookId: "nb_default",
+            sectionId: "sec_default",
             nodeCount: legacyNodes ? (JSON.parse(legacyNodes) || []).length : DEFAULT_NODES.length,
             updatedAt: new Date().toLocaleString()
         }];
@@ -360,15 +424,30 @@ function initStorage() {
         allMapsMemoryCache[activeMapId] = initData;
         safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(initData));
     } else {
+        // 确保每个已存在的 map 都有正确的 notebookId 和 sectionId
+        let manifestMigrated = false;
         mapsManifest.forEach(m => {
+            if (!m.notebookId) {
+                m.notebookId = "nb_default";
+                manifestMigrated = true;
+            }
+            if (!m.sectionId) {
+                const isExcalidraw = (m.id && m.id.includes("excalidraw")) || (m.title && (m.title.includes("Excalidraw") || m.title.includes("1.pdf")));
+                m.sectionId = isExcalidraw ? "sec_literature" : "sec_default";
+                manifestMigrated = true;
+            }
             const raw = localStorage.getItem(`flownotes_map_data_${m.id}`);
             if (raw) {
                 try { allMapsMemoryCache[m.id] = JSON.parse(raw); } catch (e) {}
             }
         });
+        if (manifestMigrated) {
+            safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+        }
     }
 
     loadMapData(activeMapId);
+    updateCurrentMapBadge();
 
     // 异步从高容量 IndexedDB 恢复（如果贴了大量图片超出 localStorage 5MB 上限，IndexedDB 依然保留 100% 完整数据）
     FlowNotesIDB.get("flownotes_full_bundle").then(bundle => {
@@ -377,10 +456,19 @@ function initStorage() {
         const idbUpdatedMs = bundle.updatedAtMs || 0;
         if (idbUpdatedMs >= lsUpdatedMs && bundle.allMapsData) {
             allMapsMemoryCache = { ...allMapsMemoryCache, ...bundle.allMapsData };
+            if (bundle.notebooksManifest && Array.isArray(bundle.notebooksManifest)) {
+                notebooksManifest = bundle.notebooksManifest;
+                safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+            }
+            if (bundle.sectionsManifest && Array.isArray(bundle.sectionsManifest)) {
+                sectionsManifest = bundle.sectionsManifest;
+                safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+            }
             if (idbUpdatedMs > lsUpdatedMs) {
                 mapsManifest = bundle.mapsManifest;
                 activeMapId = bundle.activeMapId || activeMapId;
                 loadMapData(activeMapId);
+    updateCurrentMapBadge();
                 if (layoutMode === "tree") tidyLayout();
                 else updateD3Graph();
                 renderPositions();
@@ -390,6 +478,7 @@ function initStorage() {
         }
     });
 }
+
 
 function loadMapData(mapId) {
     activeMapId = mapId;
@@ -451,10 +540,12 @@ function saveGraphToStorage(recordHistory = true) {
         safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
     }
 
-    // 3. 异步写入高容量 IndexedDB（突破 5MB 限制，支持无限贴图）
+    // 3. 异步写入高容量 IndexedDB（突破 5MB 限制，支持无限贴图与 OneNote 3级树状层级）
     FlowNotesIDB.set("flownotes_full_bundle", {
         updatedAtMs: nowMs,
         activeMapId: activeMapId,
+        notebooksManifest: notebooksManifest,
+        sectionsManifest: sectionsManifest,
         mapsManifest: mapsManifest,
         allMapsData: allMapsMemoryCache
     });
@@ -3346,7 +3437,7 @@ function initEvents() {
         });
     }
 
-    // 图谱组织器抽屉绑定
+    // OneNote 现代化树状抽屉操作按钮绑定 (v3.5.0)
     const toggleOrganizerPanel = () => {
         const panel = document.getElementById("organizer-panel");
         if (!panel) return;
@@ -3356,12 +3447,32 @@ function initEvents() {
     const btnOrg = document.getElementById("btn-organizer");
     const badgeOrg = document.getElementById("currentMapBadge");
     const closeOrg = document.getElementById("btn-organizer-close");
-    const btnCreateMap = document.getElementById("btnCreateMap");
 
     if (btnOrg) btnOrg.addEventListener("click", toggleOrganizerPanel);
     if (badgeOrg) badgeOrg.addEventListener("click", toggleOrganizerPanel);
-    if (closeOrg) closeOrg.addEventListener("click", () => document.getElementById("organizer-panel").hidden = true);
-    if (btnCreateMap) btnCreateMap.addEventListener("click", handleCreateNewMap);
+    if (closeOrg) closeOrg.addEventListener("click", () => {
+        const panel = document.getElementById("organizer-panel");
+        if (panel) panel.hidden = true;
+    });
+
+    const btnTreeNewNotebook = document.getElementById("btnTreeNewNotebook");
+    const btnTreeNewSection = document.getElementById("btnTreeNewSection");
+    const btnTreeNewPage = document.getElementById("btnTreeNewPage");
+    const btnCollapseAllTree = document.getElementById("btnCollapseAllTree");
+    const btnExpandAllTree = document.getElementById("btnExpandAllTree");
+    const onenoteTreeSearch = document.getElementById("onenote-tree-search");
+
+    if (btnTreeNewNotebook) btnTreeNewNotebook.addEventListener("click", () => createNotebook());
+    if (btnTreeNewSection) btnTreeNewSection.addEventListener("click", () => createSection());
+    if (btnTreeNewPage) btnTreeNewPage.addEventListener("click", () => createNewMap());
+    if (btnCollapseAllTree) btnCollapseAllTree.addEventListener("click", collapseAllTree);
+    if (btnExpandAllTree) btnExpandAllTree.addEventListener("click", expandAllTree);
+    if (onenoteTreeSearch) {
+        onenoteTreeSearch.addEventListener("input", (e) => {
+            organizerTreeFilter = e.target.value.trim().toLowerCase();
+            renderOrganizerUI(organizerTreeFilter);
+        });
+    }
 
     // 主题
     document.getElementById("themeToggle").addEventListener("click", toggleTheme);
@@ -4717,9 +4828,11 @@ async function pushToGhGist(silent = false) {
 
         const syncTimestampMs = Date.now();
         const localPayload = JSON.stringify({
-            version: "FlowNotes-MultiMap-3.2",
+            version: "FlowNotes-MultiMap-3.5.0",
             updatedAtMs: syncTimestampMs,
             activeMapId: activeMapId,
+            notebooksManifest: notebooksManifest,
+            sectionsManifest: sectionsManifest,
             mapsManifest: mapsManifest,
             allMapsData: allMapsData,
             nodes: nodes,
@@ -4931,6 +5044,8 @@ function importExcalidrawFile(parsed, fileName = "") {
         id: newMapId,
         title: mapTitle,
         icon: "🎨",
+        notebookId: "nb_default",
+        sectionId: "sec_literature",
         nodeCount: importedNodes.length,
         updatedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false })
     };
@@ -4950,6 +5065,8 @@ function importExcalidrawFile(parsed, fileName = "") {
     FlowNotesIDB.set("flownotes_full_bundle", {
         updatedAtMs: nowTs,
         activeMapId: newMapId,
+        notebooksManifest: notebooksManifest,
+        sectionsManifest: sectionsManifest,
         mapsManifest: mapsManifest,
         allMapsData: allMapsMemoryCache
     });
@@ -4982,6 +5099,14 @@ function applyParsedBackupData(parsed, fileName = "") {
     if (!parsed) return;
     if (parsed.type === "excalidraw" || Array.isArray(parsed.elements)) {
         return importExcalidrawFile(parsed, fileName);
+    }
+    if (parsed.notebooksManifest && Array.isArray(parsed.notebooksManifest)) {
+        notebooksManifest = parsed.notebooksManifest;
+        safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+    }
+    if (parsed.sectionsManifest && Array.isArray(parsed.sectionsManifest)) {
+        sectionsManifest = parsed.sectionsManifest;
+        safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
     }
     if (parsed.mapsManifest && Array.isArray(parsed.mapsManifest)) {
         mapsManifest = parsed.mapsManifest;
@@ -5034,6 +5159,8 @@ function applyParsedBackupData(parsed, fileName = "") {
     FlowNotesIDB.set("flownotes_full_bundle", {
         updatedAtMs: stampMs,
         activeMapId: activeMapId,
+        notebooksManifest: notebooksManifest,
+        sectionsManifest: sectionsManifest,
         mapsManifest: mapsManifest,
         allMapsData: allMapsMemoryCache
     });
@@ -5156,87 +5283,432 @@ function updateCurrentMapBadge() {
     const badge = document.getElementById("currentMapBadge");
     if (!badge) return;
     const current = mapsManifest.find(m => m.id === activeMapId);
-    if (current) {
-        badge.textContent = `${current.icon || '🧠'} ${current.title}`;
-    } else {
-        badge.textContent = "🧠 思维导图";
+    if (!current) {
+        badge.innerHTML = "<span>🧠 思维导图</span>";
+        return;
     }
+    const sec = sectionsManifest.find(s => s.id === current.sectionId);
+    const nb = notebooksManifest.find(n => n.id === (sec ? sec.notebookId : (current.notebookId || "nb_default")));
+    const secColor = sec?.color || "#38bdf8";
+
+    badge.className = "current-map-badge onenote-breadcrumb";
+    badge.innerHTML = `
+        <span class="tree-sec-pill" style="background:${secColor}; box-shadow:0 0 6px ${secColor};"></span>
+        <span class="nb-title" style="opacity:0.85; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${nb ? (nb.icon || "📔") + " " + escapeHTML(nb.title) : "📔 笔记本"}</span>
+        <span class="bc-sep">/</span>
+        <span class="sec-tag" style="color:${secColor}; font-weight:600; max-width:95px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">📑 ${sec ? escapeHTML(sec.title) : "分区"}</span>
+        <span class="bc-sep">/</span>
+        <span class="page-title" style="font-weight:700; max-width:120px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${current.icon || "📄"} ${escapeHTML(current.title)}</span>
+    `;
+    badge.title = "点击打开 OneNote 笔记本中心管理库";
 }
 
-function renderOrganizerUI() {
+function renderOrganizerUI(searchQuery = organizerTreeFilter) {
     updateCurrentMapBadge();
     const container = document.getElementById("organizerMapList");
     if (!container) return;
     container.innerHTML = "";
 
-    mapsManifest.forEach(map => {
-        const isActive = map.id === activeMapId;
-        const card = document.createElement("div");
-        card.className = "map-card";
-        card.dataset.active = isActive ? "true" : "false";
+    const query = (searchQuery || "").trim().toLowerCase();
 
-        card.innerHTML = `
-            <div class="map-card-header">
-                <div class="map-card-title">
-                    <span>${map.icon || '🧠'}</span>
-                    <span>${escapeHTML(map.title)}</span>
-                    ${isActive ? '<span style="font-size:0.7rem; padding:1px 6px; background:var(--accent-indigo); color:#fff; border-radius:10px;">当前打开</span>' : ''}
-                </div>
-            </div>
-            <div class="map-card-meta">
-                <span>包含 <b>${map.nodeCount ?? 0}</b> 个卡片</span>
-                <span>${map.updatedAt || ''}</span>
-            </div>
-            <div class="map-card-actions">
-                ${!isActive ? `<button class="map-card-btn btn-switch" style="color:var(--accent-cyan); border-color:var(--accent-cyan);">切换</button>` : ''}
-                <button class="map-card-btn btn-rename">重命名</button>
-                <button class="map-card-btn btn-duplicate">复制</button>
-                ${mapsManifest.length > 1 ? `<button class="map-card-btn btn-delete" style="color:#f87171;">删除</button>` : ''}
+    // 统计数据
+    let totalCards = 0;
+    mapsManifest.forEach(m => { totalCards += (m.nodeCount || 0); });
+    const statsEl = document.getElementById("onenote-tree-stats");
+    if (statsEl) {
+        statsEl.textContent = `共 ${notebooksManifest.length} 个笔记本 · ${sectionsManifest.length} 个分区 · ${mapsManifest.length} 个页面 (${totalCards} 卡片)`;
+    }
+
+    // 遍历每一个笔记本 (Tier 1)
+    notebooksManifest.forEach(nb => {
+        const nbSecs = sectionsManifest.filter(s => s.notebookId === nb.id);
+        const nbSecIds = new Set(nbSecs.map(s => s.id));
+        const nbMaps = mapsManifest.filter(m => m.notebookId === nb.id || nbSecIds.has(m.sectionId));
+        const nbTotalCards = nbMaps.reduce((acc, m) => acc + (m.nodeCount || 0), 0);
+
+        // 搜索过滤检查
+        const nbMatch = !query || nb.title.toLowerCase().includes(query);
+        const anySecMatch = nbSecs.some(s => s.title.toLowerCase().includes(query));
+        const anyMapMatch = nbMaps.some(m => m.title.toLowerCase().includes(query));
+
+        if (query && !nbMatch && !anySecMatch && !anyMapMatch) {
+            return; // 不符合过滤条件
+        }
+
+        const isNbExpanded = query ? true : expandedTreeNodes.has(nb.id);
+
+        const nbGroup = document.createElement("div");
+        nbGroup.className = "tree-nb-group";
+
+        // 笔记本行 (Tier 1 Header)
+        const nbItem = document.createElement("div");
+        nbItem.className = "tree-nb-item";
+        nbItem.innerHTML = `
+            <span class="tree-caret ${isNbExpanded ? 'expanded' : ''}">▶</span>
+            <span class="tree-nb-icon">${nb.icon || '📔'}</span>
+            <span class="tree-nb-title" title="${escapeHTML(nb.title)}">${escapeHTML(nb.title)}</span>
+            <span class="tree-count-badge">${nbMaps.length}页 / ${nbTotalCards}卡</span>
+            <div class="tree-node-actions">
+                <button class="tree-act-btn btn-add-sec" title="➕ 在此笔记本下新建彩色分区">📑+</button>
+                <button class="tree-act-btn btn-rename-nb" title="✏️ 重命名笔记本">✏️</button>
+                ${notebooksManifest.length > 1 ? '<button class="tree-act-btn btn-del-nb" title="🗑️ 删除笔记本" style="color:#f87171;">🗑️</button>' : ''}
             </div>
         `;
 
-        // 事件绑定
-        card.addEventListener("click", (e) => {
-            if (e.target.tagName === "BUTTON") return;
-            if (!isActive) switchActiveMap(map.id);
+        // 展开/收起笔记本点击
+        nbItem.addEventListener("click", (e) => {
+            if (e.target.closest(".tree-node-actions")) return;
+            if (expandedTreeNodes.has(nb.id)) {
+                expandedTreeNodes.delete(nb.id);
+            } else {
+                expandedTreeNodes.add(nb.id);
+            }
+            safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
+            renderOrganizerUI(query);
         });
 
-        const switchBtn = card.querySelector(".btn-switch");
-        if (switchBtn) switchBtn.addEventListener("click", () => switchActiveMap(map.id));
+        // 笔记本按钮动作
+        const addSecBtn = nbItem.querySelector(".btn-add-sec");
+        if (addSecBtn) addSecBtn.addEventListener("click", (e) => { e.stopPropagation(); createSection(nb.id); });
 
-        const renameBtn = card.querySelector(".btn-rename");
-        if (renameBtn) renameBtn.addEventListener("click", (e) => { e.stopPropagation(); renameMap(map.id); });
+        const renameNbBtn = nbItem.querySelector(".btn-rename-nb");
+        if (renameNbBtn) renameNbBtn.addEventListener("click", (e) => { e.stopPropagation(); renameNotebook(nb.id); });
 
-        const dupBtn = card.querySelector(".btn-duplicate");
-        if (dupBtn) dupBtn.addEventListener("click", (e) => { e.stopPropagation(); duplicateMap(map.id); });
+        const delNbBtn = nbItem.querySelector(".btn-del-nb");
+        if (delNbBtn) delNbBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteNotebook(nb.id); });
 
-        const delBtn = card.querySelector(".btn-delete");
-        if (delBtn) delBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteMap(map.id); });
+        nbGroup.appendChild(nbItem);
 
-        container.appendChild(card);
+        // 如果展开，渲染其下所有彩色分区 (Tier 2)
+        if (isNbExpanded) {
+            nbSecs.forEach(sec => {
+                const secMaps = mapsManifest.filter(m => m.sectionId === sec.id);
+                const secMatch = !query || sec.title.toLowerCase().includes(query);
+                const anyPageMatch = secMaps.some(m => m.title.toLowerCase().includes(query));
+
+                if (query && !secMatch && !anyPageMatch && !nbMatch) {
+                    return;
+                }
+
+                const isSecExpanded = query ? true : expandedTreeNodes.has(sec.id);
+
+                const secGroup = document.createElement("div");
+                secGroup.className = "tree-sec-group";
+
+                const secItem = document.createElement("div");
+                secItem.className = "tree-sec-item";
+                secItem.innerHTML = `
+                    <span class="tree-caret ${isSecExpanded ? 'expanded' : ''}">▶</span>
+                    <span class="tree-sec-pill" style="background:${sec.color || '#38bdf8'}; box-shadow:0 0 6px ${sec.color || '#38bdf8'};"></span>
+                    <span class="tree-sec-title" title="${escapeHTML(sec.title)}">${escapeHTML(sec.title)}</span>
+                    <span class="tree-count-badge">${secMaps.length}页</span>
+                    <div class="tree-node-actions">
+                        <button class="tree-act-btn btn-add-page" title="➕ 在此分区下新建思维沙盘页面">📄+</button>
+                        <button class="tree-act-btn btn-color-sec" title="🎨 点击循环切换分区主题色">🎨</button>
+                        <button class="tree-act-btn btn-rename-sec" title="✏️ 重命名分区">✏️</button>
+                        ${nbSecs.length > 1 ? '<button class="tree-act-btn btn-del-sec" title="🗑️ 删除分区" style="color:#f87171;">🗑️</button>' : ''}
+                    </div>
+                `;
+
+                // 展开/收起分区点击
+                secItem.addEventListener("click", (e) => {
+                    if (e.target.closest(".tree-node-actions")) return;
+                    if (expandedTreeNodes.has(sec.id)) {
+                        expandedTreeNodes.delete(sec.id);
+                    } else {
+                        expandedTreeNodes.add(sec.id);
+                    }
+                    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
+                    renderOrganizerUI(query);
+                });
+
+                // 分区按钮动作
+                const addPageBtn = secItem.querySelector(".btn-add-page");
+                if (addPageBtn) addPageBtn.addEventListener("click", (e) => { e.stopPropagation(); createNewMap("新思维沙盘", "📄", nb.id, sec.id); });
+
+                const colorSecBtn = secItem.querySelector(".btn-color-sec");
+                if (colorSecBtn) colorSecBtn.addEventListener("click", (e) => { e.stopPropagation(); cycleSectionColor(sec.id); });
+
+                const renameSecBtn = secItem.querySelector(".btn-rename-sec");
+                if (renameSecBtn) renameSecBtn.addEventListener("click", (e) => { e.stopPropagation(); renameSection(sec.id); });
+
+                const delSecBtn = secItem.querySelector(".btn-del-sec");
+                if (delSecBtn) delSecBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteSection(sec.id); });
+
+                secGroup.appendChild(secItem);
+
+                // 如果分区展开，渲染其下所有思维沙盘页面 (Tier 3)
+                if (isSecExpanded) {
+                    const pageGroup = document.createElement("div");
+                    pageGroup.className = "tree-page-group";
+
+                    if (secMaps.length === 0) {
+                        const emptyTip = document.createElement("div");
+                        emptyTip.style.cssText = "font-size:11px; opacity:0.45; padding:4px 8px; font-style:italic;";
+                        emptyTip.textContent = "空分区，点击上方 📄+ 新建页面";
+                        pageGroup.appendChild(emptyTip);
+                    } else {
+                        secMaps.forEach(map => {
+                            if (query && !map.title.toLowerCase().includes(query) && !secMatch && !nbMatch) {
+                                return;
+                            }
+                            const isActive = map.id === activeMapId;
+                            const pageItem = document.createElement("div");
+                            pageItem.className = `tree-page-item ${isActive ? 'is-active-page' : ''}`;
+                            pageItem.dataset.id = map.id;
+
+                            pageItem.innerHTML = `
+                                <span class="tree-page-icon">${map.icon || '📄'}</span>
+                                <span class="tree-page-title" title="${escapeHTML(map.title)}">${escapeHTML(map.title)}</span>
+                                <span class="tree-page-cards">${map.nodeCount || 0}卡片</span>
+                                <div class="tree-node-actions">
+                                    <button class="tree-act-btn btn-rename-page" title="✏️ 重命名页面">✏️</button>
+                                    <button class="tree-act-btn btn-dup-page" title="📋 复制页面副本">📋</button>
+                                    <button class="tree-act-btn btn-move-page" title="🚚 移动至其他分区">🚚</button>
+                                    ${mapsManifest.length > 1 ? '<button class="tree-act-btn btn-del-page" title="🗑️ 删除页面" style="color:#f87171;">🗑️</button>' : ''}
+                                </div>
+                            `;
+
+                            // 切换激活页面
+                            pageItem.addEventListener("click", (e) => {
+                                if (e.target.closest(".tree-node-actions")) return;
+                                if (!isActive) switchActiveMap(map.id);
+                            });
+
+                            const rBtn = pageItem.querySelector(".btn-rename-page");
+                            if (rBtn) rBtn.addEventListener("click", (e) => { e.stopPropagation(); renameMap(map.id); });
+
+                            const dupBtn = pageItem.querySelector(".btn-dup-page");
+                            if (dupBtn) dupBtn.addEventListener("click", (e) => { e.stopPropagation(); duplicateMap(map.id); });
+
+                            const mvBtn = pageItem.querySelector(".btn-move-page");
+                            if (mvBtn) mvBtn.addEventListener("click", (e) => { e.stopPropagation(); movePageToSection(map.id); });
+
+                            const dBtn = pageItem.querySelector(".btn-del-page");
+                            if (dBtn) dBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteMap(map.id); });
+
+                            pageGroup.appendChild(pageItem);
+                        });
+                    }
+                    secGroup.appendChild(pageGroup);
+                }
+
+                nbGroup.appendChild(secGroup);
+            });
+        }
+
+        container.appendChild(nbGroup);
     });
 }
 
-function handleCreateNewMap() {
-    const titleInput = document.getElementById("newMapTitleInput");
-    const iconSelect = document.getElementById("newMapIconSelect");
-    const title = (titleInput ? titleInput.value.trim() : "") || "新思维导图";
-    const icon = iconSelect ? iconSelect.value : "🧠";
+// 笔记本 CRUD
+function createNotebook(title = null, icon = "📔") {
+    const nbTitle = title || prompt("请输入新笔记本名称 (如: 生物计算课题研讨):", "新笔记本");
+    if (!nbTitle || !nbTitle.trim()) return;
 
-    createNewMap(title, icon);
-    if (titleInput) titleInput.value = "";
+    const newNbId = `nb_${Date.now()}`;
+    const newNbMeta = {
+        id: newNbId,
+        title: nbTitle.trim(),
+        icon: icon,
+        createdAt: new Date().toLocaleDateString()
+    };
+    notebooksManifest.push(newNbMeta);
+    safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+
+    // 默认附带一个基础分区
+    const newSecId = `sec_${Date.now()}`;
+    const newSec = {
+        id: newSecId,
+        notebookId: newNbId,
+        title: "常规分区",
+        color: ONENOTE_SECTION_COLORS[sectionsManifest.length % ONENOTE_SECTION_COLORS.length],
+        order: 0
+    };
+    sectionsManifest.push(newSec);
+    safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+
+    expandedTreeNodes.add(newNbId);
+    expandedTreeNodes.add(newSecId);
+    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
+
+    // 在该分区创建第一张导图
+    createNewMap(`${nbTitle.trim()} 核心思维导图`, "📄", newNbId, newSecId);
+    showToast(`📔 成功创建笔记本【${nbTitle.trim()}】！`);
 }
 
-function createNewMap(title, icon = "🧠") {
+function renameNotebook(nbId) {
+    const target = notebooksManifest.find(n => n.id === nbId);
+    if (!target) return;
+    const newTitle = prompt("请输入笔记本新名称:", target.title);
+    if (newTitle && newTitle.trim()) {
+        target.title = newTitle.trim();
+        safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+        updateCurrentMapBadge();
+        renderOrganizerUI();
+        showToast("✏️ 笔记本重命名成功");
+    }
+}
+
+function deleteNotebook(nbId) {
+    if (notebooksManifest.length <= 1) {
+        showToast("⚠️ 至少需要保留一个笔记本，无法删除唯一笔记本。");
+        return;
+    }
+    const target = notebooksManifest.find(n => n.id === nbId);
+    if (!target) return;
+    if (!confirm(`确定要删除笔记本【${target.title}】及其包含的所有分区和思维导图吗？此操作不可逆！`)) return;
+
+    const secIds = sectionsManifest.filter(s => s.notebookId === nbId).map(s => s.id);
+    sectionsManifest = sectionsManifest.filter(s => s.notebookId !== nbId);
+    safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+
+    const deletedMapIds = mapsManifest.filter(m => m.notebookId === nbId || secIds.includes(m.sectionId)).map(m => m.id);
+    deletedMapIds.forEach(mId => {
+        delete allMapsMemoryCache[mId];
+        localStorage.removeItem(`flownotes_map_data_${mId}`);
+    });
+    mapsManifest = mapsManifest.filter(m => !deletedMapIds.includes(m.id));
+    if (mapsManifest.length === 0) {
+        mapsManifest = [{
+            id: "map_default",
+            title: "默认思维导图",
+            icon: "🧠",
+            notebookId: notebooksManifest[0].id,
+            sectionId: sectionsManifest[0]?.id || "sec_default",
+            nodeCount: 1,
+            updatedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+        }];
+    }
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+
+    notebooksManifest = notebooksManifest.filter(n => n.id !== nbId);
+    safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+
+    if (deletedMapIds.includes(activeMapId)) {
+        switchActiveMap(mapsManifest[0].id);
+    } else {
+        updateCurrentMapBadge();
+        renderOrganizerUI();
+    }
+    showToast("🗑️ 笔记本已删除");
+}
+
+// 分区 CRUD
+function createSection(notebookId = null, title = null, color = null) {
+    const curMap = mapsManifest.find(m => m.id === activeMapId);
+    const targetNbId = notebookId || (curMap ? curMap.notebookId : notebooksManifest[0].id);
+    const secTitle = title || prompt("请输入新彩色分区名称 (如: 实验假说分析):", "新分区");
+    if (!secTitle || !secTitle.trim()) return;
+
+    const assignedColor = color || ONENOTE_SECTION_COLORS[sectionsManifest.length % ONENOTE_SECTION_COLORS.length];
+    const newSecId = `sec_${Date.now()}`;
+    const newSec = {
+        id: newSecId,
+        notebookId: targetNbId,
+        title: secTitle.trim(),
+        color: assignedColor,
+        order: sectionsManifest.length
+    };
+    sectionsManifest.push(newSec);
+    safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+
+    expandedTreeNodes.add(targetNbId);
+    expandedTreeNodes.add(newSecId);
+    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
+
+    // 在新分区创建第一张页面
+    createNewMap(`${secTitle.trim()} 思维沙盘`, "📄", targetNbId, newSecId);
+    showToast(`📑 成功创建分区【${secTitle.trim()}】！`);
+}
+
+function renameSection(secId) {
+    const target = sectionsManifest.find(s => s.id === secId);
+    if (!target) return;
+    const newTitle = prompt("请输入分区新名称:", target.title);
+    if (newTitle && newTitle.trim()) {
+        target.title = newTitle.trim();
+        safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+        updateCurrentMapBadge();
+        renderOrganizerUI();
+        showToast("✏️ 分区重命名成功");
+    }
+}
+
+function cycleSectionColor(secId) {
+    const sec = sectionsManifest.find(s => s.id === secId);
+    if (!sec) return;
+    const curIdx = ONENOTE_SECTION_COLORS.indexOf(sec.color || "#38bdf8");
+    const nextColor = ONENOTE_SECTION_COLORS[(curIdx + 1) % ONENOTE_SECTION_COLORS.length];
+    sec.color = nextColor;
+    safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+    updateCurrentMapBadge();
+    renderOrganizerUI();
+    showToast(`🎨 分区【${sec.title}】颜色已更新`);
+}
+
+function deleteSection(secId) {
+    const target = sectionsManifest.find(s => s.id === secId);
+    if (!target) return;
+    const sameNbSecs = sectionsManifest.filter(s => s.notebookId === target.notebookId);
+    if (sameNbSecs.length <= 1) {
+        showToast("⚠️ 该笔记本下只剩一个分区，无法删除。");
+        return;
+    }
+    if (!confirm(`确定要删除分区【${target.title}】及其包含的所有页面吗？此操作不可逆！`)) return;
+
+    const deletedMapIds = mapsManifest.filter(m => m.sectionId === secId).map(m => m.id);
+    deletedMapIds.forEach(mId => {
+        delete allMapsMemoryCache[mId];
+        localStorage.removeItem(`flownotes_map_data_${mId}`);
+    });
+    mapsManifest = mapsManifest.filter(m => !deletedMapIds.includes(m.id));
+    if (mapsManifest.length === 0) {
+        mapsManifest = [{
+            id: "map_default",
+            title: "默认思维导图",
+            icon: "🧠",
+            notebookId: target.notebookId,
+            sectionId: sameNbSecs.find(s => s.id !== secId).id,
+            nodeCount: 1,
+            updatedAt: new Date().toLocaleTimeString('zh-CN', { hour12: false })
+        }];
+    }
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+
+    sectionsManifest = sectionsManifest.filter(s => s.id !== secId);
+    safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+
+    if (deletedMapIds.includes(activeMapId)) {
+        switchActiveMap(mapsManifest[0].id);
+    } else {
+        updateCurrentMapBadge();
+        renderOrganizerUI();
+    }
+    showToast("🗑️ 分区已删除");
+}
+
+// 页面/思维沙盘 CRUD
+function createNewMap(title = null, icon = "📄", notebookId = null, sectionId = null) {
+    let finalTitle = title;
+    if (!finalTitle) {
+        const input = prompt("请输入思维沙盘页面标题 (如: 基因组分析框架):", "新思维沙盘");
+        if (!input || !input.trim()) return;
+        finalTitle = input.trim();
+    }
+
+    const curMap = mapsManifest.find(m => m.id === activeMapId);
+    const targetNbId = notebookId || (curMap ? curMap.notebookId : (notebooksManifest[0] ? notebooksManifest[0].id : "nb_default"));
+    const targetSecId = sectionId || (curMap ? curMap.sectionId : (sectionsManifest.find(s => s.notebookId === targetNbId)?.id || sectionsManifest[0]?.id || "sec_default"));
+
     const newMapId = `map_${Date.now()}`;
     const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
 
-    // 初始化新导图（包含单个核心根节点）
     const initialRoot = {
         id: `root_${Date.now()}`,
-        label: title,
+        label: finalTitle,
         parentId: null,
-        content: `# ${title}\n\n欢迎开始构建 **${title}** 主题思维图谱！\n\n- 按 ` + '`Tab`' + ` 键增加子节点\n- 按 ` + '`Enter`' + ` 键增加同级节点`,
+        content: `# ${finalTitle}\n\n欢迎开始构建 **${finalTitle}** 主题思维沙盘！\n\n- 按 ` + '`Tab`' + ` 键增加子节点\n- 按 ` + '`Enter`' + ` 键增加同级节点\n- 选中节点可进行富文本加粗、高亮、复选框或手写体批注！`,
         order: 0,
         x: 450,
         y: 320
@@ -5244,24 +5716,67 @@ function createNewMap(title, icon = "🧠") {
 
     const newMapMeta = {
         id: newMapId,
-        title: title,
+        title: finalTitle,
         icon: icon,
+        notebookId: targetNbId,
+        sectionId: targetSecId,
         nodeCount: 1,
         updatedAt: nowStr
     };
 
     mapsManifest.push(newMapMeta);
-    localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
 
     const newMapData = {
         nodes: [initialRoot],
         links: [],
-        flowStream: []
+        flowStream: [],
+        inkStrokes: []
     };
-    localStorage.setItem(`flownotes_map_data_${newMapId}`, JSON.stringify(newMapData));
+    allMapsMemoryCache[newMapId] = newMapData;
+    safeLocalStorageSet(`flownotes_map_data_${newMapId}`, JSON.stringify(newMapData));
+
+    expandedTreeNodes.add(targetNbId);
+    expandedTreeNodes.add(targetSecId);
+    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
 
     switchActiveMap(newMapId);
-    showToast(`✨ 成功创建新思维图谱 [[${title}]]`);
+    showToast(`✨ 成功创建新思维沙盘 [[${finalTitle}]]`);
+}
+
+function movePageToSection(mapId) {
+    const map = mapsManifest.find(m => m.id === mapId);
+    if (!map) return;
+    if (sectionsManifest.length <= 1) {
+        showToast("⚠️ 当前只有一个分区，请先创建更多分区后再移动页面。");
+        return;
+    }
+    const list = sectionsManifest.map((s, idx) => {
+        const nb = notebooksManifest.find(n => n.id === s.notebookId);
+        const isCurrent = s.id === map.sectionId;
+        return `${idx + 1}. [${nb ? nb.title : '笔记本'}] > ${s.title} ${isCurrent ? '(当前)' : ''}`;
+    }).join("\n");
+
+    const answer = prompt(`请选择要移动到的目标分区序号 (1 ~ ${sectionsManifest.length}):\n\n${list}`);
+    if (!answer) return;
+    const choiceIdx = parseInt(answer.trim(), 10) - 1;
+    if (isNaN(choiceIdx) || choiceIdx < 0 || choiceIdx >= sectionsManifest.length) {
+        showToast("❌ 输入序号无效");
+        return;
+    }
+    const targetSec = sectionsManifest[choiceIdx];
+    map.sectionId = targetSec.id;
+    map.notebookId = targetSec.notebookId;
+    map.updatedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+
+    expandedTreeNodes.add(targetSec.notebookId);
+    expandedTreeNodes.add(targetSec.id);
+    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
+
+    updateCurrentMapBadge();
+    renderOrganizerUI();
+    showToast(`🚚 页面已成功移动至【${targetSec.title}】分区！`);
 }
 
 function switchActiveMap(mapId) {
@@ -5272,7 +5787,8 @@ function switchActiveMap(mapId) {
     const currentData = {
         nodes: nodes,
         links: cleanLinks(),
-        flowStream: flowStream
+        flowStream: flowStream,
+        inkStrokes: inkStrokes
     };
     allMapsMemoryCache[activeMapId] = currentData;
     safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
@@ -5292,14 +5808,14 @@ function switchActiveMap(mapId) {
 function renameMap(mapId) {
     const target = mapsManifest.find(m => m.id === mapId);
     if (!target) return;
-    const newTitle = prompt("请输入新图谱名称:", target.title);
+    const newTitle = prompt("请输入新页面标题:", target.title);
     if (newTitle && newTitle.trim()) {
         target.title = newTitle.trim();
         target.updatedAt = new Date().toLocaleTimeString('zh-CN', { hour12: false });
-        localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+        safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
         updateCurrentMapBadge();
         renderOrganizerUI();
-        showToast("✏️ 图谱重命名成功");
+        showToast("✏️ 页面重命名成功");
     }
 }
 
@@ -5307,7 +5823,13 @@ function duplicateMap(mapId) {
     const sourceMap = mapsManifest.find(m => m.id === mapId);
     if (!sourceMap) return;
 
-    const raw = localStorage.getItem(`flownotes_map_data_${mapId}`);
+    let raw = allMapsMemoryCache[mapId];
+    if (!raw) {
+        const rawStr = localStorage.getItem(`flownotes_map_data_${mapId}`);
+        if (rawStr) {
+            try { raw = JSON.parse(rawStr); } catch (e) {}
+        }
+    }
     if (!raw) return;
 
     const newMapId = `map_${Date.now()}`;
@@ -5317,14 +5839,17 @@ function duplicateMap(mapId) {
     const dupMeta = {
         id: newMapId,
         title: dupTitle,
-        icon: sourceMap.icon || "🧠",
+        icon: sourceMap.icon || "📄",
+        notebookId: sourceMap.notebookId || "nb_default",
+        sectionId: sourceMap.sectionId || "sec_default",
         nodeCount: sourceMap.nodeCount || 0,
         updatedAt: nowStr
     };
 
     mapsManifest.push(dupMeta);
-    localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
-    localStorage.setItem(`flownotes_map_data_${newMapId}`, raw);
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+    allMapsMemoryCache[newMapId] = JSON.parse(JSON.stringify(raw));
+    safeLocalStorageSet(`flownotes_map_data_${newMapId}`, JSON.stringify(allMapsMemoryCache[newMapId]));
 
     switchActiveMap(newMapId);
     showToast(`📋 已创建副本 [[${dupTitle}]]`);
@@ -5339,10 +5864,11 @@ function deleteMap(mapId) {
     const target = mapsManifest.find(m => m.id === mapId);
     if (!target) return;
 
-    if (!confirm(`确定要彻底删除思维图谱 [[${target.title}]] 吗？此操作无法撤销。`)) return;
+    if (!confirm(`确定要彻底删除思维沙盘 [[${target.title}]] 吗？此操作无法撤销。`)) return;
 
     mapsManifest = mapsManifest.filter(m => m.id !== mapId);
-    localStorage.setItem("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+    delete allMapsMemoryCache[mapId];
     localStorage.removeItem(`flownotes_map_data_${mapId}`);
 
     if (activeMapId === mapId) {
@@ -5350,7 +5876,22 @@ function deleteMap(mapId) {
     } else {
         renderOrganizerUI();
     }
-    showToast("🗑️ 图谱已成功删除");
+    showToast("🗑️ 页面已成功删除");
+}
+
+function collapseAllTree() {
+    expandedTreeNodes.clear();
+    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([]));
+    renderOrganizerUI();
+    showToast("📁 已全部折叠");
+}
+
+function expandAllTree() {
+    notebooksManifest.forEach(n => expandedTreeNodes.add(n.id));
+    sectionsManifest.forEach(s => expandedTreeNodes.add(s.id));
+    safeLocalStorageSet("flownotes_tree_expanded", JSON.stringify([...expandedTreeNodes]));
+    renderOrganizerUI();
+    showToast("📂 已全部展开");
 }
 
 function toggleTheme() {
