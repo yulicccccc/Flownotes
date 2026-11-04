@@ -175,6 +175,58 @@ body {
     gap: 8px;
 }
 
+/* 顶部唯一黄金云同步胶囊 (v3.5.9 对标 Image 2 顶栏右上角) */
+.nav-sync-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 30px;
+    padding: 0 12px;
+    background: rgba(15, 23, 42, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    border-radius: 9999px;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.16s ease;
+    user-select: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.nav-sync-pill:hover {
+    background: rgba(30, 41, 59, 0.9);
+    border-color: rgba(56, 189, 248, 0.55);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+    color: #ffffff;
+}
+.nav-sync-pill.is-busy {
+    opacity: 0.85;
+    cursor: wait;
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fbbf24;
+}
+.nav-sync-pill.is-ok {
+    border-color: rgba(16, 185, 129, 0.5);
+    background: rgba(6, 78, 59, 0.35);
+    color: #6ee7b7;
+}
+html[data-theme="light"] .nav-sync-pill {
+    background: rgba(241, 245, 249, 0.9);
+    border-color: rgba(203, 213, 225, 0.85);
+    color: #334155;
+}
+html[data-theme="light"] .nav-sync-pill:hover {
+    background: #ffffff;
+    border-color: #38bdf8;
+    color: #0f172a;
+}
+html[data-theme="light"] .nav-sync-pill.is-ok {
+    background: rgba(209, 250, 229, 0.7);
+    border-color: rgba(16, 185, 129, 0.6);
+    color: #047857;
+}
+
 .logo-group {
     display: flex;
     align-items: center;
@@ -1617,97 +1669,221 @@ html[data-theme="light"] .tree-page-item.is-active-page {
    v2.6.0 空间自由沙盘、快速高亮/标色胶囊与剪贴板截图图片卡片样式
    ========================================================================== */
 
-/* 划词与卡片快速格式工具栏 (Selection & Card Quick Bubble)
-   v3.4.4 支持：
-   1. ✍️ 手写批注体切换 (类似于 1.pdf 散墨/剪刀石头布手写感)
-   2. 📌 固定在画布上方中央 vs 📍 跟随光标/卡片悬浮 一键自由切换 */
+/* ==========================================
+   v3.5.9: iPad 无边记 6 色调色盘与极简超紧凑格式工具栏
+   ========================================== */
 #selection-quick-bubble {
     position: fixed;
     z-index: 9999;
     display: none;
-    background: rgba(15, 23, 42, 0.96);
-    border: 1px solid rgba(99, 102, 241, 0.55);
+    background: rgba(15, 23, 42, 0.94);
+    border: 1px solid rgba(148, 163, 184, 0.28);
     border-radius: 999px;
-    padding: 4px 10px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(99, 102, 241, 0.35);
-    backdrop-filter: blur(14px);
-    gap: 6px;
+    padding: 3px 8px;
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.45), 0 0 14px rgba(99, 102, 241, 0.22);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    gap: 3px;
     align-items: center;
     pointer-events: auto;
-    transition: transform 0.2s cubic-bezier(0.18, 1.4, 0.38, 1), box-shadow 0.2s ease, opacity 0.15s ease;
+    height: 34px;
+    box-sizing: border-box;
+    transition: transform 0.22s cubic-bezier(0.18, 1.4, 0.38, 1), box-shadow 0.2s ease, opacity 0.15s ease;
 }
 
 html[data-theme="light"] #selection-quick-bubble {
-    background: rgba(255, 255, 255, 0.98);
-    border-color: rgba(99, 102, 241, 0.45);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(203, 213, 225, 0.8);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
 }
 
 #selection-quick-bubble.is-docked-top {
-    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.3);
-    border-color: rgba(56, 189, 248, 0.6);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), 0 0 18px rgba(56, 189, 248, 0.28);
+    border-color: rgba(56, 189, 248, 0.5);
 }
 
+.bubble-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 3.5px;
+}
+
+/* 6 色无边记马卡龙色彩圆点 (iPad Freeform Circular Color Beads) */
+.bubble-color-dot {
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.15s cubic-bezier(0.18, 1.4, 0.38, 1), box-shadow 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    position: relative;
+    outline: none;
+    flex-shrink: 0;
+}
+.bubble-color-dot:hover {
+    transform: scale(1.28);
+}
+.bubble-color-dot:active {
+    transform: scale(0.92);
+}
+.bubble-color-dot.active-swatch {
+    transform: scale(1.22);
+    box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #0f172a, 0 2px 6px rgba(0,0,0,0.4) !important;
+}
+html[data-theme="dark"] .bubble-color-dot.active-swatch {
+    box-shadow: 0 0 0 2px #0f172a, 0 0 0 3.5px #38bdf8, 0 2px 6px rgba(0,0,0,0.6) !important;
+}
+
+/* 6 色圆点色彩 */
+.bubble-color-dot.dot-red { background: linear-gradient(135deg, #f87171, #ef4444); }
+.bubble-color-dot.dot-orange { background: linear-gradient(135deg, #fb923c, #f97316); }
+.bubble-color-dot.dot-yellow { background: linear-gradient(135deg, #fde047, #f59e0b); }
+.bubble-color-dot.dot-green { background: linear-gradient(135deg, #34d399, #10b981); }
+.bubble-color-dot.dot-blue { background: linear-gradient(135deg, #38bdf8, #0ea5e9); }
+.bubble-color-dot.dot-purple { background: linear-gradient(135deg, #a78bfa, #8b5cf6); }
+
+/* 荧光笔高亮模式开启时，色彩圆点柔和荧光发光 */
+#selection-quick-bubble.is-highlighter-mode .bubble-color-dot.dot-red { background: #fecdd3; box-shadow: 0 0 7px rgba(254, 205, 211, 0.85); }
+#selection-quick-bubble.is-highlighter-mode .bubble-color-dot.dot-orange { background: #fed7aa; box-shadow: 0 0 7px rgba(254, 215, 170, 0.85); }
+#selection-quick-bubble.is-highlighter-mode .bubble-color-dot.dot-yellow { background: #fef08a; box-shadow: 0 0 7px rgba(254, 240, 138, 0.85); }
+#selection-quick-bubble.is-highlighter-mode .bubble-color-dot.dot-green { background: #bbf7d0; box-shadow: 0 0 7px rgba(187, 247, 208, 0.85); }
+#selection-quick-bubble.is-highlighter-mode .bubble-color-dot.dot-blue { background: #bae6fd; box-shadow: 0 0 7px rgba(186, 230, 253, 0.85); }
+#selection-quick-bubble.is-highlighter-mode .bubble-color-dot.dot-purple { background: #e9d5ff; box-shadow: 0 0 7px rgba(233, 213, 255, 0.85); }
+
+/* 6 色卡片底色方块 (Card Background Swatches) */
+.bubble-card-swatch {
+    width: 15px;
+    height: 15px;
+    border-radius: 3.5px;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    outline: none;
+    flex-shrink: 0;
+}
+.bubble-card-swatch:hover {
+    transform: scale(1.25);
+}
+.bubble-card-swatch:active {
+    transform: scale(0.92);
+}
+.bubble-card-swatch.active-swatch {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 1.5px #fff, 0 0 0 3px #6366f1 !important;
+}
+.bubble-card-swatch.swatch-rose { background: #f43f5e; }
+.bubble-card-swatch.swatch-orange { background: #ea580c; }
+.bubble-card-swatch.swatch-amber { background: #f59e0b; }
+.bubble-card-swatch.swatch-emerald { background: #10b981; }
+.bubble-card-swatch.swatch-sky { background: #0ea5e9; }
+.bubble-card-swatch.swatch-violet { background: #8b5cf6; }
+
+/* 极简紧凑工具按钮 (Compact Icon Buttons) */
 .bubble-btn {
     border: 1px solid transparent;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(255, 255, 255, 0.05);
     color: var(--text-primary, #f1f5f9);
     cursor: pointer;
-    font-size: 13px;
-    padding: 3px 7px;
-    border-radius: 10px;
+    font-size: 12px;
+    padding: 2px 4.5px;
+    border-radius: 6px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s ease;
+    transition: all 0.14s ease;
     user-select: none;
+    min-width: 22px;
+    height: 24px;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
 html[data-theme="light"] .bubble-btn {
-    background: rgba(15, 23, 42, 0.05);
+    background: rgba(15, 23, 42, 0.04);
     color: #0f172a;
 }
 
 .bubble-btn:hover {
-    background: rgba(99, 102, 241, 0.25);
-    border-color: rgba(99, 102, 241, 0.5);
-    transform: scale(1.12);
+    background: rgba(99, 102, 241, 0.22);
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: scale(1.08);
 }
-
 .bubble-btn:active {
-    transform: scale(0.95);
+    transform: scale(0.94);
 }
-
 .bubble-btn.active {
-    background: rgba(56, 189, 248, 0.25) !important;
+    background: rgba(56, 189, 248, 0.22) !important;
     border-color: #38bdf8 !important;
     color: #38bdf8 !important;
 }
 
-.bubble-btn-swatch {
-    font-size: 13px;
-    padding: 2px 5px !important;
-    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
-}
-
-.bubble-btn.active-swatch {
-    background: rgba(255, 255, 255, 0.22) !important;
-    border-color: rgba(255, 255, 255, 0.9) !important;
-    box-shadow: 0 0 10px rgba(255, 255, 255, 0.55) !important;
-    transform: scale(1.18);
-}
-
-html[data-theme="light"] .bubble-btn.active-swatch {
-    background: rgba(15, 23, 42, 0.14) !important;
-    border-color: rgba(15, 23, 42, 0.8) !important;
-    box-shadow: 0 0 8px rgba(15, 23, 42, 0.35) !important;
+.bubble-btn-icon {
+    font-size: 12px;
+    line-height: 1;
 }
 
 .bubble-separator {
     width: 1px;
-    height: 16px;
-    background: rgba(148, 163, 184, 0.25);
-    margin: 0 2px;
+    height: 14px;
+    background: rgba(148, 163, 184, 0.22);
+    margin: 0 1.5px;
+    flex-shrink: 0;
+}
+
+/* iPad 无边记风格迷你悬浮胶囊 (Minimized Floating Pill) */
+.bubble-minimized-pill {
+    position: fixed;
+    z-index: 9999;
+    display: none;
+    align-items: center;
+    gap: 4px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    border-radius: 999px;
+    padding: 3px 9px;
+    cursor: pointer;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4), 0 0 10px rgba(56, 189, 248, 0.25);
+    user-select: none;
+    transition: transform 0.2s cubic-bezier(0.18, 1.4, 0.38, 1), box-shadow 0.2s ease;
+    height: 30px;
+    box-sizing: border-box;
+}
+html[data-theme="light"] .bubble-minimized-pill {
+    background: rgba(255, 255, 255, 0.94);
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.12);
+}
+.bubble-minimized-pill:hover {
+    transform: scale(1.08);
+    box-shadow: 0 8px 24px rgba(56, 189, 248, 0.35);
+}
+.bubble-minimized-pill:active {
+    transform: scale(0.95);
+}
+.mini-pill-dot {
+    width: 5.5px;
+    height: 5.5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.mini-pill-icon {
+    font-size: 13px;
+    line-height: 1;
+}
+.mini-pill-text {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-primary, #f1f5f9);
+    letter-spacing: 0.5px;
+}
+html[data-theme="light"] .mini-pill-text {
+    color: #0f172a;
 }
 
 /* OneNote 手写批注字体样式 */
@@ -2571,6 +2747,15 @@ html[data-theme="light"] .link-label-text {
 .card-bg-swatch.swatch-violet { background: #7c3aed; }
 
 /* 整卡语义背景底色 (深色模式与浅色模式自适应) */
+
+.canvas-note-card[data-card-bg="orange"] {
+    background: linear-gradient(135deg, rgba(154, 52, 18, 0.88), rgba(124, 45, 18, 0.92)) !important;
+    border-color: #fb923c !important;
+}
+html[data-theme="light"] .canvas-note-card[data-card-bg="orange"] {
+    background: #ffedd5 !important;
+    border-color: #f97316 !important;
+}
 .canvas-note-card[data-card-bg="rose"] {
     background: linear-gradient(135deg, rgba(136, 19, 55, 0.88), rgba(76, 5, 25, 0.92)) !important;
     border-color: #fb7185 !important;

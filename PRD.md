@@ -1,9 +1,24 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.8)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.9)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **iPad Freeform 6-Macaron Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync (v3.5.9 iPad 无边记 6 色调色盘、超紧凑格式栏与顶栏黄金单点云同步套件)**:
+  - **iPad 无边记 6 色马卡龙调色盘**：
+    - 针对用户最喜爱的 6 大经典清新马卡龙色系（珊瑚红、暖杏橙、琥珀金、薄荷绿、晴空蓝、薰衣草紫），深度区分高清晰高可读性「字体颜色」与柔和半透明「荧光笔涂色」，字色鲜明易读，荧光笔通透不抢眼；
+    - **独立荧光高亮笔模式切换 (`#btn-toggle-highlighter`)**：点击 `🖍️` 一键在「字体颜色」与「荧光笔高亮」之间丝滑切换，圆点提示与光标反馈极度清晰；
+    - **6 阶卡片底色色块 (`.bubble-card-swatch`)**：新增 `orange` 暖杏橙等 6 种完整卡片背景色，支持单选与框选整卡一键着色；
+  - **iPad 无边记风格一键缩小格式胶囊 (`#bubble-minimized-pill`)**：
+    - 点击工具栏右侧 `➖` 即可瞬间收缩为极简无边记迷你悬浮胶囊（`🎨 格式`），极大释放画布视野；
+    - 再次点击胶囊即刻平滑展开为完整工具栏，状态通过 `localStorage` 自动持久记忆；
+  - **消除顶栏猫头鹰冗余占用，纯净释放左侧面包屑视野**：
+    - 响应用户反馈彻底移除顶栏左侧猫头鹰吉祥物图标与 `FlowNotes` 品牌大字，顶栏左侧纯净呈现 OneNote 三级层级面包屑导航（`🧠 默认思维导图`）；
+  - **顶栏黄金单点云同步 (`#btnTopSync`)**：
+    - 彻底清理图谱底栏重复的「💾 同步」按键，将同步入口唯一统一至顶栏右上角黄金位置（`☁️ 云同步`）；
+    - 点击即可直通 GitHub 私有 Gist 双向同步，实时显示 `🟢 已同步` / `⏳ 同步中...` / `🔴 同步失败` 状态；
+  - **彻底根除幽灵详细笔记徽章**：
+    - 净化节点创建与行内编辑逻辑，未展开写笔记的节点 `content` 保持纯净空值，只有真正撰写有价值长篇笔记时才呈现 `📝` 图标。
 - **Natural Shrink-Wrap Auto-Sizing Engine & Truncation Recovery (v3.5.8 自然流式自适应包裹与截断标题无损恢复引擎)**:
   - **根本病因根除 (Zero Phantom Dead Space & Auto-Sizing Failure)**：彻底根除卡片自适应失败、右侧出现大片（80px~130px）空白死区的恶性排版 Bug。历史 Excalidraw 导入或旧版本在无意中将固定宽度（如 516px、464px、370px）硬编码写入了 `d.customWidth` 并驻留在本地缓存中；且旧版 `sanitizeGraph` 仅对长度 `<= 28` 的短词清理宽度，导致稍长单行卡片被永久死锁在固定大框中；
   - **自然流式包裹自适应 (`refreshNodeStyles` + `updateD3Graph`)**：只有当用户显式拖拽拉动手柄缩放卡片（`d._userResized === true`）或为图片卡片（`d.isImage`）时才应用固定宽度；普通卡片一律采用自然收缩自适应 `width: max-content; max-width: 520px;`，紧贴文字边缘，右侧空白死区降为 0px；

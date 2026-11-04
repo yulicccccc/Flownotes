@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.8 loaded — Natural Shrink-Wrap Auto-Sizing Engine & Truncation Recovery");
+    console.log("[FlowNotes] v3.5.9 loaded — iPad Freeform 6-Macaron Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -657,6 +657,14 @@ function sanitizeGraph() {
             const plainFirst = stripFormattingToPlainText(fullFirstLine);
             if (plainLabel && plainFirst.startsWith(plainLabel) && plainFirst.length > plainLabel.length) {
                 n.label = fullFirstLine;
+            }
+        }
+
+        // v3.5.9 彻底根除假详细笔记：若卡片未包含真正的详细笔记（只有单行标题或占位符），将 content 净化为空，杜绝误加 📝 徽章
+        if (!hasDetailedNote(n)) {
+            const isSingleLine = !n.content || !n.content.includes("\n\n");
+            if (isSingleLine && !n.hasUserNote) {
+                n.content = "";
             }
         }
 
@@ -1626,8 +1634,9 @@ function hasDetailedNote(d) {
         .join(" ")
         .trim();
 
-    // 只有在剩余的详细笔记正文中真正有内容（字数 > 5）时，才视为有详细笔记
-    return remainingText.length > 5;
+    // 只有在剩余详细笔记正文中真正有实质性内容（纯汉字/字母 > 5 个）时，才视为有详细笔记
+    const pureChars = remainingText.replace(/[\s\p{P}]/gu, "");
+    return pureChars.length > 5;
 }
 
 // 生成画布卡片内部直接显示的 HTML (v3.5.1 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记点进右侧面板呈现)
@@ -1915,7 +1924,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 d.content.trim() === d.label.trim() ||
                 d.content.trim() === `# ${d.label.trim()}`;
             if (isContentEmpty) {
-                d.content = `# ${d.label}\n\n`;
+                d.content = "";
             }
         }
 
@@ -4261,7 +4270,7 @@ function clearTextareaFormatAndLists(textarea) {
     textarea.focus();
 }
 
-function applyFormatting(format) {
+function applyFormatting(format, customVal = "") {
     const mdTextarea = document.getElementById("md-textarea");
     const richEditor = document.getElementById("rich-editor");
     const previewMode = document.getElementById("note-workspace").dataset.previewMode;
@@ -4549,16 +4558,58 @@ function applyFormatting(format) {
             showToast(willHw ? "✍️ 已将整个框内文字设为灵感批注手写体" : "已恢复默认印刷字体");
             break;
         }
+        case "color-custom": {
+            const cVal = customVal || "#ef4444";
+            const willApply = !targetNodes.every(n => n.textColor === cVal);
+            targetNodes.forEach(n => { n.textColor = willApply ? cVal : ""; });
+            showToast(willApply ? "🎨 已为整个框内文字设色" : "已恢复默认文字颜色");
+            break;
+        }
+        case "highlight-color": {
+            const hlVal = customVal || "#fef08a";
+            const willHl = !targetNodes.every(n => n.isHighlight && n.highlightColor === hlVal);
+            targetNodes.forEach(n => { 
+                n.isHighlight = willHl; 
+                if (willHl) n.highlightColor = hlVal;
+                else delete n.highlightColor;
+            });
+            showToast(willHl ? "🖍️ 已为整个框内文字添加荧光高亮" : "已取消整个框内高亮");
+            break;
+        }
         case "color-red": {
             const willRed = !targetNodes.every(n => n.textColor === "#ef4444");
             targetNodes.forEach(n => { n.textColor = willRed ? "#ef4444" : ""; });
-            showToast(willRed ? "🔴 已将整个框内文字设为红色" : "已恢复默认文字颜色");
+            showToast(willRed ? "🔴 已将整个框内文字设为珊瑚红" : "已恢复默认文字颜色");
+            break;
+        }
+        case "color-orange": {
+            const willOr = !targetNodes.every(n => n.textColor === "#f97316");
+            targetNodes.forEach(n => { n.textColor = willOr ? "#f97316" : ""; });
+            showToast(willOr ? "🟠 已将整个框内文字设为暖杏橙" : "已恢复默认文字颜色");
+            break;
+        }
+        case "color-yellow": {
+            const willYel = !targetNodes.every(n => n.textColor === "#f59e0b");
+            targetNodes.forEach(n => { n.textColor = willYel ? "#f59e0b" : ""; });
+            showToast(willYel ? "🟡 已将整个框内文字设为柠檬黄" : "已恢复默认文字颜色");
             break;
         }
         case "color-green": {
             const willGreen = !targetNodes.every(n => n.textColor === "#10b981");
             targetNodes.forEach(n => { n.textColor = willGreen ? "#10b981" : ""; });
-            showToast(willGreen ? "🟢 已将整个框内文字设为绿色" : "已恢复默认文字颜色");
+            showToast(willGreen ? "🟢 已将整个框内文字设为薄荷绿" : "已恢复默认文字颜色");
+            break;
+        }
+        case "color-blue": {
+            const willBlue = !targetNodes.every(n => n.textColor === "#0ea5e9");
+            targetNodes.forEach(n => { n.textColor = willBlue ? "#0ea5e9" : ""; });
+            showToast(willBlue ? "🔵 已将整个框内文字设为晴空蓝" : "已恢复默认文字颜色");
+            break;
+        }
+        case "color-purple": {
+            const willPur = !targetNodes.every(n => n.textColor === "#8b5cf6");
+            targetNodes.forEach(n => { n.textColor = willPur ? "#8b5cf6" : ""; });
+            showToast(willPur ? "🟣 已将整个框内文字设为薰衣草紫" : "已恢复默认文字颜色");
             break;
         }
         case "highlight": {
@@ -5350,10 +5401,11 @@ function importExcalidrawFile(parsed, fileName = "") {
             const customFont = (typeof el.fontSize === "number" && el.fontSize >= 20 && el.fontSize <= 64) ? el.fontSize : null;
 
             const firstLineStyled = styledContent.split("\n")[0].trim().slice(0, 160) || firstLine;
+            const isSingleShortText = !styledContent.includes("\n\n") && styledContent.length < 80;
             importedNodes.push({
                 id: nodeId,
                 label: firstLineStyled,
-                content: styledContent,
+                content: isSingleShortText ? "" : styledContent,
                 parentId: null,
                 order: idx,
                 createdAt: nowTs + idx,
@@ -6344,12 +6396,24 @@ function initSelectionQuickBubble() {
         document.body.appendChild(bubble);
     }
 
-    // 默认固定在画布上方中央（如 OneNote 格式区），用户可随时点击 📌/📍 切换为跟随选区浮动
+    // 迷你悬浮胶囊容器 (iPad 无边记一键缩小状态)
+    let miniPill = document.getElementById("bubble-minimized-pill");
+    if (miniPill && miniPill.parentElement !== document.body) {
+        document.body.appendChild(miniPill);
+    }
+
+    // 状态配置：停靠位置与 iPad 无边记收起状态
     let isDockedTop = localStorage.getItem("flownotes_bubble_docked") !== "float";
-    const dockBtn = bubble.querySelector('[data-action="toggle-dock"]') || document.getElementById("btn-toggle-bubble-dock");
+    let isBubbleMinimized = localStorage.getItem("flownotes_bubble_minimized") === "true";
+    let isHighlighterMode = false; // false=字体颜色模式, true=荧光高亮笔模式
+
+    const dockBtn = document.getElementById("btn-toggle-bubble-dock");
+    const minBtn = document.getElementById("btn-toggle-bubble-minimize");
+    const hlToggleBtn = document.getElementById("btn-toggle-highlighter");
 
     function updateDockUI() {
         bubble.classList.toggle("is-docked-top", isDockedTop);
+        if (miniPill) miniPill.classList.toggle("is-docked-top", isDockedTop);
         if (dockBtn) {
             dockBtn.innerHTML = isDockedTop ? "📌" : "📍";
             dockBtn.title = isDockedTop
@@ -6360,34 +6424,58 @@ function initSelectionQuickBubble() {
     }
     updateDockUI();
 
+    function updateHighlighterModeUI() {
+        if (hlToggleBtn) {
+            hlToggleBtn.classList.toggle("active", isHighlighterMode);
+            hlToggleBtn.title = isHighlighterMode
+                ? "🖍️ 荧光高亮笔模式：开启 (点击圆点为选中文本涂荧光底色，再次点击切换为字体颜色)"
+                : "🖍️ 切换为荧光高亮笔模式 (当前为文字字体颜色)";
+        }
+        // 更新圆点提示
+        bubble.querySelectorAll(".bubble-color-dot").forEach(dot => {
+            const colorName = dot.title.split(" ")[0];
+            dot.title = isHighlighterMode
+                ? `${colorName} 点击应用荧光笔划选高亮`
+                : `${colorName} 点击应用字体颜色`;
+        });
+    }
+    updateHighlighterModeUI();
+
     updateQuickBubblePosition = function() {
         const sel = window.getSelection();
         const hasTextSel = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim());
         const hasCardSel = !!selectedNode;
         const isEditingCard = !!document.querySelector(".canvas-note-card.is-editing");
 
-        // 只要没有划词选区、也没有选中卡片、也没有正在卡片内打字，则隐藏工具栏
+        // 只要没有划词选区、也没有选中卡片、也没有正在卡片内打字，则隐藏工具栏与缩小胶囊
         if (!hasTextSel && !hasCardSel && !isEditingCard) {
             bubble.style.display = "none";
+            if (miniPill) miniPill.style.display = "none";
             return;
         }
 
-        bubble.style.display = "flex";
-        const bubbleWidth = bubble.offsetWidth || 350;
+        const activeTargetEl = isBubbleMinimized ? miniPill : bubble;
+        const inactiveTargetEl = isBubbleMinimized ? bubble : miniPill;
+        if (inactiveTargetEl) inactiveTargetEl.style.display = "none";
+        if (activeTargetEl) activeTargetEl.style.display = isBubbleMinimized ? "inline-flex" : "flex";
+
+        const targetWidth = activeTargetEl ? (activeTargetEl.offsetWidth || (isBubbleMinimized ? 78 : 340)) : 340;
 
         if (isDockedTop) {
             // 固定在画布上方中央模式
             const container = document.getElementById("graph-container");
             if (!container) {
-                bubble.style.display = "none";
+                if (activeTargetEl) activeTargetEl.style.display = "none";
                 return;
             }
 
             const cRect = container.getBoundingClientRect();
-            const left = Math.max(10, cRect.left + (cRect.width / 2) - (bubbleWidth / 2));
+            const left = Math.max(10, cRect.left + (cRect.width / 2) - (targetWidth / 2));
             const top = Math.max(10, cRect.top + 14);
-            bubble.style.left = `${left}px`;
-            bubble.style.top = `${top}px`;
+            if (activeTargetEl) {
+                activeTargetEl.style.left = `${left}px`;
+                activeTargetEl.style.top = `${top}px`;
+            }
         } else {
             // 跟随选区 / 卡片悬浮模式
             let targetRect = null;
@@ -6407,47 +6495,41 @@ function initSelectionQuickBubble() {
             }
 
             if (!targetRect) {
-                bubble.style.display = "none";
+                if (activeTargetEl) activeTargetEl.style.display = "none";
                 return;
             }
 
-            const left = Math.max(10, targetRect.left + (targetRect.width / 2) - (bubbleWidth / 2));
+            const left = Math.max(10, targetRect.left + (targetRect.width / 2) - (targetWidth / 2));
             const top = Math.max(10, targetRect.top - 46);
-            bubble.style.left = `${left}px`;
-            bubble.style.top = `${top}px`;
+            if (activeTargetEl) {
+                activeTargetEl.style.left = `${left}px`;
+                activeTargetEl.style.top = `${top}px`;
+            }
         }
 
-        // 同步更新 3 个正方形框框填色按钮的激活高亮状态
+        // 同步更新 6 个背景底色块的激活状态
         const activeBg = (selectedNode && selectedNode.cardBgColor) || "";
-        const btnRose = bubble.querySelector('[data-action="bg-rose"]');
-        const btnEmerald = bubble.querySelector('[data-action="bg-emerald"]');
-        const btnAmber = bubble.querySelector('[data-action="bg-amber"]');
-        if (btnRose) btnRose.classList.toggle("active-swatch", activeBg === "rose");
-        if (btnEmerald) btnEmerald.classList.toggle("active-swatch", activeBg === "emerald");
-        if (btnAmber) btnAmber.classList.toggle("active-swatch", activeBg === "amber");
+        bubble.querySelectorAll(".bubble-card-swatch").forEach(sw => {
+            const swColor = sw.dataset.color || sw.dataset.action.replace("bg-", "");
+            sw.classList.toggle("active-swatch", activeBg === swColor);
+        });
 
         // 同步更新粗体、斜体、下划线、手写体、字色的激活高亮反馈状态
         const btnBold = bubble.querySelector('[data-action="bold"]');
         const btnItalic = bubble.querySelector('[data-action="italic"]');
         const btnUnderline = bubble.querySelector('[data-action="underline"]');
         const btnHandwriting = bubble.querySelector('[data-action="handwriting"]');
-        const btnRed = bubble.querySelector('[data-action="red"]');
-        const btnGreen = bubble.querySelector('[data-action="green"]');
 
         if (selectedNode) {
-            if (btnBold) btnBold.classList.toggle("active-swatch", !!selectedNode.isBold);
-            if (btnItalic) btnItalic.classList.toggle("active-swatch", !!selectedNode.isItalic);
-            if (btnUnderline) btnUnderline.classList.toggle("active-swatch", !!selectedNode.isUnderline);
-            if (btnHandwriting) btnHandwriting.classList.toggle("active-swatch", selectedNode.fontStyle === "handwriting");
-            if (btnRed) btnRed.classList.toggle("active-swatch", selectedNode.textColor === "#ef4444");
-            if (btnGreen) btnGreen.classList.toggle("active-swatch", selectedNode.textColor === "#10b981");
+            if (btnBold) btnBold.classList.toggle("active", !!selectedNode.isBold);
+            if (btnItalic) btnItalic.classList.toggle("active", !!selectedNode.isItalic);
+            if (btnUnderline) btnUnderline.classList.toggle("active", !!selectedNode.isUnderline);
+            if (btnHandwriting) btnHandwriting.classList.toggle("active", selectedNode.fontStyle === "handwriting");
         } else {
-            if (btnBold) btnBold.classList.remove("active-swatch");
-            if (btnItalic) btnItalic.classList.remove("active-swatch");
-            if (btnUnderline) btnUnderline.classList.remove("active-swatch");
-            if (btnHandwriting) btnHandwriting.classList.remove("active-swatch");
-            if (btnRed) btnRed.classList.remove("active-swatch");
-            if (btnGreen) btnGreen.classList.remove("active-swatch");
+            if (btnBold) btnBold.classList.remove("active");
+            if (btnItalic) btnItalic.classList.remove("active");
+            if (btnUnderline) btnUnderline.classList.remove("active");
+            if (btnHandwriting) btnHandwriting.classList.remove("active");
         }
     };
 
@@ -6458,21 +6540,83 @@ function initSelectionQuickBubble() {
         }
     });
     window.addEventListener("resize", () => {
-        if (bubble.style.display !== "none") updateQuickBubblePosition();
+        if (bubble.style.display !== "none" || (miniPill && miniPill.style.display !== "none")) updateQuickBubblePosition();
     });
 
     document.addEventListener("mousedown", (e) => {
         const inCanvasCard = !!(e.target && e.target.closest && e.target.closest(".canvas-note-card"));
         const inMultiBar = !!(e.target && e.target.closest && e.target.closest("#multi-select-action-bar"));
-        if (!bubble.contains(e.target) && (!richEditor || !richEditor.contains(e.target)) && !inCanvasCard && !inMultiBar) {
+        if (!bubble.contains(e.target) && (!miniPill || !miniPill.contains(e.target)) && (!richEditor || !richEditor.contains(e.target)) && !inCanvasCard && !inMultiBar) {
             setTimeout(() => {
                 if (!selectedNode && window.getSelection().isCollapsed) {
                     bubble.style.display = "none";
+                    if (miniPill) miniPill.style.display = "none";
                 }
             }, 30);
         }
     });
 
+    // 1. 颜色圆点 (6 色马卡龙色珠：支持字体颜色与荧光高亮笔模式)
+    bubble.querySelectorAll(".bubble-color-dot").forEach(dot => {
+        dot.addEventListener("mousedown", (e) => e.preventDefault());
+        dot.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (isHighlighterMode) {
+                const hlColor = dot.dataset.hl || "#fef08a";
+                applyFormatting("highlight-color", hlColor);
+            } else {
+                const fontColor = dot.dataset.color || "#ef4444";
+                applyFormatting("color-custom", fontColor);
+            }
+            setTimeout(updateQuickBubblePosition, 30);
+        });
+    });
+
+    // 2. 荧光笔模式切换
+    if (hlToggleBtn) {
+        hlToggleBtn.addEventListener("mousedown", (e) => e.preventDefault());
+        hlToggleBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            isHighlighterMode = !isHighlighterMode;
+            updateHighlighterModeUI();
+            showToast(isHighlighterMode ? "🖍️ 已切换为荧光笔模式 (点击上方圆点即可画荧光高亮)" : "🎨 已切换为字体颜色模式 (点击上方圆点修改字色)");
+        });
+    }
+
+    // 3. 背景卡片色块 (6 色马卡龙卡片底色)
+    bubble.querySelectorAll(".bubble-card-swatch").forEach(swatch => {
+        swatch.addEventListener("mousedown", (e) => e.preventDefault());
+        swatch.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const colorKey = swatch.dataset.color || swatch.dataset.action.replace("bg-", "");
+            toggleCardBgColor(colorKey);
+            setTimeout(updateQuickBubblePosition, 30);
+        });
+    });
+
+    // 4. iPad 无边记一键缩小与展开胶囊
+    if (minBtn) {
+        minBtn.addEventListener("mousedown", (e) => e.preventDefault());
+        minBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            isBubbleMinimized = true;
+            localStorage.setItem("flownotes_bubble_minimized", "true");
+            updateQuickBubblePosition();
+            showToast("➖ 已收起为 iPad 无边记格式胶囊 (点击胶囊即可随时展开)");
+        });
+    }
+
+    if (miniPill) {
+        miniPill.addEventListener("mousedown", (e) => e.preventDefault());
+        miniPill.addEventListener("click", (e) => {
+            e.stopPropagation();
+            isBubbleMinimized = false;
+            localStorage.setItem("flownotes_bubble_minimized", "false");
+            updateQuickBubblePosition();
+        });
+    }
+
+    // 5. 其余格式化按钮
     bubble.querySelectorAll(".bubble-btn").forEach(btn => {
         btn.addEventListener("mousedown", (e) => e.preventDefault());
         btn.addEventListener("click", (e) => {
@@ -6486,13 +6630,9 @@ function initSelectionQuickBubble() {
                 showToast(isDockedTop ? "📌 工具栏已固定在画布上方中央" : "📍 工具栏已切换为跟随选区悬浮", "info");
                 return;
             }
-            if (action === "bg-rose") toggleCardBgColor("rose");
-            else if (action === "bg-emerald") toggleCardBgColor("emerald");
-            else if (action === "bg-amber") toggleCardBgColor("amber");
-            else if (action === "handwriting") applyFormatting("handwriting");
-            else if (action === "red") applyFormatting("color-red");
-            else if (action === "green") applyFormatting("color-green");
-            else if (action === "highlight") applyFormatting("highlight");
+            if (action === "toggle-minimize" || action === "toggle-highlighter") return; // Handled above
+
+            if (action === "handwriting") applyFormatting("handwriting");
             else if (action === "bold") applyFormatting("bold");
             else if (action === "italic") applyFormatting("italic");
             else if (action === "underline") applyFormatting("underline");
@@ -6503,6 +6643,9 @@ function initSelectionQuickBubble() {
             else if (action === "clear") {
                 if (selectedNode) {
                     delete selectedNode.cardBgColor;
+                    delete selectedNode.highlightColor;
+                    selectedNode.isHighlight = false;
+                    selectedNode.textColor = "";
                     selectedNode.fontStyle = "";
                     selectedNode.customFontSize = null;
                     refreshNodeStyles();
@@ -7811,11 +7954,12 @@ function fitCanvasToAllNodes() {
 // 3. 整卡语义背景底色设置 (Heptabase / OneNote / XMind 风格)
 const CARD_BG_LABELS = {
     "": "🌌 默认深空",
-    "rose": "🌹 绯红底色 (核心问题/风险)",
-    "emerald": "🌿 翡翠底色 (结论/测量指标)",
-    "amber": "🟡 琥珀底色 (核心假设/警示)",
-    "sky": "💎 晴空底色 (方法/概念)",
-    "violet": "🔮 紫晶底色 (文献/灵感)"
+    "rose": "🌹 珊瑚红/玫瑰粉 (核心问题/风险)",
+    "orange": "🍊 暖杏橙 (关键洞察/思考)",
+    "amber": "🟡 柠檬黄/琥珀金 (核心假设/警示)",
+    "emerald": "🌿 薄荷绿 (结论/测量指标)",
+    "sky": "💎 晴空蓝 (方法/概念)",
+    "violet": "🔮 薰衣草紫 (文献/灵感)"
 };
 
 function toggleCardBgColor(colorKey = "", singleFallbackNode = null) {

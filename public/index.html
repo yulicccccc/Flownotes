@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.8)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.9)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,38 +13,15 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.5.8">
+    <link rel="stylesheet" href="index.css?v=3.5.9">
 </head>
 <body>
-    <!-- 顶部导航栏 (v3.5.2 现代化三段式极简顶栏) -->
+    <!-- 顶部导航栏 (v3.5.9 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
     <header class="navbar">
         <div class="navbar-left">
-            <div class="logo-group" id="logoGroup" title="FlowNotes - 点击查看智慧提示">
-                <div class="owl-mascot">
-                    <svg viewBox="0 0 100 100" class="owl-svg">
-                        <path d="M50 15 C30 15 18 32 18 58 C18 82 30 90 50 90 C70 90 82 82 82 58 C82 32 70 15 50 15 Z" fill="url(#owlGradient)" />
-                        <path d="M25 22 L15 8 L35 18 Z" fill="#6366f1" />
-                        <path d="M75 22 L85 8 L65 18 Z" fill="#6366f1" />
-                        <circle cx="36" cy="45" r="13" fill="#0f172a" stroke="#8b5cf6" stroke-width="2" />
-                        <circle cx="64" cy="45" r="13" fill="#0f172a" stroke="#8b5cf6" stroke-width="2" />
-                        <circle cx="36" cy="45" r="6" fill="#38bdf8" class="owl-eye" />
-                        <circle cx="64" cy="45" r="6" fill="#38bdf8" class="owl-eye" />
-                        <circle cx="38" cy="43" r="2.5" fill="#ffffff" />
-                        <circle cx="66" cy="43" r="2.5" fill="#ffffff" />
-                        <polygon points="50,53 45,63 55,63" fill="#f59e0b" />
-                        <path d="M42 75 Q50 82 58 75" stroke="rgba(255,255,255,0.3)" stroke-width="2" fill="none" stroke-linecap="round"/>
-                        <path d="M38 68 Q50 75 62 68" stroke="rgba(255,255,255,0.2)" stroke-width="2" fill="none" stroke-linecap="round"/>
-                        <defs>
-                            <linearGradient id="owlGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" stop-color="#4f46e5" />
-                                <stop offset="100%" stop-color="#7c3aed" />
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                </div>
-                <div class="current-map-badge onenote-breadcrumb" id="currentMapBadge" style="cursor:pointer;" title="点击打开 OneNote 笔记本中心">
-                    <span>🧠 默认思维导图</span>
-                </div>
+            <div id="logoGroup" style="display:none;"></div>
+            <div class="current-map-badge onenote-breadcrumb" id="currentMapBadge" style="cursor:pointer;" title="点击打开 OneNote 笔记本中心">
+                <span>🧠 默认思维导图</span>
             </div>
         </div>
 
@@ -91,9 +68,14 @@
                 <span id="themeIcon">🌙</span>
             </button>
 
-            <!-- 更多操作下拉菜单 (收纳安装桌面版、导出 Obsidian、退出登录) -->
+            <!-- 顶部常驻唯一云同步胶囊 (v3.5.9 统一步骤：对标 Image 2 黄金右上角，单点触发) -->
+            <button class="nav-sync-pill" id="btnTopSync" title="点击立即同步至 GitHub 私有 Gist，或配置云端备份">
+                <span class="sync-pill-text" id="syncPillText">☁️ 云同步</span>
+            </button>
+
+            <!-- 更多操作下拉菜单 (收纳导出 Obsidian、退出登录) -->
             <div class="navbar-more-wrap" id="navbarMoreWrap">
-                <button class="btn-icon-only btn-navbar-more" id="btnNavbarMore" title="更多功能 (导出、桌面版、退出)">
+                <button class="btn-icon-only btn-navbar-more" id="btnNavbarMore" title="更多功能 (导出、退出)">
                     <span>⋯</span>
                 </button>
                 <div class="navbar-dropdown-menu" id="navbarMoreDropdown" style="display: none;">
@@ -104,10 +86,6 @@
                     <button class="navbar-dropdown-item" id="exportObsidianBtn" title="导出支持 sync_to_obsidian.ps1 脚本的备份文件">
                         <span class="dropdown-item-icon">📦</span>
                         <span class="dropdown-item-text">导出为 Obsidian (JSON/MD)</span>
-                    </button>
-                    <button class="navbar-dropdown-item" id="btnInstallPwa" title="将 FlowNotes 安装到桌面/任务栏独立运行">
-                        <span class="dropdown-item-icon">📲</span>
-                        <span class="dropdown-item-text">安装为桌面独立客户端</span>
                     </button>
                     <div class="navbar-dropdown-divider"></div>
                     <button class="navbar-dropdown-item text-danger" id="btnLogout" title="退出登录">
@@ -174,7 +152,6 @@
                         <button class="io-btn" id="btn-export" title="导出 JSON 备份">⬇️ 导出</button>
                         <button class="io-btn" id="btn-import" title="导入 Excalidraw (.excalidraw) 或 FlowNotes 备份 (.json)">⬆️ 导入</button>
                         <button class="io-btn" id="btn-pull" title="从 GitHub 私有 Gist 拉取">↙️ 拉取</button>
-                        <button class="io-btn" id="btn-sync" title="立即同步到 GitHub Gist">💾 同步</button>
                         <button class="io-btn" id="btn-password" title="配置 GitHub 个人授权 Token 与私有 Gist 存储库 ID">🔐 密钥</button>
                         <span class="sync-status" id="sync-status" data-state="local">🟢 本地已保存 (Gist 已连通)</span>
                         <input type="file" id="file-input" accept=".excalidraw,.json,.pdf" style="display: none;">
@@ -297,28 +274,58 @@
 
                     <div id="note-workspace" data-preview-mode="live">
                         <!-- 划选文字与卡片微型悬浮/置顶格式工具栏 (Selection & Card Quick Bubble) -->
+                        <!-- 划选文字与卡片微型悬浮/置顶格式工具栏 (v3.5.9: iPad 无边记 6 色调色盘与超紧凑设计) -->
                         <div id="selection-quick-bubble">
-                            <!-- 1. 字体与高亮颜色 (圆圈代表字体与划选高亮) -->
-                            <button class="bubble-btn" data-action="red" title="🔴 字体标红 (选中文本或整卡, Ctrl+Shift+R)">🔴</button>
-                            <button class="bubble-btn" data-action="green" title="🟢 字体标绿 (选中文本或整卡, Ctrl+Shift+G)">🟢</button>
-                            <button class="bubble-btn" data-action="highlight" title="🟡 字体荧光高亮 (选中文本或整卡, Ctrl+Shift+H)">🟡</button>
+                            <!-- 1. iPad 无边记 6 色马卡龙调色盘 (圆点：字体颜色 / 荧光高亮) -->
+                            <div class="bubble-group bubble-group-dots" id="bubble-dots-group">
+                                <button class="bubble-color-dot dot-red" data-action="color-red" data-color="#ef4444" data-hl="#fecdd3" title="🔴 珊瑚红 / 玫瑰粉 (点击应用字体颜色)"></button>
+                                <button class="bubble-color-dot dot-orange" data-action="color-orange" data-color="#f97316" data-hl="#fed7aa" title="🟠 暖杏橙 (点击应用字体颜色)"></button>
+                                <button class="bubble-color-dot dot-yellow" data-action="color-yellow" data-color="#f59e0b" data-hl="#fef08a" title="🟡 柠檬黄 / 琥珀金 (点击应用字体颜色)"></button>
+                                <button class="bubble-color-dot dot-green" data-action="color-green" data-color="#10b981" data-hl="#bbf7d0" title="🟢 薄荷绿 (点击应用字体颜色)"></button>
+                                <button class="bubble-color-dot dot-blue" data-action="color-blue" data-color="#0ea5e9" data-hl="#bae6fd" title="🔵 晴空蓝 (点击应用字体颜色)"></button>
+                                <button class="bubble-color-dot dot-purple" data-action="color-purple" data-color="#8b5cf6" data-hl="#e9d5ff" title="🟣 薰衣草紫 (点击应用字体颜色)"></button>
+                            </div>
+                            
+                            <!-- 荧光笔高亮模式开关 -->
+                            <button class="bubble-btn bubble-btn-icon" data-action="toggle-highlighter" id="btn-toggle-highlighter" title="🖍️ 荧光笔高亮模式 (点击开启：点选上方 6 色圆点即可直接画无边记清新荧光高亮)">🖍️</button>
+
                             <span class="bubble-separator"></span>
-                            <!-- 2. 框框背景填色 (正方形代表卡片框框底色) -->
-                            <button class="bubble-btn bubble-btn-swatch" data-action="bg-rose" title="🟥 框框填色：绯红底色 (点击应用/再次点击恢复默认)">🟥</button>
-                            <button class="bubble-btn bubble-btn-swatch" data-action="bg-emerald" title="🟩 框框填色：翡翠底色 (点击应用/再次点击恢复默认)">🟩</button>
-                            <button class="bubble-btn bubble-btn-swatch" data-action="bg-amber" title="🟨 框框填色：琥珀底色 (点击应用/再次点击恢复默认)">🟨</button>
+
+                            <!-- 2. 6 色卡片框框底色方块 (正方形代表卡片背景底色) -->
+                            <div class="bubble-group bubble-group-swatches">
+                                <button class="bubble-card-swatch swatch-rose" data-action="bg-rose" title="🟥 框框底色：珊瑚绯红"></button>
+                                <button class="bubble-card-swatch swatch-orange" data-action="bg-orange" title="🟧 框框底色：暖杏甜橙"></button>
+                                <button class="bubble-card-swatch swatch-amber" data-action="bg-amber" title="🟨 框框底色：柠檬琥珀"></button>
+                                <button class="bubble-card-swatch swatch-emerald" data-action="bg-emerald" title="🟩 框框底色：薄荷翡翠"></button>
+                                <button class="bubble-card-swatch swatch-sky" data-action="bg-sky" title="🟦 框框底色：晴空冰蓝"></button>
+                                <button class="bubble-card-swatch swatch-violet" data-action="bg-violet" title="🟪 框框底色：薰衣草紫"></button>
+                            </div>
+
                             <span class="bubble-separator"></span>
+
                             <!-- 3. 文字与卡片格式套件 -->
-                            <button class="bubble-btn" data-action="bold" title="B 粗体 (选框整框变粗 / 划词局部变粗, Ctrl+B)" style="font-weight:800;">B</button>
-                            <button class="bubble-btn" data-action="italic" title="I 斜体 (选框整框变斜 / 划词局部变斜, Ctrl+I)" style="font-style:italic; font-weight:700; font-family:serif;">I</button>
-                            <button class="bubble-btn" data-action="underline" title="U 下划线 (选框整框加下划线 / 划词局部加下划线, Ctrl+U)" style="text-decoration:underline; font-weight:700;">U</button>
-                            <button class="bubble-btn" data-action="handwriting" title="✍️ 切换手写批注体 (选框整框设为手写 / 划词局部手写, Ctrl+Shift+W)" style="font-size:14px;">✍️</button>
-                            <button class="bubble-btn" data-action="todo" title="☑ 待办复选框 (Ctrl+1)">☑</button>
-                            <button class="bubble-btn" data-action="table" title="▦ 插入/扩展表格 (OneNote 经典表格, 按 Tab 跳格, 按 Enter 换行, Alt+T)" style="font-size:13px; font-weight:bold;">▦</button>
-                            <button class="bubble-btn" data-action="clear" title="🧹 擦除格式与框框底色 (Ctrl+Shift+\)">🧹</button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="bold" title="B 粗体 (Ctrl+B)"><strong>B</strong></button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="italic" title="I 斜体 (Ctrl+I)"><em>I</em></button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="underline" title="U 下划线 (Ctrl+U)"><u>U</u></button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="handwriting" title="✍️ 手写批注体 (Ctrl+Shift+W)">✍️</button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="todo" title="☑ 待办复选框 (Ctrl+1)">☑</button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="table" title="▦ 插入/扩展表格 (Alt+T)">▦</button>
+                            <button class="bubble-btn bubble-btn-icon" data-action="clear" title="🧹 擦除格式与底色 (Ctrl+Shift+)">🧹</button>
+
                             <span class="bubble-separator"></span>
-                            <!-- 4. 工具栏停靠切换 -->
-                            <button class="bubble-btn" data-action="toggle-dock" id="btn-toggle-bubble-dock" title="切换工具栏停靠方式：固定在画布上方 / 跟随选区悬浮">📌</button>
+
+                            <!-- 4. 停靠与 iPad 无边记一键缩小控制 -->
+                            <button class="bubble-btn bubble-btn-icon" data-action="toggle-dock" id="btn-toggle-bubble-dock" title="切换停靠方式：固定在画布上方 / 跟随选区悬浮">📌</button>
+                            <button class="bubble-btn bubble-btn-icon btn-minimize" data-action="toggle-minimize" id="btn-toggle-bubble-minimize" title="➖ 收起为无边记悬浮胶囊 (点击缩小，再次点击展开)">➖</button>
+                        </div>
+
+                        <!-- 5. iPad 无边记风格迷你悬浮胶囊 (缩小状态) -->
+                        <div id="bubble-minimized-pill" class="bubble-minimized-pill" title="🎨 点击展开排版与 6 色马卡龙调色盘 (iPad 无边记风格)">
+                            <span class="mini-pill-dot" style="background: #f59e0b;"></span>
+                            <span class="mini-pill-dot" style="background: #10b981;"></span>
+                            <span class="mini-pill-dot" style="background: #0ea5e9;"></span>
+                            <span class="mini-pill-icon">🎨</span>
+                            <span class="mini-pill-text">格式</span>
                         </div>
                         <div id="rich-editor" contenteditable="true" spellcheck="true"></div>
                         <textarea id="md-textarea" placeholder="在这里使用 Markdown 记录你的思考...&#10;&#10;使用 [[笔记名]] 快速引用关联卡片。"></textarea>
@@ -704,6 +711,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.5.8"></script>
+    <script src="app.js?v=3.5.9"></script>
 </body>
 </html>
