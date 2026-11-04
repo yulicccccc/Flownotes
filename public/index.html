@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.7)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.8)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.4.7">
+    <link rel="stylesheet" href="index.css?v=3.4.8">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -260,6 +260,7 @@
                         <button class="format-btn" data-format="bullet" title="无序列表 (按 -)">-</button>
                         <button class="format-btn" data-format="ordered" title="有序列表 (按 1.)">1.</button>
                         <button class="format-btn" data-format="task" title="任务列表">[ ]</button>
+                        <button class="format-btn" data-format="table" title="▦ 插入/扩展表格 (OneNote 风格表格, 按 Tab 跳格, 按 Enter 换行)">▦ 表格</button>
                         <button class="format-btn" data-format="link" title="链接 (Ctrl+K)">↗</button>
                         <input id="md-color" type="color" value="#ff6b6b" title="自定义调色盘">
                         <button class="format-btn" data-format="color" title="应用调色盘颜色 (Ctrl+Shift+C)">A</button>
@@ -288,6 +289,7 @@
                             <button class="bubble-btn" data-action="underline" title="U 下划线 (选框整框加下划线 / 划词局部加下划线, Ctrl+U)" style="text-decoration:underline; font-weight:700;">U</button>
                             <button class="bubble-btn" data-action="handwriting" title="✍️ 切换手写批注体 (选框整框设为手写 / 划词局部手写, Ctrl+Shift+W)" style="font-size:14px;">✍️</button>
                             <button class="bubble-btn" data-action="todo" title="☑ 待办复选框 (Ctrl+1)">☑</button>
+                            <button class="bubble-btn" data-action="table" title="▦ 插入/扩展表格 (OneNote 经典表格, 按 Tab 跳格, 按 Enter 换行, Alt+T)" style="font-size:13px; font-weight:bold;">▦</button>
                             <button class="bubble-btn" data-action="clear" title="🧹 擦除格式与框框底色 (Ctrl+Shift+\)">🧹</button>
                             <span class="bubble-separator"></span>
                             <!-- 4. 工具栏停靠切换 -->
@@ -659,6 +661,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.4.7"></script>
+    <script src="app.js?v=3.4.8"></script>
 </body>
 </html>

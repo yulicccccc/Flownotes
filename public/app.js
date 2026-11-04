@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.7 loaded — Dual-Track Word & Box Typography Formatting Engine");
+    console.log("[FlowNotes] v3.4.8 loaded — OneNote Interactive Card Table Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1576,20 +1576,103 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             bodyEl.blur();
             return;
         }
+
+        const activeSel = window.getSelection();
+        const activeCell = activeSel && activeSel.anchorNode
+            ? (activeSel.anchorNode.nodeType === 1 ? activeSel.anchorNode : activeSel.anchorNode.parentElement)?.closest("td, th")
+            : null;
+
+        // OneNote 招牌表格交互 1: Tab / Shift+Tab 单元格跳转与末尾自动加行
         if (e.key === "Tab") {
+            if (activeCell) {
+                e.preventDefault();
+                const activeTr = activeCell.closest("tr");
+                const activeTable = activeTr ? activeTr.closest("table") : null;
+                if (activeTable) {
+                    const allCells = Array.from(activeTable.querySelectorAll("th, td"));
+                    const currIdx = allCells.indexOf(activeCell);
+                    if (e.shiftKey) {
+                        const prevCell = allCells[currIdx - 1];
+                        if (prevCell) {
+                            const r = document.createRange();
+                            r.selectNodeContents(prevCell);
+                            activeSel.removeAllRanges();
+                            activeSel.addRange(r);
+                        }
+                    } else {
+                        if (currIdx < allCells.length - 1) {
+                            const nextCell = allCells[currIdx + 1];
+                            if (nextCell) {
+                                const r = document.createRange();
+                                r.selectNodeContents(nextCell);
+                                activeSel.removeAllRanges();
+                                activeSel.addRange(r);
+                            }
+                        } else {
+                            // 位于整个表格最后一个单元格：按 OneNote 黄金体验自动在末尾追加新行！
+                            const colCount = activeTr.children.length || 2;
+                            const newTr = document.createElement("tr");
+                            for (let c = 0; c < colCount; c++) {
+                                const newTd = document.createElement("td");
+                                newTd.innerHTML = "<br>";
+                                newTr.appendChild(newTd);
+                            }
+                            const tbody = activeTable.querySelector("tbody") || activeTable;
+                            tbody.appendChild(newTr);
+                            syncFromInlineCard();
+                            const firstCell = newTr.firstElementChild;
+                            if (firstCell) {
+                                const r = document.createRange();
+                                r.selectNodeContents(firstCell);
+                                r.collapse(true);
+                                activeSel.removeAllRanges();
+                                activeSel.addRange(r);
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+
             e.preventDefault();
             bodyEl.blur();
             if (e.shiftKey) promoteSelectedNode();
             else createChildNode();
             return;
         }
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "1") {
-            e.preventDefault();
-            bodyEl.blur();
-            toggleTodoOnSelectedCard(d);
-            return;
-        }
+
+        // OneNote 招牌表格交互 2: 在单元格内按 Enter 自动在下方插入新行并对齐当前列
         if (e.key === "Enter" && !e.isComposing && !isImeComposing) {
+            if (activeCell) {
+                if (e.altKey || e.shiftKey) {
+                    e.preventDefault();
+                    document.execCommand("insertLineBreak");
+                    syncFromInlineCard();
+                    return;
+                }
+                e.preventDefault();
+                const activeTr = activeCell.closest("tr");
+                const colIdx = Array.from(activeTr.children).indexOf(activeCell);
+                const colCount = activeTr.children.length;
+                const newTr = document.createElement("tr");
+                for (let c = 0; c < colCount; c++) {
+                    const newTd = document.createElement("td");
+                    newTd.innerHTML = "<br>";
+                    newTr.appendChild(newTd);
+                }
+                activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
+                syncFromInlineCard();
+                const targetCell = newTr.children[Math.min(colIdx, colCount - 1)] || newTr.firstElementChild;
+                if (targetCell) {
+                    const r = document.createRange();
+                    r.selectNodeContents(targetCell);
+                    r.collapse(true);
+                    activeSel.removeAllRanges();
+                    activeSel.addRange(r);
+                }
+                return;
+            }
+
             if (e.altKey) {
                 // XMind 经典：卡片内按 Alt + Enter 插入换行
                 e.preventDefault();
@@ -1602,6 +1685,13 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 bodyEl.blur();
                 return;
             }
+        }
+
+        // OneNote 招牌快捷键: Alt+T 极速插入表格
+        if (e.altKey && (e.key === "t" || e.key === "T" || e.code === "KeyT")) {
+            e.preventDefault();
+            applyFormatting("table");
+            return;
         }
         // 支持在画布卡片内直接使用 Ctrl+Shift+R/G/H/\ 快捷键标色
         if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
@@ -1907,7 +1997,7 @@ function updateD3Graph() {
                         renderEditor();
                         updateFloatingActionBarsPosition();
                     }
-                    showCanvasContextMenu(event.clientX, event.clientY, d);
+                    showCanvasContextMenu(event.clientX, event.clientY, d, event.target);
                 });
 
             // 画布富文本与图片直接渲染卡片容器 (<foreignObject>)
@@ -3406,6 +3496,13 @@ function initEvents() {
             }
         }
 
+        // OneNote 招牌快捷键: Alt+T 极速插入/扩展表格
+        if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "t" || e.key === "T" || e.code === "KeyT")) {
+            e.preventDefault();
+            applyFormatting("table");
+            return;
+        }
+
         if (isEditing) return;
 
         // Shift 键按下时在画布上即时呈现 crosshair 框选准星，给予 100% 直觉确定性
@@ -3694,6 +3791,14 @@ function applyFormatting(format) {
                 before = `<span class="font-handwriting">`;
                 after = "</span>";
                 break;
+            case "table": {
+                const tableTpl = `\n| 列 1 | 列 2 | 列 3 |\n| --- | --- | --- |\n| 内容 | 内容 | 内容 |\n`;
+                const replacement = (start === end) ? tableTpl : `\n| ${selected} | 详情 |\n| --- | --- |\n|  |  |\n`;
+                mdTextarea.setRangeText(replacement, start, end, "select");
+                mdTextarea.focus();
+                if (selectedNode) { selectedNode.content = mdTextarea.value; saveGraphToStorage(false); }
+                return;
+            }
             case "task": before = "- [ ] "; after = ""; break;
             case "link": before = "["; after = "](url)"; break;
             case "color":
@@ -3733,6 +3838,72 @@ function applyFormatting(format) {
     // 核心判定：用户是否在富文本区高亮划选了具体的某些词句（选区非空且长度大于0）
     const hasTextRange = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0);
     const isInlineWordFormatting = (activeInlineBody || inRichEditor) && hasTextRange;
+
+    // OneNote 经典表格插入与扩展处理
+    if (format === "table") {
+        const activeCell = sel && sel.anchorNode
+            ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.("td, th")
+            : null;
+
+        // 场景 A: 已经在单元格内，向下插入新行并跳转
+        if (activeCell) {
+            const activeTr = activeCell.closest("tr");
+            const colCount = activeTr ? activeTr.children.length : 2;
+            const newTr = document.createElement("tr");
+            for (let c = 0; c < colCount; c++) {
+                const td = document.createElement("td");
+                td.innerHTML = "<br>";
+                newTr.appendChild(td);
+            }
+            if (activeTr) {
+                activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
+            }
+            if (activeInlineBody && selectedNode) {
+                selectedNode.content = htmlToSafeMarkdown(activeInlineBody.innerHTML);
+                if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
+            } else if (inRichEditor && selectedNode) {
+                selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
+            }
+            scheduleSaveGraph(true);
+            const firstTd = newTr.firstElementChild;
+            if (firstTd && sel) {
+                const r = document.createRange();
+                r.selectNodeContents(firstTd);
+                r.collapse(true);
+                sel.removeAllRanges();
+                sel.addRange(r);
+            }
+            showToast("▦ 已在下方插入新行");
+            return;
+        }
+
+        // 场景 B: 正在编辑卡片文字，插入 2x2 表格
+        if (activeInlineBody || inRichEditor) {
+            const tableHtml = `<table class="canvas-card-table"><thead><tr><th>列 1</th><th>列 2</th></tr></thead><tbody><tr><td><br></td><td><br></td></tr></tbody></table><br>`;
+            document.execCommand("insertHTML", false, tableHtml);
+            if (activeInlineBody && selectedNode) {
+                selectedNode.content = htmlToSafeMarkdown(activeInlineBody.innerHTML);
+                if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
+            } else if (inRichEditor && selectedNode) {
+                selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
+            }
+            scheduleSaveGraph(true);
+            showToast("▦ 已插入 OneNote 风格卡片表格 (按 Tab 跳格，按 Enter 换行)");
+            return;
+        }
+
+        // 场景 C: 选中了卡片但未进入文字光标，直接向卡片内容追加表格
+        if (selectedNode) {
+            const tableMd = `\n\n| 列 1 | 列 2 |\n| --- | --- |\n| 内容 1 | 内容 2 |\n`;
+            selectedNode.content = (selectedNode.content || "") + tableMd;
+            renderEditor();
+            updateD3Graph();
+            renderPositions();
+            scheduleSaveGraph(true);
+            showToast("▦ 已为卡片插入表格");
+            return;
+        }
+    }
 
     // 分支 1：划词局部格式化 —— 仅改变被选中的具体字词
     if (isInlineWordFormatting) {
@@ -3953,6 +4124,48 @@ function htmlToSafeMarkdown(html) {
         if (node.nodeType === 1) {
             const tag = node.tagName.toLowerCase();
             
+            if (tag === "table") {
+                const rows = Array.from(node.querySelectorAll("tr"));
+                if (rows.length === 0) return "";
+                const tableMdLines = [];
+                let hasHeader = false;
+                
+                rows.forEach((tr, rIdx) => {
+                    const cells = Array.from(tr.children).filter(c => {
+                        const cTag = c.tagName.toLowerCase();
+                        return cTag === "th" || cTag === "td";
+                    });
+                    if (cells.length === 0) return;
+                    
+                    const isThRow = cells.some(c => c.tagName.toLowerCase() === "th") || rIdx === 0;
+                    const cellTexts = cells.map(cell => {
+                        let cText = Array.from(cell.childNodes).map(serializeNode).join("").trim();
+                        cText = cText.replace(/\r?\n+/g, " ").replace(/\|/g, "\\|");
+                        return cText || " ";
+                    });
+                    
+                    tableMdLines.push(`| ${cellTexts.join(" | ")} |`);
+                    
+                    if (isThRow && !hasHeader) {
+                        hasHeader = true;
+                        const delimiter = cells.map(() => "---").join(" | ");
+                        tableMdLines.push(`| ${delimiter} |`);
+                    }
+                });
+                
+                if (!hasHeader && tableMdLines.length > 0) {
+                    const colCount = rows[0].querySelectorAll("th, td").length || 2;
+                    const delimiter = Array(colCount).fill("---").join(" | ");
+                    tableMdLines.splice(1, 0, `| ${delimiter} |`);
+                }
+                
+                return `\n\n${tableMdLines.join("\n")}\n\n`;
+            }
+
+            if (tag === "thead" || tag === "tbody" || tag === "tr" || tag === "th" || tag === "td") {
+                return Array.from(node.childNodes).map(serializeNode).join("");
+            }
+
             if (tag === "ul") {
                 const items = Array.from(node.childNodes).map(child => {
                     if (child.nodeType === 1 && child.querySelector) {
@@ -4039,13 +4252,68 @@ function renderMarkdownToHTML(text) {
 
     let html = escapeHTML(protectedText);
 
-    // 解析 Markdown 列表 (包含 To-Do 复选框 - [ ] / - [x]、实心圆点 • 和数字序号 1.)
+    // 解析 Markdown 表格与列表 (包含 To-Do 复选框 - [ ] / - [x]、实心圆点 • 和数字序号 1.)
     const lines = html.split('\n');
     let inUl = false, inOl = false;
     let listProcessed = [];
     let taskCounter = 0;
 
-    lines.forEach(line => {
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // 优先检查 Markdown GFM 表格语法
+        const nextLine = (i + 1 < lines.length) ? lines[i + 1] : "";
+        const isTableHead = line.includes("|") && !line.trim().startsWith("#") && !line.trim().startsWith("- [");
+        const isNextDelim = isTableHead && /^\|?(\s*:?-+:?\s*\|?)+\s*$/.test(nextLine.trim()) && nextLine.includes("-");
+
+        if (isTableHead && isNextDelim) {
+            if (inUl) { listProcessed.push("</ul>"); inUl = false; }
+            if (inOl) { listProcessed.push("</ol>"); inOl = false; }
+
+            const parseCells = (rStr) => {
+                let s = rStr.trim();
+                if (s.startsWith("|")) s = s.slice(1);
+                if (s.endsWith("|")) s = s.slice(0, -1);
+                s = s.replace(/\\\|/g, "___ESCAPED_PIPE___");
+                return s.split("|").map(c => c.replace(/___ESCAPED_PIPE___/g, "|").trim());
+            };
+
+            const headerCells = parseCells(line);
+            const colCount = Math.max(1, headerCells.length);
+            const bodyRows = [];
+            let j = i + 2;
+            while (j < lines.length) {
+                const cur = lines[j];
+                if (!cur || !cur.trim() || !cur.includes("|")) break;
+                if (/^#{1,6}\s/.test(cur.trim())) break;
+                const bCells = parseCells(cur);
+                bodyRows.push(bCells);
+                j++;
+            }
+            i = j - 1;
+
+            if (bodyRows.length === 0) {
+                bodyRows.push(Array(colCount).fill(""));
+            }
+
+            let tHtml = '<table class="canvas-card-table"><thead><tr>';
+            headerCells.forEach(hc => {
+                tHtml += `<th>${hc || "<br>"}</th>`;
+            });
+            tHtml += '</tr></thead><tbody>';
+            bodyRows.forEach(row => {
+                tHtml += '<tr>';
+                for (let c = 0; c < colCount; c++) {
+                    const val = (row[c] !== undefined && row[c] !== "") ? row[c] : "<br>";
+                    tHtml += `<td>${val}</td>`;
+                }
+                tHtml += '</tr>';
+            });
+            tHtml += '</tbody></table>';
+            listProcessed.push(tHtml);
+            continue;
+        }
+
         const isTask = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(line);
         const isBullet = !isTask && /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
         const isOrdered = /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
@@ -4069,7 +4337,7 @@ function renderMarkdownToHTML(text) {
             if (inOl) { listProcessed.push("</ol>"); inOl = false; }
             listProcessed.push(line);
         }
-    });
+    }
     if (inUl) listProcessed.push("</ul>");
     if (inOl) listProcessed.push("</ol>");
 
@@ -4093,13 +4361,15 @@ function renderMarkdownToHTML(text) {
         .replace(/___U_START___/g, '<u>')
         .replace(/<\/u>/gi, '</u>');
 
-    // 清理 <br> 紧随 list 标签后的多余换行
+    // 清理 <br> 紧随 list 与 table 标签后的多余换行
     html = html
         .replace(/<\/ul><br>/gi, "</ul>")
         .replace(/<\/ol><br>/gi, "</ol>")
         .replace(/<\/li><br>/gi, "</li>")
         .replace(/<ul><br>/gi, "<ul>")
-        .replace(/<ol><br>/gi, "<ol>");
+        .replace(/<ol><br>/gi, "<ol>")
+        .replace(/<\/table><br>/gi, "</table>")
+        .replace(/<br><table/gi, "<table");
 
     return html;
 }
@@ -5243,6 +5513,7 @@ function initSelectionQuickBubble() {
             else if (action === "todo") {
                 if (selectedNode) toggleTodoOnSelectedCard(selectedNode);
             }
+            else if (action === "table") applyFormatting("table");
             else if (action === "clear") {
                 if (selectedNode) {
                     delete selectedNode.cardBgColor;
@@ -5527,7 +5798,7 @@ function initIntuitiveActionBarsAndContextMenu() {
             }
             const coords = d3.pointer(e, zoomContainer.node());
             lastCanvasMouseCoords = { x: coords[0], y: coords[1] };
-            showCanvasContextMenu(e.clientX, e.clientY, null);
+            showCanvasContextMenu(e.clientX, e.clientY, null, e.target);
         });
     }
 
@@ -5841,16 +6112,37 @@ function duplicateSelectedNodes() {
 }
 
 // 显示画布/卡片右键菜单
-function showCanvasContextMenu(clientX, clientY, targetNode) {
+function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
     const menu = document.getElementById("canvas-context-menu");
     if (!menu) return;
+
+    const targetCell = eventTarget ? (eventTarget.nodeType === 1 ? eventTarget : eventTarget.parentElement)?.closest?.("td, th") : null;
+    const targetTable = targetCell ? targetCell.closest("table") : (eventTarget ? (eventTarget.nodeType === 1 ? eventTarget : eventTarget.parentElement)?.closest?.("table") : null);
 
     if (targetNode) {
         const hasParent = !!targetNode.parentId;
         const hasKids = getDescendantCount(targetNode.id) > 0;
         const isImg = !!(targetNode.isImage && targetNode.imageUrl);
         const lineCount = String(targetNode.content || "").split("\n").map(s => s.trim()).filter(Boolean).length;
+        
+        let tableMenuItems = "";
+        if (targetCell && targetTable) {
+            tableMenuItems = `
+                <div class="ctx-item" data-cact="table-insert-row">➕ 在下方插入行 <span class="ctx-kbd">Enter</span></div>
+                <div class="ctx-item" data-cact="table-insert-col">➕ 在右侧插入列</div>
+                <div class="ctx-item" data-cact="table-delete-row">➖ 删除当前行</div>
+                <div class="ctx-item" data-cact="table-delete-col">➖ 删除当前列</div>
+                <div class="ctx-item danger" data-cact="table-delete">🗑️ 删除整个表格</div>
+                <div class="ctx-divider"></div>
+            `;
+        } else {
+            tableMenuItems = `
+                <div class="ctx-item" data-cact="insert-table">▦ 插入 OneNote 表格 <span class="ctx-kbd">Alt+T</span></div>
+            `;
+        }
+
         menu.innerHTML = `
+            ${tableMenuItems}
             <div class="ctx-item" data-cact="edit">${isImg ? "🔍 高清放大查看图片" : "✏️ 编辑卡片文字"} <span class="ctx-kbd">直接打字 / 双击</span></div>
             <div class="ctx-item" data-cact="toggle-handwriting">✍️ ${targetNode.fontStyle === "handwriting" ? "恢复默认印刷字体" : "切换为灵感批注手写体"} <span class="ctx-kbd">Ctrl+Shift+W</span></div>
             <div class="ctx-item" data-cact="todo">☑ 切换待办复选框 <span class="ctx-kbd">Ctrl+1</span></div>
@@ -5936,7 +6228,113 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
             e.stopPropagation();
             const act = item.dataset.cact;
             hideCanvasContextMenu();
-            if (act === "edit" && targetNode) {
+            if (act === "insert-table") {
+                applyFormatting("table");
+            }
+            else if (act === "table-insert-row" && targetNode && targetTable && targetCell) {
+                const activeTr = targetCell.closest("tr");
+                if (activeTr) {
+                    const colCount = activeTr.children.length;
+                    const newTr = document.createElement("tr");
+                    for (let c = 0; c < colCount; c++) {
+                        const newTd = document.createElement("td");
+                        newTd.innerHTML = "<br>";
+                        newTr.appendChild(newTd);
+                    }
+                    activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
+                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
+                    if (bodyEl) {
+                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
+                    }
+                    renderEditor();
+                    updateD3Graph();
+                    renderPositions();
+                    scheduleSaveGraph(true);
+                    showToast("➕ 已在下方插入新行");
+                }
+            }
+            else if (act === "table-insert-col" && targetNode && targetTable && targetCell) {
+                const activeTr = targetCell.closest("tr");
+                if (activeTr) {
+                    const cIdx = Array.from(activeTr.children).indexOf(targetCell);
+                    const allRows = Array.from(targetTable.querySelectorAll("tr"));
+                    allRows.forEach(row => {
+                        const isTh = !!row.querySelector("th");
+                        const newCell = document.createElement(isTh ? "th" : "td");
+                        newCell.innerHTML = isTh ? "新列" : "<br>";
+                        const refCell = row.children[cIdx];
+                        if (refCell && refCell.nextSibling) {
+                            row.insertBefore(newCell, refCell.nextSibling);
+                        } else {
+                            row.appendChild(newCell);
+                        }
+                    });
+                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
+                    if (bodyEl) {
+                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
+                    }
+                    renderEditor();
+                    updateD3Graph();
+                    renderPositions();
+                    scheduleSaveGraph(true);
+                    showToast("➕ 已在右侧插入新列");
+                }
+            }
+            else if (act === "table-delete-row" && targetNode && targetTable && targetCell) {
+                const activeTr = targetCell.closest("tr");
+                if (activeTr) {
+                    const allRows = Array.from(targetTable.querySelectorAll("tr"));
+                    if (allRows.length <= 1) {
+                        targetTable.remove();
+                    } else {
+                        activeTr.remove();
+                    }
+                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
+                    if (bodyEl) {
+                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
+                    }
+                    renderEditor();
+                    updateD3Graph();
+                    renderPositions();
+                    scheduleSaveGraph(true);
+                    showToast("➖ 已删除当前行");
+                }
+            }
+            else if (act === "table-delete-col" && targetNode && targetTable && targetCell) {
+                const activeTr = targetCell.closest("tr");
+                if (activeTr) {
+                    const cIdx = Array.from(activeTr.children).indexOf(targetCell);
+                    const allRows = Array.from(targetTable.querySelectorAll("tr"));
+                    allRows.forEach(row => {
+                        if (row.children[cIdx]) row.children[cIdx].remove();
+                    });
+                    if (activeTr.children.length === 0) {
+                        targetTable.remove();
+                    }
+                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
+                    if (bodyEl) {
+                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
+                    }
+                    renderEditor();
+                    updateD3Graph();
+                    renderPositions();
+                    scheduleSaveGraph(true);
+                    showToast("➖ 已删除当前列");
+                }
+            }
+            else if (act === "table-delete" && targetNode && targetTable) {
+                const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
+                targetTable.remove();
+                if (bodyEl) {
+                    targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
+                }
+                renderEditor();
+                updateD3Graph();
+                renderPositions();
+                scheduleSaveGraph(true);
+                showToast("🗑️ 已删除整个表格");
+            }
+            else if (act === "edit" && targetNode) {
                 if (targetNode.isImage && targetNode.imageUrl) openImageLightbox(targetNode);
                 else startInlineCardEditById(targetNode.id, false);
             }

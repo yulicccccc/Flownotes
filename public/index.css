@@ -1083,6 +1083,92 @@ html[data-theme="light"] .bubble-btn.active-swatch {
     text-decoration: underline !important;
 }
 
+/* ==========================================
+   v3.4.8: OneNote 风格现代化交互卡片表格 (OneNote Interactive Card Table)
+   ========================================== */
+.canvas-card-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 8px 0;
+    width: 100%;
+    min-width: 200px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(15, 23, 42, 0.55);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+html[data-theme="light"] .canvas-card-table {
+    background: rgba(248, 250, 252, 0.9);
+    border-color: rgba(203, 213, 225, 0.85);
+}
+
+.canvas-card-table th {
+    background: rgba(56, 189, 248, 0.14);
+    color: var(--text-primary, #f1f5f9);
+    font-weight: 700;
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.28);
+    border-right: 1px solid rgba(148, 163, 184, 0.2);
+    text-align: left;
+    white-space: nowrap;
+    position: relative;
+}
+
+html[data-theme="light"] .canvas-card-table th {
+    background: rgba(79, 70, 229, 0.08);
+    color: #1e293b;
+}
+
+.canvas-card-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    border-right: 1px solid rgba(148, 163, 184, 0.16);
+    color: var(--text-primary, #e2e8f0);
+    min-width: 60px;
+    min-height: 22px;
+    transition: background 0.12s ease;
+    outline: none;
+}
+
+html[data-theme="light"] .canvas-card-table td {
+    color: #334155;
+    border-color: rgba(226, 232, 240, 0.9);
+}
+
+.canvas-card-table th:last-child,
+.canvas-card-table td:last-child {
+    border-right: none;
+}
+
+.canvas-card-table tr:last-child td {
+    border-bottom: none;
+}
+
+.canvas-card-table tr:hover td {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+html[data-theme="light"] .canvas-card-table tr:hover td {
+    background: rgba(15, 23, 42, 0.03);
+}
+
+/* 单元格聚焦与原地编辑时的 OneNote 风格柔和高亮微圈 */
+.canvas-card-table td:focus,
+.canvas-card-table th:focus {
+    background: rgba(56, 189, 248, 0.18) !important;
+    box-shadow: inset 0 0 0 1.5px #38bdf8;
+    border-radius: 2px;
+}
+
+/* 卡片包含表格时的自适应伸缩 */
+.canvas-note-card:has(.canvas-card-table),
+.canvas-note-card.has-table {
+    min-width: 260px;
+}
+
 .color-preset-btn {
     font-size: 11px !important;
     padding: 0 6px !important;

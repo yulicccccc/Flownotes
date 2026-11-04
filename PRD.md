@@ -1,9 +1,21 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.7)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.8)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote Interactive Card Table Suite (v3.4.8 OneNote 交互式卡片表格套件)**:
+  - **GFM Markdown 双向无损表格渲染与序列化**：卡片支持标准 Markdown 表格语法（`| 列 1 | 列 2 |\n| --- | --- |\n| 内容 1 | 内容 2 |`）。画布卡片与右侧编辑器将表格渲染为优雅高质感的 `.canvas-card-table`；保存与编辑时自动双向无损序列化，并完美兼容单元格内的加粗、斜体、手写体、颜色与高亮。
+  - **OneNote 招牌按键与极速流转体验**：
+    - `Tab`：在当前表格单元格中向后跳转；在表格最后一行的最后一个单元格按下 `Tab` 时，系统自动在表格底部追加新行并将光标精准置于新行首列，零顿挫连续录入；
+    - `Shift+Tab`：向前逆向跳转单元格；
+    - `Enter`：在单元格内直接回车，自动在下方插入新行并保持当前列垂直对齐；
+    - `Alt+Enter` / `Shift+Enter`：在当前单元格内插入换行；
+    - `Alt+T`：极速在当前卡片插入或扩展表格。
+  - **双重可视化入口与右键智能上下文操作**：
+    - 中央顶部快捷栏新增 `▦` 按钮，右侧 Markdown 格式栏新增 `▦ 表格` 按钮；
+    - 右键菜单自适应检测：当光标处于表格单元格内部时，右键菜单顶部自动呈现「➕ 在下方插入行」、「➕ 在右侧插入列」、「➖ 删除当前行」、「➖ 删除当前列」与「🗑️ 删除整个表格」；非表格状态下提供「▦ 插入 OneNote 表格」。
+  - **自适应伸缩与深浅色主题适配**：卡片包含表格时自动展开最小宽度（260px），暗夜深空与明亮主题自适应微光边框、表头蓝调微衬底与悬停单元格柔和光效。
 - **Dual-Track Word & Box Typography Formatting Engine (v3.4.7 划词局部标色与选框整框排版双轨格式化引擎)**:
   - **核心交互原则（划词变局部，选框变整框）**：
     - **划选具体字词时**：点击粗体 `B`、斜体 `I`、下划线 `U`、手写体 `✍️`、红 `🔴`、绿 `🟢`、黄高亮 `🟡`，仅精确格式化所高亮选中的词句，完美保留卡片内其他文本的原生面貌。

@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.7)
+# Project State: FlowNotes (v3.4.8)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.7`
+- **Current Version**: `v3.4.8`
 - **Latest Releases**:
+  - `v3.4.8`:
+    - **OneNote Interactive Card Table Suite (`renderMarkdownToHTML` + `htmlToSafeMarkdown` + `applyFormatting` + Table Cell Keyboard Navigation + Context Menu Table Suite)**: Brought full OneNote-style table creation, navigation, and editing directly into FlowNotes mindmap cards and Markdown editor. Full GFM Markdown table rendering into interactive, styled `<table class="canvas-card-table">`; bi-directional lossless Markdown serialization supporting inline bold, italic, handwriting, and colors; OneNote signature `Tab` cell jumping (with automatic new row generation at last cell), `Shift+Tab` previous cell jumping, `Enter` insert row below and focus directly underneath, and `Alt+T` quick table shortcut; quick formatting bubble & editor toolbar button `▦`; right-click context menu row/column manipulation tools (`table-insert-row`, `table-insert-col`, `table-delete-row`, `table-delete-col`, `table-delete`).
   - `v3.4.7`:
     - **Dual-Track Word & Box Typography Formatting Engine (`applyFormatting` + Box Level Bold/Italic/Underline/Handwriting/Color + Inline Selection Precision)**: Solved formatting ambiguity between individual words and whole card boxes. Selecting specific text modifies only those words (`<strong>`, `<em>`, `<u>`, `<span style="color">`); selecting a card box without highlighted words applies formatting (Bold, Italic, Underline, Strike, Handwriting, Red/Green Text, Amber Highlight, Clear) to the **entire box's text** with smart toggle and active button feedback; added `I` (Italic) button to quick bubble; bound `Ctrl+B`, `Ctrl+I`, `Ctrl+U` shortcuts.
   - `v3.4.6`:
