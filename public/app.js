@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.3 loaded — Pure Header & Unified Bottom Sync");
+    console.log("[FlowNotes] v3.5.4 loaded — Card Typography & Word Highlighting Precision Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1393,6 +1393,89 @@ function renderPositions() {
     }
 }
 
+// v3.5.4 颜色格式标准化辅助函数：统一将 rgb(r, g, b) 转换为十六进制字符串 #rrggbb
+function stripFormattingToPlainText(text) {
+    if (!text) return "";
+    return text
+        .replace(/<[^>]+>/g, "")
+        .replace(/==([^=]+)==/g, "$1")
+        .replace(/\*\*([^*]+)\*\*/g, "$1")
+        .replace(/\*([^*]+)\*/g, "$1")
+        .replace(/~~([^~]+)~~/g, "$1")
+        .replace(/`([^`]+)`/g, "$1")
+        .trim();
+}
+
+function rgbToHex(color) {
+    if (!color) return "#ef4444";
+    if (color.startsWith("#")) return color;
+    const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (match) {
+        const r = parseInt(match[1], 10).toString(16).padStart(2, "0");
+        const g = parseInt(match[2], 10).toString(16).padStart(2, "0");
+        const b = parseInt(match[3], 10).toString(16).padStart(2, "0");
+        return `#${r}${g}${b}`;
+    }
+    return color;
+}
+
+// v3.5.4 卡片标题富文本序列化器：将编辑区 DOM 节点精确序列化为支持行内颜色、高亮、加粗、手写体的轻量 Markdown/HTML 标记
+function serializeCardLabelFromHTML(html) {
+    if (!html) return "未命名";
+    const temp = document.createElement("div");
+    temp.innerHTML = html;
+
+    function serializeInline(node) {
+        if (node.nodeType === 3) {
+            return node.textContent;
+        }
+        if (node.nodeType === 1) {
+            const tag = node.tagName.toLowerCase();
+            if (tag === "br") return "\n";
+            const inner = Array.from(node.childNodes).map(serializeInline).join("");
+
+            if (tag === "b" || tag === "strong") return `**${inner}**`;
+            if (tag === "i" || tag === "em") return `*${inner}*`;
+            if (tag === "u") return `<u>${inner}</u>`;
+            if (tag === "s" || tag === "del" || tag === "strike") return `~~${inner}~~`;
+            if (tag === "code") return `\`${inner}\``;
+            if (tag === "mark") return `==${inner}==`;
+
+            // 背景荧光高亮 (hiliteColor / backColor)
+            if (node.style && node.style.backgroundColor) {
+                const bg = node.style.backgroundColor.toLowerCase();
+                if (bg && bg !== "transparent" && bg !== "inherit" && !bg.includes("rgba(0, 0, 0, 0)")) {
+                    return `==${inner}==`;
+                }
+            }
+
+            // 字体标色
+            let color = "";
+            if (tag === "font" && node.color) {
+                color = node.color;
+            } else if (node.style && node.style.color) {
+                color = node.style.color;
+            }
+            if (color) {
+                const hexColor = rgbToHex(color);
+                return `<span style="color:${hexColor}">${inner}</span>`;
+            }
+
+            // 手写批注字体
+            if (tag === "span" && node.classList && node.classList.contains("font-handwriting")) {
+                return `<span class="font-handwriting">${inner}</span>`;
+            }
+
+            return inner;
+        }
+        return "";
+    }
+
+    const lines = Array.from(temp.childNodes).map(serializeInline).join("").split("\n").map(s => s.trim()).filter(Boolean);
+    const firstLine = lines[0] || "未命名";
+    return firstLine.replace(/^\[[ xX]\]\s*/, "") || "未命名";
+}
+
 // v3.5.1 卡片标题专用富文本渲染器：仅渲染行内加粗、斜体、手写体、颜色与复选框，绝不自动转为 <ol> 列表，保证 1.、2.、4. 等数字序号原汁原味！
 function renderCardLabelHTML(text) {
     if (!text) return "";
@@ -1660,8 +1743,8 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     }
 
     const syncFromInlineCard = () => {
-        const rawLabel = bodyEl.innerText.split("\n").map(s => s.trim()).find(Boolean) || "未命名";
-        d.label = rawLabel.replace(/^\[[ xX]\]\s*/, "") || "未命名";
+        // v3.5.4 精确行内富文本标题序列化：保留标红、标绿、高亮、加粗、手写体等行内样式
+        d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
 
         // 仅在 content 为空或无有效详细笔记时，才初始化 content；如果已有详细长笔记，绝不覆盖！
         const isContentEmpty = !d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容...");
@@ -1673,7 +1756,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         const mdTextarea = document.getElementById("md-textarea");
         const richEditor = document.getElementById("rich-editor");
         if (selectedNode && selectedNode.id === d.id) {
-            if (titleInput) titleInput.value = d.label;
+            if (titleInput) titleInput.value = stripFormattingToPlainText(d.label);
             if (isContentEmpty) {
                 if (mdTextarea) mdTextarea.value = d.content;
                 if (richEditor && document.activeElement !== richEditor) {
@@ -4130,7 +4213,13 @@ function applyFormatting(format) {
             case "underline": document.execCommand("underline"); break;
             case "strike": document.execCommand("strikeThrough"); break;
             case "highlight":
-                document.execCommand("hiliteColor", false, "#fef08a");
+                try {
+                    if (!document.execCommand("hiliteColor", false, "#fef08a")) {
+                        document.execCommand("backColor", false, "#fef08a");
+                    }
+                } catch (e) {
+                    document.execCommand("backColor", false, "#fef08a");
+                }
                 break;
             case "color":
                 const color = document.getElementById("md-color").value || "#ff6b6b";
@@ -4162,12 +4251,14 @@ function applyFormatting(format) {
             default: return;
         }
 
-        // 划词修改后立即同步到底层数据
+        // 划词修改后立即同步到底层数据 (v3.5.4 精确保留卡片标题行内高亮与颜色)
         if (selectedNode) {
             if (activeInlineBody) {
-                selectedNode.content = htmlToSafeMarkdown(activeInlineBody.innerHTML);
-                const plainFirst = activeInlineBody.innerText.split("\n").map(s => s.trim()).find(Boolean);
-                if (plainFirst) selectedNode.label = plainFirst.slice(0, 42);
+                selectedNode.label = serializeCardLabelFromHTML(activeInlineBody.innerHTML);
+                const isContentEmpty = !selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...");
+                if (isContentEmpty) {
+                    selectedNode.content = `# ${selectedNode.label}\n\n`;
+                }
                 if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
             } else if (richEditor) {
                 selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
@@ -4590,7 +4681,7 @@ function renderEditor() {
         const cleanContent = cleanHTMLSpill(selectedNode.content || "");
         selectedNode.content = cleanContent;
 
-        titleInput.value = selectedNode.label;
+        titleInput.value = stripFormattingToPlainText(selectedNode.label);
         titleInput.disabled = false;
         mdTextarea.value = cleanContent;
         richEditor.innerHTML = renderMarkdownToHTML(cleanContent);

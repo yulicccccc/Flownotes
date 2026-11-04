@@ -2,6 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.4] - 2026-11-04
+
+### 🖍️ 画布卡片行内划词变色、荧光高亮与排版精准引擎 (Canvas Title Word Typography Engine)
+- **🎯 彻底修复划词标红/标绿/高亮丢失 Bug**：
+  - 根除了在脑图卡片上划选具体字词并点击 🔴 标红、🟢 标绿、🟡 荧光高亮、✍️ 手写批注、B 粗体、U 下划线后无法变色或失焦后退化为纯文本的严重缺陷；
+  - 引入全新的行内富文本序列化器 `serializeCardLabelFromHTML`，取代原先粗暴提取 `innerText` 导致样式丢失的旧逻辑；
+  - 严密适配 Chrome `execCommand` 生成的 `<font color="...">` 与 `rgb(r, g, b)` 格式，自动转换为标准化十六进制色值；
+- **🎨 绚丽高亮与右侧标题框双向脱敏**：
+  - 画布卡片无论是展示态还是原地编辑态，均 100% 保留并呈现绚丽的行内字体颜色与发光高亮（`<mark>`）；
+  - 右侧详情面板的标题输入框自动净化 HTML 标签（`stripFormattingToPlainText`），绝不泄漏底层代码；
+- **🛡️ 格式工具栏防失焦护盾**：
+  - 强化 `#selection-quick-bubble` 的全局事件保护，杜绝点击工具栏缝隙或按钮时输入框失焦导致划选选区被清空的交互缺陷。
+
 ## 🚀 [v3.5.3] - 2026-11-04
 
 ### 🧹 统一数据同步架构与顶栏极致精简套件 (Unified Data Sync & Pure Top Header)

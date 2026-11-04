@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.3)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.4)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Canvas Title Inline Word Typography & Highlighting Precision Engine (v3.5.4 画布卡片行内划词变色、荧光高亮与排版精准引擎)**:
+  - **核心缺陷根除 (Zero-Loss Inline Typography)**：彻底修复在思维图谱画布上划选具体字词（如“清洗数据”）后，点击 🔴 标红、🟢 标绿、🟡 荧光高亮、✍️ 手写批注、B 粗体、U 下划线等格式化按钮无法保留或失焦后退化为纯文本的严重 Bug；
+  - **精准行内 DOM 序列化器 (`serializeCardLabelFromHTML`)**：重构卡片标题提取逻辑，引入精确的行内 Markdown 与 HTML 序列化器，告别单纯调用 `innerText` 抹杀样式的旧方案；精准保留 `<span style="color:#ef4444">`、`<mark>`、`<strong>`、`<u>`、`<span class="font-handwriting">` 等所有视觉表现；
+  - **双向高保真渲染与右侧标题输入框脱敏**：
+    - 画布卡片展示与编辑时 100% 呈现绚丽行内色彩与高亮；
+    - 右侧详细笔记面板标题输入框自动滤除底层 HTML 标签，呈现干干净净的纯文本（`stripFormattingToPlainText`），杜绝底层标签泄漏到输入框；
+  - **格式工具栏防失焦全局护盾**：在 `#selection-quick-bubble` 上增加防失焦护盾（`e.preventDefault()`），彻底防止点击格式栏任何区域或缝隙造成画布卡片失焦或浏览器选区丢失。
 - **Unified Data Sync Architecture & Top Bar Simplification (v3.5.3 统一数据同步架构与顶栏极致精简套件)**:
   - **消除双重同步混淆 (Eliminate Duplicate Sync Confusion)**：针对界面顶部导航栏与底部操作栏同时出现「同步」按钮的冗余冲突，彻底移除了顶部导航栏的常驻「☁️ 云同步」胶囊，将其收拢至「⋯ 更多」操作下拉菜单中（作为「☁️ GitHub 云端同步设置」选项）；
   - **归一至底部操作栏 (Unified to Bottom Dock)**：明确系统操作职责划分——底部操作栏（`#io-controls`）作为唯一的【导出 / 导入 / 拉取 / 同步 / 密钥】数据中心，用户在底部一键点击「💾 同步」即可立即触发数据增量推送到 GitHub Gist，零歧义零认知负担；

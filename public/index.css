@@ -3620,3 +3620,16 @@ html[data-theme="light"] .pomo-item-title {
     font-size: 12px;
 }
 
+
+/* v3.5.4 卡片与编辑器高亮 <mark> 样式 */
+mark,
+.canvas-note-card mark,
+.canvas-note-card-body mark,
+#rich-editor mark {
+    background-color: #fef08a !important;
+    color: #0f172a !important;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: 600;
+    box-shadow: 0 0 6px rgba(254, 240, 138, 0.4);
+}
