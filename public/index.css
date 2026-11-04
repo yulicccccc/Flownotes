@@ -1047,6 +1047,42 @@ html[data-theme="light"] .bubble-btn.active-swatch {
     display: inline-block;
 }
 
+/* 卡片整体排版与字形样式 (Card-Level Whole Box Typography) */
+.canvas-note-card.is-card-bold,
+.canvas-note-card.is-card-bold .canvas-note-card-body {
+    font-weight: 700 !important;
+}
+
+.canvas-note-card.is-card-italic,
+.canvas-note-card.is-card-italic .canvas-note-card-body {
+    font-style: italic !important;
+}
+
+.canvas-note-card.is-card-underline,
+.canvas-note-card.is-card-underline .canvas-note-card-body {
+    text-decoration: underline !important;
+}
+
+.canvas-note-card.is-card-strike,
+.canvas-note-card.is-card-strike .canvas-note-card-body {
+    text-decoration: line-through !important;
+}
+
+#rich-editor.is-card-bold,
+#preview-panel.is-card-bold {
+    font-weight: 700 !important;
+}
+
+#rich-editor.is-card-italic,
+#preview-panel.is-card-italic {
+    font-style: italic !important;
+}
+
+#rich-editor.is-card-underline,
+#preview-panel.is-card-underline {
+    text-decoration: underline !important;
+}
+
 .color-preset-btn {
     font-size: 11px !important;
     padding: 0 6px !important;

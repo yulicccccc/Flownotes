@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.6)
+# Project State: FlowNotes (v3.4.7)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.6`
+- **Current Version**: `v3.4.7`
 - **Latest Releases**:
+  - `v3.4.7`:
+    - **Dual-Track Word & Box Typography Formatting Engine (`applyFormatting` + Box Level Bold/Italic/Underline/Handwriting/Color + Inline Selection Precision)**: Solved formatting ambiguity between individual words and whole card boxes. Selecting specific text modifies only those words (`<strong>`, `<em>`, `<u>`, `<span style="color">`); selecting a card box without highlighted words applies formatting (Bold, Italic, Underline, Strike, Handwriting, Red/Green Text, Amber Highlight, Clear) to the **entire box's text** with smart toggle and active button feedback; added `I` (Italic) button to quick bubble; bound `Ctrl+B`, `Ctrl+I`, `Ctrl+U` shortcuts.
   - `v3.4.6`:
     - **Pomodoro Focus Timer & Evidence Over Emotion Suite (`#headerPomoPill` + `#pomoFocusModal` + `Evidence Trail`)**: Integrated Pomodoro focus timer and daily study evidence tracker right in the top header. Embedded core philosophy: *Action before confidence, Evidence over emotion, Tiny tweaks, Willingness to feel fear*. Features 25/5/15m modes, SVG circular progress ring, one-click binding to selected mindmap card (`📍 绑定选中卡片`), Web Audio 432Hz Tibetan chime, live document.title sync, `Alt+P` global shortcut, automatic/manual `#专注证据` flowStream sync, and 4-metric evidence dashboard tracking today's minutes/pomodoros, streak days, total hours, and full footprint timeline.
   - `v3.4.5`:

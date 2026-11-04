@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.6)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.7)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.4.6">
+    <link rel="stylesheet" href="index.css?v=3.4.7">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -283,9 +283,10 @@
                             <button class="bubble-btn bubble-btn-swatch" data-action="bg-amber" title="🟨 框框填色：琥珀底色 (点击应用/再次点击恢复默认)">🟨</button>
                             <span class="bubble-separator"></span>
                             <!-- 3. 文字与卡片格式套件 -->
-                            <button class="bubble-btn" data-action="bold" title="B 加粗 (Ctrl+B)" style="font-weight:800;">B</button>
-                            <button class="bubble-btn" data-action="underline" title="U 下划线 (Ctrl+U)" style="text-decoration:underline; font-weight:700;">U</button>
-                            <button class="bubble-btn" data-action="handwriting" title="✍️ 切换手写批注体 (选中文本或整卡切换, Ctrl+Shift+W)" style="font-size:14px;">✍️</button>
+                            <button class="bubble-btn" data-action="bold" title="B 粗体 (选框整框变粗 / 划词局部变粗, Ctrl+B)" style="font-weight:800;">B</button>
+                            <button class="bubble-btn" data-action="italic" title="I 斜体 (选框整框变斜 / 划词局部变斜, Ctrl+I)" style="font-style:italic; font-weight:700; font-family:serif;">I</button>
+                            <button class="bubble-btn" data-action="underline" title="U 下划线 (选框整框加下划线 / 划词局部加下划线, Ctrl+U)" style="text-decoration:underline; font-weight:700;">U</button>
+                            <button class="bubble-btn" data-action="handwriting" title="✍️ 切换手写批注体 (选框整框设为手写 / 划词局部手写, Ctrl+Shift+W)" style="font-size:14px;">✍️</button>
                             <button class="bubble-btn" data-action="todo" title="☑ 待办复选框 (Ctrl+1)">☑</button>
                             <button class="bubble-btn" data-action="clear" title="🧹 擦除格式与框框底色 (Ctrl+Shift+\)">🧹</button>
                             <span class="bubble-separator"></span>
@@ -658,6 +659,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.4.6"></script>
+    <script src="app.js?v=3.4.7"></script>
 </body>
 </html>

@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.6 loaded — Pomodoro Focus Timer & Evidence Over Emotion Suite");
+    console.log("[FlowNotes] v3.4.7 loaded — Dual-Track Word & Box Typography Formatting Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1364,7 +1364,11 @@ function refreshNodeStyles() {
 
             bodyDiv
                 .style("font-size", hasCustomFont ? `${d.customFontSize}px` : null)
-                .style("line-height", hasCustomFont ? "1.45" : null);
+                .style("line-height", hasCustomFont ? "1.45" : null)
+                .style("font-weight", d.isBold ? "700" : null)
+                .style("font-style", d.isItalic ? "italic" : null)
+                .style("text-decoration", d.isUnderline ? "underline" : (d.isStrike ? "line-through" : null))
+                .style("color", d.textColor || null);
 
             cardDiv
                 .classed("is-root", d.parentId === null)
@@ -1372,6 +1376,10 @@ function refreshNodeStyles() {
                 .classed("is-focus", isFocus)
                 .classed("is-image-card", !!(d.isImage && d.imageUrl))
                 .classed("is-handwriting", d.fontStyle === "handwriting")
+                .classed("is-card-bold", !!d.isBold)
+                .classed("is-card-italic", !!d.isItalic)
+                .classed("is-card-underline", !!d.isUnderline)
+                .classed("is-card-strike", !!d.isStrike)
                 .classed("has-custom-width", hasCustomW)
                 .classed("has-custom-height", hasCustomH)
                 .classed("has-custom-font", hasCustomFont)
@@ -3323,6 +3331,35 @@ function initEvents() {
             return;
         }
 
+        // Ctrl+B / Ctrl+I / Ctrl+U: 粗体 / 斜体 / 下划线 (选框整体变粗/变斜/下划线 或 划词局部变粗/变斜/下划线)
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+            if (e.key === "b" || e.key === "B" || e.code === "KeyB") {
+                const s = window.getSelection();
+                const hasSelectedText = !!(s && !s.isCollapsed && s.toString().trim());
+                if (!isEditing || !hasSelectedText) {
+                    e.preventDefault();
+                    applyFormatting("bold");
+                    return;
+                }
+            } else if (e.key === "i" || e.key === "I" || e.code === "KeyI") {
+                const s = window.getSelection();
+                const hasSelectedText = !!(s && !s.isCollapsed && s.toString().trim());
+                if (!isEditing || !hasSelectedText) {
+                    e.preventDefault();
+                    applyFormatting("italic");
+                    return;
+                }
+            } else if (e.key === "u" || e.key === "U" || e.code === "KeyU") {
+                const s = window.getSelection();
+                const hasSelectedText = !!(s && !s.isCollapsed && s.toString().trim());
+                if (!isEditing || !hasSelectedText) {
+                    e.preventDefault();
+                    applyFormatting("underline");
+                    return;
+                }
+            }
+        }
+
         // 零摩擦高频标注快捷键：Ctrl+Shift+R (🔴标红), Ctrl+Shift+G (🟢标绿), Ctrl+Shift+H (🟡高亮), Ctrl+Shift+\ (🧹清除格式)
         if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
             if (e.key === "R" || e.code === "KeyR") {
@@ -3686,88 +3723,41 @@ function applyFormatting(format) {
         return;
     }
 
-    // 支持在画布卡片原地编辑区 (.canvas-note-card-body) 或右侧富文本编辑器 (#rich-editor) 直接划词标红/标绿/高亮
+    // 支持在画布卡片原地编辑区 (.canvas-note-card-body) 或右侧富文本编辑器 (#rich-editor) 直接划词标红/标绿/高亮/加粗/斜体
     const sel = window.getSelection();
     const activeInlineBody = (sel && sel.rangeCount > 0 && sel.anchorNode)
         ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body[contenteditable='true']")
         : null;
     const inRichEditor = !!(richEditor && (previewMode === "live") && sel && sel.anchorNode && richEditor.contains(sel.anchorNode));
 
-    if (!activeInlineBody && !inRichEditor) {
-        // 卡片级零摩擦操作：当用户选中画布卡片但未进入局部文字划词时，点击格式工具栏直接生效整卡
-        if (selectedNode) {
-            if (format === "handwriting") {
-                selectedNode.fontStyle = (selectedNode.fontStyle === "handwriting" ? "" : "handwriting");
-                refreshNodeStyles();
-                showToast(selectedNode.fontStyle === "handwriting" ? "✍️ 已设为灵感批注手写体" : "已恢复默认印刷字体", "info");
-                scheduleSaveGraph(true);
-                return;
-            }
-            if (format === "color-red") {
-                selectedNode.color = "#ef4444";
-                refreshNodeStyles();
-                scheduleSaveGraph(true);
-                return;
-            }
-            if (format === "color-green") {
-                selectedNode.color = "#10b981";
-                refreshNodeStyles();
-                scheduleSaveGraph(true);
-                return;
-            }
-            if (format === "highlight") {
-                selectedNode.cardBgColor = selectedNode.cardBgColor === "amber" ? "" : "amber";
-                refreshNodeStyles();
-                scheduleSaveGraph(true);
-                return;
-            }
-            if (format === "clear") {
-                selectedNode.fontStyle = "";
-                delete selectedNode.cardBgColor;
-                selectedNode.color = null;
-                selectedNode.customWidth = null;
-                selectedNode.customHeight = null;
-                selectedNode.customFontSize = null;
-                refreshNodeStyles();
-                showToast("🧹 已清除卡片格式与底色", "info");
-                scheduleSaveGraph(true);
-                if (typeof updateQuickBubblePosition === "function") updateQuickBubblePosition();
-                return;
-            }
-        }
-        return;
-    }
+    // 核心判定：用户是否在富文本区高亮划选了具体的某些词句（选区非空且长度大于0）
+    const hasTextRange = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0);
+    const isInlineWordFormatting = (activeInlineBody || inRichEditor) && hasTextRange;
 
-    if (activeInlineBody || inRichEditor) {
-        if (!sel || sel.rangeCount === 0) return;
-
+    // 分支 1：划词局部格式化 —— 仅改变被选中的具体字词
+    if (isInlineWordFormatting) {
         switch (format) {
             case "handwriting":
-                if (!sel.isCollapsed) {
-                    const range = sel.getRangeAt(0);
-                    let container = range.commonAncestorContainer;
-                    if (container.nodeType === 3) container = container.parentElement;
-                    const existingSpan = container ? container.closest(".font-handwriting") : null;
-                    if (existingSpan) {
-                        const parent = existingSpan.parentNode;
-                        while (existingSpan.firstChild) {
-                            parent.insertBefore(existingSpan.firstChild, existingSpan);
-                        }
-                        parent.removeChild(existingSpan);
-                    } else {
-                        const span = document.createElement("span");
-                        span.className = "font-handwriting";
-                        try {
-                            range.surroundContents(span);
-                        } catch (err) {
-                            const frag = range.extractContents();
-                            span.appendChild(frag);
-                            range.insertNode(span);
-                        }
+                const range = sel.getRangeAt(0);
+                let container = range.commonAncestorContainer;
+                if (container.nodeType === 3) container = container.parentElement;
+                const existingSpan = container ? container.closest(".font-handwriting") : null;
+                if (existingSpan) {
+                    const parent = existingSpan.parentNode;
+                    while (existingSpan.firstChild) {
+                        parent.insertBefore(existingSpan.firstChild, existingSpan);
                     }
-                } else if (selectedNode) {
-                    selectedNode.fontStyle = (selectedNode.fontStyle === "handwriting" ? "" : "handwriting");
-                    showToast(selectedNode.fontStyle === "handwriting" ? "✍️ 已设为灵感批注手写体" : "已恢复默认印刷字体", "info");
+                    parent.removeChild(existingSpan);
+                } else {
+                    const span = document.createElement("span");
+                    span.className = "font-handwriting";
+                    try {
+                        range.surroundContents(span);
+                    } catch (err) {
+                        const frag = range.extractContents();
+                        span.appendChild(frag);
+                        range.insertNode(span);
+                    }
                 }
                 break;
             case "bold": document.execCommand("bold"); break;
@@ -3788,37 +3778,17 @@ function applyFormatting(format) {
                 document.execCommand("foreColor", false, "#10b981");
                 break;
             case "code":
-                const range = sel.getRangeAt(0);
+                const cRange = sel.getRangeAt(0);
                 const codeEl = document.createElement("code");
                 codeEl.style.cssText = "background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;";
-                range.surroundContents(codeEl);
+                cRange.surroundContents(codeEl);
                 break;
-            case "heading":
-                document.execCommand("formatBlock", false, "h1");
-                break;
-            case "quote":
-                document.execCommand("formatBlock", false, "blockquote");
-                break;
-            case "bullet":
-                document.execCommand("insertUnorderedList");
-                break;
-            case "ordered":
-                document.execCommand("insertOrderedList");
-                break;
+            case "heading": document.execCommand("formatBlock", false, "h1"); break;
+            case "quote": document.execCommand("formatBlock", false, "blockquote"); break;
+            case "bullet": document.execCommand("insertUnorderedList"); break;
+            case "ordered": document.execCommand("insertOrderedList"); break;
             case "clear":
                 document.execCommand("removeFormat");
-                const selClear = window.getSelection();
-                if (selClear && selClear.rangeCount > 0) {
-                    let node = selClear.getRangeAt(0).commonAncestorContainer;
-                    if (node.nodeType === 3) node = node.parentNode;
-                    const li = node.closest ? node.closest("li") : null;
-                    if (li) {
-                        document.execCommand("insertUnorderedList");
-                    }
-                    if (richEditor) {
-                        richEditor.innerHTML = richEditor.innerHTML.replace(/[•·▪⁃‣]/g, "");
-                    }
-                }
                 break;
             case "link":
                 const url = prompt("请输入链接 URL:", "https://");
@@ -3827,7 +3797,7 @@ function applyFormatting(format) {
             default: return;
         }
 
-        // 同步画布内联卡片或 richEditor 内容到 selectedNode，并立即在画布上呈现红/绿/高亮效果
+        // 划词修改后立即同步到底层数据
         if (selectedNode) {
             if (activeInlineBody) {
                 selectedNode.content = htmlToSafeMarkdown(activeInlineBody.innerHTML);
@@ -3839,10 +3809,108 @@ function applyFormatting(format) {
             }
             const mdEl = document.getElementById("md-textarea");
             if (mdEl) mdEl.value = selectedNode.content;
-            refreshNodeStyles();
             scheduleSaveGraph(true);
         }
+        return;
     }
+
+    // 分支 2：卡片/框框级整体格式化 —— 没有划选具体字词，格式化直接作用于整个框框内的全部文字！
+    let targetNodes = [];
+    if (selectedNodeIds && selectedNodeIds.size > 0) {
+        targetNodes = nodes.filter(n => selectedNodeIds.has(n.id));
+    }
+    if (targetNodes.length === 0 && selectedNode) {
+        targetNodes = [selectedNode];
+    }
+    if (targetNodes.length === 0 && activeInlineBody) {
+        const grp = activeInlineBody.closest(".node-group");
+        if (grp) {
+            const d = d3.select(grp).datum();
+            if (d) targetNodes = [d];
+        }
+    }
+
+    if (targetNodes.length === 0) return;
+
+    switch (format) {
+        case "bold": {
+            const willBold = !targetNodes.every(n => n.isBold);
+            targetNodes.forEach(n => { n.isBold = willBold; });
+            showToast(willBold ? "B 已将整个框内文字设为粗体" : "已取消整个框内粗体");
+            break;
+        }
+        case "italic": {
+            const willItalic = !targetNodes.every(n => n.isItalic);
+            targetNodes.forEach(n => { n.isItalic = willItalic; });
+            showToast(willItalic ? "I 已将整个框内文字设为斜体" : "已取消整个框内斜体");
+            break;
+        }
+        case "underline": {
+            const willUnderline = !targetNodes.every(n => n.isUnderline);
+            targetNodes.forEach(n => { n.isUnderline = willUnderline; });
+            showToast(willUnderline ? "U 已为整个框内文字添加下划线" : "已取消整个框内下划线");
+            break;
+        }
+        case "strike": {
+            const willStrike = !targetNodes.every(n => n.isStrike);
+            targetNodes.forEach(n => { n.isStrike = willStrike; });
+            showToast(willStrike ? "S 已为整个框内文字添加删除线" : "已取消整个框内删除线");
+            break;
+        }
+        case "handwriting": {
+            const willHw = !targetNodes.every(n => n.fontStyle === "handwriting");
+            targetNodes.forEach(n => { n.fontStyle = willHw ? "handwriting" : ""; });
+            showToast(willHw ? "✍️ 已将整个框内文字设为灵感批注手写体" : "已恢复默认印刷字体");
+            break;
+        }
+        case "color-red": {
+            const willRed = !targetNodes.every(n => n.textColor === "#ef4444");
+            targetNodes.forEach(n => { n.textColor = willRed ? "#ef4444" : ""; });
+            showToast(willRed ? "🔴 已将整个框内文字设为红色" : "已恢复默认文字颜色");
+            break;
+        }
+        case "color-green": {
+            const willGreen = !targetNodes.every(n => n.textColor === "#10b981");
+            targetNodes.forEach(n => { n.textColor = willGreen ? "#10b981" : ""; });
+            showToast(willGreen ? "🟢 已将整个框内文字设为绿色" : "已恢复默认文字颜色");
+            break;
+        }
+        case "highlight": {
+            const willHi = !targetNodes.every(n => n.cardBgColor === "amber");
+            targetNodes.forEach(n => { n.cardBgColor = willHi ? "amber" : ""; });
+            showToast(willHi ? "🟡 已将整个框设为高亮底色" : "已取消整个框高亮底色");
+            break;
+        }
+        case "clear": {
+            targetNodes.forEach(n => {
+                n.isBold = false;
+                n.isItalic = false;
+                n.isUnderline = false;
+                n.isStrike = false;
+                n.fontStyle = "";
+                n.textColor = "";
+                delete n.cardBgColor;
+                n.color = null;
+                n.customFontSize = null;
+            });
+            showToast("🧹 已清除整个框内的格式与底色");
+            break;
+        }
+        default:
+            return;
+    }
+
+    // 立即刷新画布渲染与右侧详情视图
+    refreshNodeStyles();
+    if (activeInlineBody && selectedNode) {
+        activeInlineBody.style.fontWeight = selectedNode.isBold ? "700" : "";
+        activeInlineBody.style.fontStyle = selectedNode.isItalic ? "italic" : "";
+        activeInlineBody.style.textDecoration = selectedNode.isUnderline ? "underline" : (selectedNode.isStrike ? "line-through" : "");
+        activeInlineBody.style.color = selectedNode.textColor || "";
+    }
+    renderEditor();
+    scheduleSaveGraph(true);
+    if (typeof updateQuickBubblePosition === "function") updateQuickBubblePosition();
 }
 
 function renderAll() {
@@ -4053,6 +4121,21 @@ function renderEditor() {
         mdTextarea.value = cleanContent;
         richEditor.innerHTML = renderMarkdownToHTML(cleanContent);
         previewPanel.innerHTML = renderMarkdownToHTML(cleanContent);
+
+        if (richEditor) {
+            richEditor.classList.toggle("is-card-bold", !!selectedNode.isBold);
+            richEditor.classList.toggle("is-card-italic", !!selectedNode.isItalic);
+            richEditor.classList.toggle("is-card-underline", !!selectedNode.isUnderline);
+            richEditor.classList.toggle("is-handwriting", selectedNode.fontStyle === "handwriting");
+            richEditor.style.color = selectedNode.textColor || "";
+        }
+        if (previewPanel) {
+            previewPanel.classList.toggle("is-card-bold", !!selectedNode.isBold);
+            previewPanel.classList.toggle("is-card-italic", !!selectedNode.isItalic);
+            previewPanel.classList.toggle("is-card-underline", !!selectedNode.isUnderline);
+            previewPanel.classList.toggle("is-handwriting", selectedNode.fontStyle === "handwriting");
+            previewPanel.style.color = selectedNode.textColor || "";
+        }
 
         if (focusBtn) {
             focusBtn.disabled = false;
@@ -5086,6 +5169,30 @@ function initSelectionQuickBubble() {
         if (btnRose) btnRose.classList.toggle("active-swatch", activeBg === "rose");
         if (btnEmerald) btnEmerald.classList.toggle("active-swatch", activeBg === "emerald");
         if (btnAmber) btnAmber.classList.toggle("active-swatch", activeBg === "amber");
+
+        // 同步更新粗体、斜体、下划线、手写体、字色的激活高亮反馈状态
+        const btnBold = bubble.querySelector('[data-action="bold"]');
+        const btnItalic = bubble.querySelector('[data-action="italic"]');
+        const btnUnderline = bubble.querySelector('[data-action="underline"]');
+        const btnHandwriting = bubble.querySelector('[data-action="handwriting"]');
+        const btnRed = bubble.querySelector('[data-action="red"]');
+        const btnGreen = bubble.querySelector('[data-action="green"]');
+
+        if (selectedNode) {
+            if (btnBold) btnBold.classList.toggle("active-swatch", !!selectedNode.isBold);
+            if (btnItalic) btnItalic.classList.toggle("active-swatch", !!selectedNode.isItalic);
+            if (btnUnderline) btnUnderline.classList.toggle("active-swatch", !!selectedNode.isUnderline);
+            if (btnHandwriting) btnHandwriting.classList.toggle("active-swatch", selectedNode.fontStyle === "handwriting");
+            if (btnRed) btnRed.classList.toggle("active-swatch", selectedNode.textColor === "#ef4444");
+            if (btnGreen) btnGreen.classList.toggle("active-swatch", selectedNode.textColor === "#10b981");
+        } else {
+            if (btnBold) btnBold.classList.remove("active-swatch");
+            if (btnItalic) btnItalic.classList.remove("active-swatch");
+            if (btnUnderline) btnUnderline.classList.remove("active-swatch");
+            if (btnHandwriting) btnHandwriting.classList.remove("active-swatch");
+            if (btnRed) btnRed.classList.remove("active-swatch");
+            if (btnGreen) btnGreen.classList.remove("active-swatch");
+        }
     };
 
     document.addEventListener("mouseup", () => setTimeout(updateQuickBubblePosition, 25));
@@ -5131,6 +5238,7 @@ function initSelectionQuickBubble() {
             else if (action === "green") applyFormatting("color-green");
             else if (action === "highlight") applyFormatting("highlight");
             else if (action === "bold") applyFormatting("bold");
+            else if (action === "italic") applyFormatting("italic");
             else if (action === "underline") applyFormatting("underline");
             else if (action === "todo") {
                 if (selectedNode) toggleTodoOnSelectedCard(selectedNode);

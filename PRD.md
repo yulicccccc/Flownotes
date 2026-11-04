@@ -1,9 +1,18 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.6)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.7)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Dual-Track Word & Box Typography Formatting Engine (v3.4.7 划词局部标色与选框整框排版双轨格式化引擎)**:
+  - **核心交互原则（划词变局部，选框变整框）**：
+    - **划选具体字词时**：点击粗体 `B`、斜体 `I`、下划线 `U`、手写体 `✍️`、红 `🔴`、绿 `🟢`、黄高亮 `🟡`，仅精确格式化所高亮选中的词句，完美保留卡片内其他文本的原生面貌。
+    - **未划选具体字词时（选中卡片框、多选卡片或处于卡片编辑模式无划词）**：点击粗体 `B`、斜体 `I`、下划线 `U`、手写体 `✍️`、红 `🔴`、绿 `🟢`、黄高亮 `🟡`，格式化指令智能渗透作用于**整个框框内的全部文字**；再次点击即可智能反转 Toggle 取消。
+    - **一键清除与底色还原 (`🧹`)**：划词状态下仅清除所选字词内联格式；选框状态下一键擦除整个框框内所有的粗体、斜体、下划线、手写体、文本颜色与正方形框框底色，迅速回归纯净暗夜/明亮基底。
+  - **快捷工具栏新增斜体 `I` 与多维度激活高亮反馈**：
+    - 中央快捷工具栏新增 `I` (斜体) 按钮；
+    - 当选中的卡片包含粗体、斜体、下划线、手写体、红色或绿色文字时，对应工具栏按钮呈现明晰的发光激活反馈态（`.active-swatch`）。
+  - **全套经典快捷键支持**：`Ctrl+B` (粗体)、`Ctrl+I` (斜体)、`Ctrl+U` (下划线)、`Ctrl+Shift+W` (手写体)、`Ctrl+Shift+R` (红色)、`Ctrl+Shift+G` (绿色)、`Ctrl+Shift+\` (清除格式)，无论选框还是划词均能秒速响应。
 - **Pomodoro Focus Timer & Evidence Over Emotion Suite (v3.4.6 番茄专注与行动证据库)**:
   - **核心哲学驱动 (Evidence Over Emotion)**：贯彻“先行动后有自信、用证据校准感受、微小调整切片、允许恐惧存在”四大心智原则。记录实际走过的每一个扎实脚印，将主观焦虑转化为不可辩驳的客观行动证据。
   - **顶部导航专注胶囊 (`#headerPomoPill`)**：集成于顶栏右侧，实时展示专注/休息呼吸光效、状态光点（红/绿）、倒计时文本、一键开始/暂停按钮（`▶` / `⏸`）以及今日已完成专注番茄计数徽标；全局快捷键 `Alt+P` 秒级启动/暂停。
@@ -152,4 +161,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.6_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.7_flownotes-eze.pages.dev_一键更新网站.bat`.
