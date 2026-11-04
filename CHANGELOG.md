@@ -2,6 +2,17 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.7] - 2026-11-04
+
+### 📝 真实意图详细笔记徽章与纯净卡片创建引擎 (True Intent Detailed Note Badge & Pure Card Creation)
+- **🎯 根除新建卡片“自带详细笔记图标”缺陷**：
+  - **根本病因排查**：新建子卡片或同级卡片时，底层将 `content` 预填充为占位符 `新分支 N`；用户在画布上输入新标题（如 `16S`、`不饿能区别死/活菌`、`还有就是一定要深刻理解Method的局限性`）时，`syncFromInlineCard` 未将 `新分支 N` 识别为空占位符，导致卡片 `content !== label`，系统误以为卡片包含详细长篇笔记，自动错误赋予 `📝` 图标；
+  - **纯净节点初始化**：`createChildNode`、`createSiblingNode`、`insertParentNode`、`svg.on("dblclick")` 新建卡片时将 `content` 初始化为纯净的空字符串 `""`；
+  - **占位符感知同步器 (`syncFromInlineCard`)**：行内编辑同步时识别默认占位符，始终保持未写笔记时的 `d.content` 与标题对齐，彻底杜绝虚假幽灵详细笔记；
+- **🔍 真实意图判定算法 (`hasDetailedNote`)**：
+  - 封装独立的详细笔记判定算法，先剔除已在画布显示的 Markdown 表格，再剔除卡片首行标题行；
+  - **只有当用户真正点击「展开详细笔记」并在其中写下了实际正文段落（字数 > 5）时，卡片右上角才会呈现 `📝` 图标**；纯标题卡片或仅在画布编辑的卡片永远保持清爽无图标！
+
 ## 🚀 [v3.5.6] - 2026-11-04
 
 ### 🎨 画布卡片行内色彩与高保真标题全量恢复引擎 (Zero-Loss Font Colors & High-Fidelity Title Recovery Engine)

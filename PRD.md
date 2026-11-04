@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.6)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.7)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **True Intent Detailed Note Badge & Pure Card Creation Engine (v3.5.7 真实意图详细笔记徽章与纯净卡片创建引擎)**:
+  - **根本病因根除 (Zero Phantom Note Badges)**：彻底根除新建分支或同级卡片时，因系统默认将 `content` 填入 `新分支 N`，用户原地打字修改标题（如 `16S`、`还有就是一定要深刻理解Method的局限性`）后未识别占位符导致 `content !== label` 而错误给所有新卡片打上 `📝` 详细笔记图标的恶性体验问题；
+  - **纯净节点初始化**：`createChildNode`、`createSiblingNode`、`insertParentNode`、`svg.on("dblclick")` 创建新卡片时 `content` 初始化为纯净的空字符串 `""`；
+  - **占位符感知同步器 (`syncFromInlineCard`)**：行内打字同步时能够精准识别系统占位符，保持 `d.content` 与用户输入的标题绝对一致，绝不捏造幽灵详细笔记；
+  - **真实意图详细笔记判定器 (`hasDetailedNote`)**：独立封装高精准判定算法，先剔除 Markdown 表格，再剔除卡片首行标题行；**只有当用户真正点击「展开详细笔记」并在其中写下了有意义的后续正文段落（字数 > 5）时，卡片右上角才会显示 `📝` 图标**！
 - **Zero-Loss Font Colors & High-Fidelity Title Recovery Engine (v3.5.6 画布卡片行内色彩与高保真标题全量恢复引擎)**:
   - **根本病因根除 (Zero-Loss Title Colors)**：彻底根除 v3.5.1 引入纯标题展示后，由于历史或导入卡片的富文本颜色存放在 `d.content` 中而导致脑图画布卡片字体颜色全部失真退化为白字纯文本的重大 Bug；
   - **高保真标题解析器 (`getCardDisplayHTML`)**：卡片渲染时动态解析标题——若 `d.label` 具备格式化标签，直接渲染；若 `d.label` 为纯文本但 `d.content` 首行包含标红、标绿、高亮等标签，系统**自动提取首行富文本呈现**，既瞬间让红字、绿字、高亮全量复活，又 100% 杜绝了后续长篇段落污染脑图卡片；

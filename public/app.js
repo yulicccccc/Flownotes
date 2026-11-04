@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.6 loaded — Zero-Loss Font Colors & High-Fidelity Title Recovery Engine");
+    console.log("[FlowNotes] v3.5.7 loaded — True Intent Detailed Note Badge & Pure Card Creation Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1561,6 +1561,57 @@ function syncNodeContentFromTableChange(targetNode, targetTable) {
     }
 }
 
+// v3.5.7 真实意图详细笔记判定引擎：仅当用户真正展开详细笔记并在其中撰写了有价值的正文时，才显示 📝 图标！
+function hasDetailedNote(d) {
+    if (!d || !d.content || typeof d.content !== "string") return false;
+    const raw = d.content.trim();
+    if (!raw) return false;
+    if (raw.includes("点击编辑 Markdown 内容...")) return false;
+
+    // 获取卡片的纯文本标题
+    const plainTitle = stripFormattingToPlainText(d.label || "").trim();
+
+    // 默认系统占位符正则 (如 新分支 1, 同级卡片 2, 新笔记 3, 父级节点, 过渡节点 等)
+    const isPlaceholderRegex = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/;
+    if (isPlaceholderRegex.test(plainTitle)) {
+        const cleanContent = raw.replace(/^#{1,4}\s+/, "").trim();
+        if (isPlaceholderRegex.test(cleanContent) || !cleanContent) return false;
+    }
+
+    // 剔除 Markdown 表格（表格已在画布卡片直接呈现）
+    let text = raw
+        .replace(/\|[^\n]+\|/g, "")
+        .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "");
+
+    // 逐行分析非表格内容
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return false;
+
+    // 第一行如果是标题（带 # 或不带 #，或者等于 plainTitle），将其剔除
+    const firstLine = lines[0].replace(/^#{1,4}\s+/, "").trim();
+    const firstLinePlain = stripFormattingToPlainText(firstLine);
+
+    let remainingLines = [];
+    if (firstLinePlain === plainTitle || firstLine === plainTitle || (plainTitle && firstLinePlain.includes(plainTitle)) || (firstLinePlain && plainTitle.includes(firstLinePlain))) {
+        remainingLines = lines.slice(1);
+    } else if (lines.length === 1) {
+        // 只有 1 行内容：这行本身就是卡片标题或单句，用户根本没在右侧写后续正文！
+        return false;
+    } else {
+        remainingLines = lines.slice(1);
+    }
+
+    // 检查剩余段落
+    const remainingText = remainingLines
+        .map(l => l.replace(/^#{1,4}\s+/, "").trim())
+        .filter(l => l && !l.includes("点击编辑 Markdown 内容...") && !isPlaceholderRegex.test(l))
+        .join(" ")
+        .trim();
+
+    // 只有在剩余的详细笔记正文中真正有内容（字数 > 5）时，才视为有详细笔记
+    return remainingText.length > 5;
+}
+
 // 生成画布卡片内部直接显示的 HTML (v3.5.1 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记点进右侧面板呈现)
 function getCardDisplayHTML(d) {
     if (!d) return "";
@@ -1585,23 +1636,7 @@ function getCardDisplayHTML(d) {
     const titleHTML = renderCardLabelHTML(rawTitle);
     const tableHTML = extractTableHTMLFromContent(d.content);
 
-    // v3.5.6 精确长文判定：仅当扣除第一行标题与表格后，后续段落仍有超过 20 字实际正文时，才展示 📝 徽章，杜绝单句变色卡片被误标
-    let hasDetailedNote = false;
-    if (d.content && typeof d.content === "string") {
-        const lines = d.content.split("\n").map(l => l.trim()).filter(Boolean);
-        if (lines.length > 1) {
-            const bodyLines = lines.slice(1).join("\n")
-                .replace(/\|[^\n]+\|/g, "")
-                .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
-                .replace(/^#{1,4}\s+[^\n]+/gm, "")
-                .trim();
-            if (bodyLines && !bodyLines.includes("点击编辑 Markdown 内容...") && bodyLines.length > 20) {
-                hasDetailedNote = true;
-            }
-        }
-    }
-
-    const noteBadge = hasDetailedNote
+    const noteBadge = hasDetailedNote(d)
         ? `<span class="card-has-note-badge" title="📝 包含详细笔记 (点击选中并在右侧查看)">📝</span>`
         : "";
 
@@ -1846,7 +1881,13 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             d.content = `# ${stripFormattingToPlainText(d.label)}\n\n${tableMd}` + (otherNotes ? `\n\n${otherNotes}` : "");
         } else {
             d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
-            const isContentEmpty = !d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容...");
+            const isPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(d.content ? d.content.trim() : "");
+            const isContentEmpty = !d.content || 
+                !d.content.trim() || 
+                d.content.includes("点击编辑 Markdown 内容...") ||
+                isPlaceholder ||
+                d.content.trim() === d.label.trim() ||
+                d.content.trim() === `# ${d.label.trim()}`;
             if (isContentEmpty) {
                 d.content = `# ${d.label}\n\n`;
             }
@@ -2796,7 +2837,7 @@ function createChildNode() {
         id: newId,
         label: `新分支 ${nodes.length + 1}`,
         parentId: selectedNode.id,
-        content: `新分支 ${nodes.length + 1}`,
+        content: "",
         createdAt: nowTs,
         x: targetX,
         y: targetY,
@@ -2846,7 +2887,7 @@ function createSiblingNode(insertBefore = false) {
         id: newId,
         label: `同级卡片 ${nodes.length + 1}`,
         parentId: parentId,
-        content: `同级卡片 ${nodes.length + 1}`,
+        content: "",
         createdAt: nowTs,
         x: targetX,
         y: targetY,
@@ -2892,7 +2933,7 @@ function insertParentNode(targetNode = selectedNode) {
         id: newId,
         label: `父级节点 ${nodes.length + 1}`,
         parentId: oldParentId,
-        content: `父级节点 ${nodes.length + 1}`,
+        content: "",
         createdAt: Math.max(1000, getNodeCreatedTime(targetNode) - 500),
         x: newX,
         y: newY,

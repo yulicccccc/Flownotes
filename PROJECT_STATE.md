@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.5.6)
+# Project State: FlowNotes (v3.5.7)
 
 ## Current Version & Status
-- **Current Version**: `v3.5.6`
+- **Current Version**: `v3.5.7`
 - **Latest Releases**:
+  - `v3.5.7`:
+    - **True Intent Detailed Note Badge & Pure Card Creation Engine (v3.5.7 真实意图详细笔记徽章与纯净卡片创建引擎)**: Resolved the UX bug where all newly created nodes (`16S`, `不饿能区别死/活菌`, `还有就是一定要深刻理解Method的局限性`) falsely displayed the `📝` detailed note icon right after creation. 1) Root Cause: Node creation previously set `content: '新分支 N'`, which `syncFromInlineCard` did not recognize as empty, causing `d.content !== d.label` and triggering a false note badge; 2) Pure Node Initialization: `createChildNode`, `createSiblingNode`, `insertParentNode`, and `dblclick` now initialize with `content: ""` clean state; 3) Placeholder-Aware Sync: `syncFromInlineCard` detects default placeholders (`新分支`, `同级卡片`, `新笔记`, etc.) and keeps `d.content` in pure sync with the title; 4) True Intent Note Badge Detector (`hasDetailedNote`): Strips markdown tables and card title header; only when the user explicitly opens the detailed notes panel and writes substantive paragraphs (> 5 chars) does the `📝` badge appear!
   - `v3.5.6`:
     - **Zero-Loss Font Colors & High-Fidelity Title Recovery Engine (v3.5.6 画布卡片行内色彩与高保真标题全量恢复引擎)**: Resolved the critical regression where font colors (red, green, amber highlights, etc.) disappeared from canvas cards after v3.5.1 switched to title-only rendering. 1) High-Fidelity Title Resolution (`getCardDisplayHTML`): Dynamically resolves the card title — if `d.label` has formatting tags, it uses it; if `d.label` is plain text but `d.content`'s first line contains font color spans or highlight markdown, it seamlessly uses the first line of `d.content`, instantly reviving all rich red/green/yellow fonts without ballooning cards with detailed notes; 2) Self-Healing Storage Migration (`sanitizeGraph` + `importExcalidrawFile`): Automatically repairs legacy nodes in memory and localStorage so that `n.label` carries the formatted HTML directly; 3) Accurate Note Badge Filter: Fixed the bug where single-sentence cards with font colors were falsely marked with `📝` note badges because `d.content !== d.label`. Now `hasDetailedNote` strictly inspects lines *after* the title; 4) Whole-Card Highlight: Added `.is-card-highlight` in `refreshNodeStyles()` and amber glow in `index.css`; 5) Upgraded `renderCardLabelHTML` regex to `(.*?)` supporting `rgb(...)` color strings with spaces.
   - `v3.5.5`:
