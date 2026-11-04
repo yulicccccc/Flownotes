@@ -2,6 +2,16 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.3] - 2026-11-04
+
+### 🧹 统一数据同步架构与顶栏极致精简套件 (Unified Data Sync & Pure Top Header)
+- **🎯 消除双重同步混淆 (Eliminate Duplicate Sync)**：
+  - 针对顶栏与底栏同时出现「同步」按钮导致的视觉冗余与疑惑，彻底移除了顶部导航栏的常驻「☁️ 云同步」按钮；
+  - 将 GitHub 同步配置与连接状态收拢至顶部「⋯ 更多」操作下拉菜单中（「☁️ GitHub 云端同步设置」）；
+  - 统一保留画布底栏的「💾 同步」作为唯一直接同步触发点，职责边界极度清晰；
+- **🌌 顶栏视野极简化 (Pure Header Aesthetic)**：
+  - 顶部右侧仅保留「🍅 番茄钟」、「🔍 搜索」、「🌙 主题」、「⋯ 更多」，水平空间更加开阔宽裕，带来极具呼吸感的笔记工作流。
+
 ## 🚀 [v3.5.2] - 2026-11-04
 
 ### 💎 Notion 风格现代化三段式极简顶栏与防拥挤防折行套件 (Notion-Style Minimalist 3-Zone Header & Anti-Clutter Layout)

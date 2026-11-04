@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.2 loaded — Notion-Style Minimalist 3-Zone Header & Anti-Clutter Layout");
+    console.log("[FlowNotes] v3.5.3 loaded — Pure Header & Unified Bottom Sync");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -4742,11 +4742,11 @@ function updateSyncStatusUI(state, message, detailText = "") {
     if (state === "busy") {
         if (syncBtn) { syncBtn.disabled = true; syncBtn.innerHTML = "⏳ 同步中..."; }
         if (pullBtn) { pullBtn.disabled = true; }
-        if (ghSyncText) ghSyncText.textContent = "⏳ 同步中...";
+        if (ghSyncText) ghSyncText.textContent = "⏳ GitHub 同步中...";
     } else {
         if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = "💾 同步"; }
         if (pullBtn) { pullBtn.disabled = false; }
-        if (ghSyncText) ghSyncText.textContent = state === "ok" ? `🟢 已同步 (${nodes.length}卡片)` : "云同步";
+        if (ghSyncText) ghSyncText.textContent = state === "ok" ? `🟢 已同步 (${nodes.length}卡片)` : "GitHub 云端同步设置";
     }
 
     if (ghSyncStatusBox) {

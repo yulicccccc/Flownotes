@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.2)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.3)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Unified Data Sync Architecture & Top Bar Simplification (v3.5.3 统一数据同步架构与顶栏极致精简套件)**:
+  - **消除双重同步混淆 (Eliminate Duplicate Sync Confusion)**：针对界面顶部导航栏与底部操作栏同时出现「同步」按钮的冗余冲突，彻底移除了顶部导航栏的常驻「☁️ 云同步」胶囊，将其收拢至「⋯ 更多」操作下拉菜单中（作为「☁️ GitHub 云端同步设置」选项）；
+  - **归一至底部操作栏 (Unified to Bottom Dock)**：明确系统操作职责划分——底部操作栏（`#io-controls`）作为唯一的【导出 / 导入 / 拉取 / 同步 / 密钥】数据中心，用户在底部一键点击「💾 同步」即可立即触发数据增量推送到 GitHub Gist，零歧义零认知负担；
+  - **顶部导航栏纯粹极简 (Pure Top Header)**：顶部右侧现仅保留核心沉浸工具：`[ 🍅 番茄专注 ]`、`[ 🔍 搜索 ]`、`[ 🌙 主题切换 ]`、`[ ⋯ 更多菜单 ]`，达到极致开阔视野与呼吸感。
 - **Notion-Style Minimalist 3-Zone Header & Anti-Clutter Layout (v3.5.2 现代化三段式极简顶栏与防拥挤防折行套件)**:
   - **彻底移除臃肿品牌大标题 (No-Brand Left Header)**：对标现代顶级笔记软件（Notion、Obsidian、Linear、Craft）规范，顶部工作区不再堆放巨大的 `FlowNotes` 冗余品牌文字，释放左侧黄金空间，让位于紧凑灵动的猫头鹰智慧图标（`#logoGroup`）与 OneNote 3 级彩色面包屑导航（`#currentMapBadge`）。
   - **核心导航标签居中分段控制器 (Segmented Switcher)**：将工作区切换按钮抽离并置于中央独立的 `.navbar-center` 容器，采用精炼高质感的文字标（`🕸️ 导图`、`⚡ 心流`、`📝 笔记`、`✨ AI`），并施加严苛的 `white-space: nowrap !important; flex-shrink: 0 !important;`，彻底根除因宽度压缩导致汉字被逐字换行成竖列（`图/谱/工/作/台`）的严重视觉 Bug！
