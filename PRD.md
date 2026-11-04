@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.7)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.8)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Natural Shrink-Wrap Auto-Sizing Engine & Truncation Recovery (v3.5.8 自然流式自适应包裹与截断标题无损恢复引擎)**:
+  - **根本病因根除 (Zero Phantom Dead Space & Auto-Sizing Failure)**：彻底根除卡片自适应失败、右侧出现大片（80px~130px）空白死区的恶性排版 Bug。历史 Excalidraw 导入或旧版本在无意中将固定宽度（如 516px、464px、370px）硬编码写入了 `d.customWidth` 并驻留在本地缓存中；且旧版 `sanitizeGraph` 仅对长度 `<= 28` 的短词清理宽度，导致稍长单行卡片被永久死锁在固定大框中；
+  - **自然流式包裹自适应 (`refreshNodeStyles` + `updateD3Graph`)**：只有当用户显式拖拽拉动手柄缩放卡片（`d._userResized === true`）或为图片卡片（`d.isImage`）时才应用固定宽度；普通卡片一律采用自然收缩自适应 `width: max-content; max-width: 520px;`，紧贴文字边缘，右侧空白死区降为 0px；
+  - **无损历史缓存自愈 (`sanitizeGraph`)**：在图谱初始化与切换时，自动清除所有未经用户手动拉伸的卡片上的僵硬 `customWidth` 与 `customHeight`；
+  - **截断标题全量无损还原**：修复历史被 `slice(0, 42)` 意外斩断的标题（如「还有一个容易忽略的细节：Shotgun 读到的不只是基因，也可能包括」），从 `content` 中恢复完整首行文字；由于标题完整复原，其内容与标题重新一致，因此系统自动消除伪详细笔记徽章 `[📝]`；
+  - **导入机制全面净化 (`importExcalidrawFile`)**：移除标题 `slice(0, 42)` 截断限制，移除文本卡片硬编码赋值 `customWidth`，新导入卡片即刻享受最纯净的流式排版。
 - **True Intent Detailed Note Badge & Pure Card Creation Engine (v3.5.7 真实意图详细笔记徽章与纯净卡片创建引擎)**:
   - **根本病因根除 (Zero Phantom Note Badges)**：彻底根除新建分支或同级卡片时，因系统默认将 `content` 填入 `新分支 N`，用户原地打字修改标题（如 `16S`、`还有就是一定要深刻理解Method的局限性`）后未识别占位符导致 `content !== label` 而错误给所有新卡片打上 `📝` 详细笔记图标的恶性体验问题；
   - **纯净节点初始化**：`createChildNode`、`createSiblingNode`、`insertParentNode`、`svg.on("dblclick")` 创建新卡片时 `content` 初始化为纯净的空字符串 `""`；

@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.8] - 2026-11-04
+
+### 📐 自然流式自适应包裹与截断标题无损恢复引擎 (Natural Shrink-Wrap Auto-Sizing Engine & Truncation Recovery)
+- **🎯 根除“部分框自适应失败变得超长且右侧出现大量空白”缺陷**：
+  - **根本病因排查**：在早期 Excalidraw 导入或 v3.4.3 前的旧版本中，卡片被赋予了固定的 `customWidth`（如 516px、464px、370px）并写入了本地缓存。在此前的 `sanitizeGraph` 迁移例程中，`delete n.customWidth` 仅对长度 `<= 28` 的短词生效，导致更长一点的卡片（如「需要计算通路丰度与年龄的相关性、基因丰度比值、相关基因数量。」、「shotgun metagenomic sequencing（宏基因组鸟枪法测序）」等）一直被强制锁死在 464px~516px 的固定超宽框中，而内部文字仅需 350px~400px，从而在右侧残留 80px~130px 的大面积难看死白空白！
+  - 另外，此前 Excalidraw 导入使用了 `slice(0, 42)` 硬截断标题，导致「还有一个容易忽略的细节：Shotgun 读到的不只是基因，也可能包括」被意外腰斩，不仅右侧留白更大，还因与 `content` 长度不一致而触发了虚假的 `[📝]` 详细笔记徽章；
+- **🌱 自然流式自适应包裹 (`refreshNodeStyles` + `updateD3Graph`)**：
+  - 重构宽度生效条件：**只有当用户显式拖拽调整手柄（`d._userResized === true`）或卡片为图片（`d.isImage`）时，才锁定应用固定 `customWidth`**；
+  - 所有正常文本卡片默认回归纯正的 `width: max-content; max-width: 520px;`，自然紧贴文字边缘收缩包裹，右侧死白空隙彻底清零（deadSpace = 0px）；
+- **🧹 全量旧图谱缓存自动无损修复 (`sanitizeGraph`)**：
+  - 图谱加载或切换时，自动清除所有非用户手动拉伸卡片的硬编码 `customWidth` 与 `customHeight`，让用户打开任何历史导图都能瞬间自愈为完美的自适应贴合排版；
+  - 检测被 `slice(0, 42)` 意外截断的标题，自动从 `content` 恢复完整首行文字，同时彻底清除因截断造成的误加 `[📝]` 徽章；
+- **📦 导入引擎全面净化 (`importExcalidrawFile`)**：
+  - 移除对长标题的 `slice(0, 42)` 截断限制，移除文本卡片的硬编码 `customWidth` 赋值，新导入卡片即刻享受最纯净的流式排版。
+
 ## 🚀 [v3.5.7] - 2026-11-04
 
 ### 📝 真实意图详细笔记徽章与纯净卡片创建引擎 (True Intent Detailed Note Badge & Pure Card Creation)

@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.7 loaded — True Intent Detailed Note Badge & Pure Card Creation Engine");
+    console.log("[FlowNotes] v3.5.8 loaded — Natural Shrink-Wrap Auto-Sizing Engine & Truncation Recovery");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -638,10 +638,28 @@ function sanitizeGraph() {
         "例如忽略测序深度差异、混杂因素或重复采样之间的关联。": '例如忽略测序<span style="color:#ef4444">深度差异</span>、混杂因素或<span style="color:#ef4444">重复采样</span>之间的关联。',
         "发现矛盾，却没有采取纠正行动：Ignored contradictory evidence": '发现矛盾，却没有采取纠正行动：<span style="color:#ef4444">Ignored </span><span style="color:#ef4444">contradictory evidence</span>',
         "我们的目的是出一套好的考题": '我们的目的是出一套<span style="color:#ef4444">好</span>的考题',
-        "是不是都求关联性比较多？": '是不是都求<span style="color:#ef4444">关联性</span>比较多？'
+        "是不是都求关联性比较多？": '是不是都求<span style="color:#ef4444">关联性</span>比较多？',
+        "还有一个容易忽略的细节：Shotgun 读到的不只是基因，也可能包括非编码 DNA；如果样本含有宿主 DNA，也可能测到宿主 DNA。": '还有一个容易忽略的细节：Shotgun 读到的不只是基因，也可能包括非编码 DNA；如果样本含有宿主 DNA，也可能测到宿主 DNA。'
     };
 
     nodes.forEach(n => {
+        // v3.5.8 消除右侧空白与框自适应失败：对于所有非用户显式手动调整过的卡片，彻底清理过时僵硬的 customWidth / customHeight
+        // 保证卡片回归自然的 width: max-content; max-width: 520px; 紧密自适应文字包裹，杜绝右侧冗余死白空间！
+        if (!n.isImage && !n._userResized) {
+            delete n.customWidth;
+            delete n.customHeight;
+        }
+
+        // v3.5.8 自动无损修复旧版被截断的标题（如「还有一个容易忽略的细节...」）：若 content 首行更完整，恢复完整首行为 label
+        if (n.content && typeof n.content === "string") {
+            const fullFirstLine = n.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
+            const plainLabel = stripFormattingToPlainText(n.label || "");
+            const plainFirst = stripFormattingToPlainText(fullFirstLine);
+            if (plainLabel && plainFirst.startsWith(plainLabel) && plainFirst.length > plainLabel.length) {
+                n.label = fullFirstLine;
+            }
+        }
+
         if (n.id && n.id.startsWith("ex_")) {
             if (n.cardBgColor === "rose" || n.cardBgColor === "emerald" || n.cardBgColor === "") {
                 delete n.cardBgColor;
@@ -1624,11 +1642,18 @@ function getCardDisplayHTML(d) {
     let rawTitle = (d.label || "").trim();
     const labelHasStyle = rawTitle.includes("<span") || rawTitle.includes("<font") || rawTitle.includes("<mark") || rawTitle.includes("==") || rawTitle.includes("**");
     
-    if (!labelHasStyle && d.content && typeof d.content === "string") {
+    if (d.content && typeof d.content === "string") {
         const firstLine = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
         const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
-        if (firstLineHasStyle) {
+        if (!labelHasStyle && firstLineHasStyle) {
             rawTitle = firstLine;
+        } else {
+            // v3.5.8 若 d.label 被截断而 d.content 首行更完整，自动取更完整的首行作为卡片标题
+            const plainRaw = stripFormattingToPlainText(rawTitle);
+            const plainFirst = stripFormattingToPlainText(firstLine);
+            if (plainFirst.startsWith(plainRaw) && plainFirst.length > plainRaw.length) {
+                rawTitle = firstLine;
+            }
         }
     }
     if (!rawTitle) rawTitle = "未命名";
@@ -1677,8 +1702,9 @@ function refreshNodeStyles() {
                 }
             }
 
-            const hasCustomW = typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 36;
-            const hasCustomH = typeof d.customHeight === "number" && Number.isFinite(d.customHeight) && d.customHeight >= 24;
+            // v3.5.8 自然包裹自适应排版：仅当用户显式拖拽缩放 (d._userResized) 或图片卡片时才应用固定 customWidth；否则回归 max-content 贴紧文字
+            const hasCustomW = (!!d._userResized || !!d.isImage) && typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 36;
+            const hasCustomH = (!!d._userResized || !!d.isImage || !!d._manualHeight) && typeof d.customHeight === "number" && Number.isFinite(d.customHeight) && d.customHeight >= 24;
             const hasCustomFont = typeof d.customFontSize === "number" && Number.isFinite(d.customFontSize) && d.customFontSize >= 8;
 
             // 关键修复 1：确保所有 8 向缩放手柄 (.card-resize-handle) 实时绑定当前最新的节点数据引用 d，杜绝 IDB 恢复或撤销后引用脱离导致拉动失效！
@@ -1909,7 +1935,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         const cardEl = cardDiv.node();
         if (cardEl) {
             const foSel = group.select(".node-card-fo");
-            const hasCW = typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 36;
+            const hasCW = (!!d._userResized || !!d.isImage) && typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 36;
             foSel.attr("width", hasCW ? Math.max(120, d.customWidth + 32) : 980).attr("height", 920);
             d._cardW = Math.max(36, Math.min(980, cardEl.offsetWidth || 130));
             d._cardH = Math.max(24, Math.min(860, cardEl.offsetHeight || 34));
@@ -5295,7 +5321,7 @@ function importExcalidrawFile(parsed, fileName = "") {
             const rawText = (el.text || "").trim();
             if (!rawText) return;
 
-            const firstLine = rawText.split("\n")[0].slice(0, 42) || "卡片";
+            const firstLine = rawText.split("\n")[0].trim() || "卡片";
             const nodeId = `ex_${nowTs}_${idx}`;
             elementToNodeId.set(el.id, nodeId);
 
@@ -5320,7 +5346,7 @@ function importExcalidrawFile(parsed, fileName = "") {
             const preferredW = (el.customData && typeof el.customData.preferredWidth === "number")
                 ? el.customData.preferredWidth
                 : (isSoftWrapped ? Math.round((el.width || 240) + 38) : null);
-            const customW = preferredW ? Math.round(Math.max(60, Math.min(960, preferredW))) : null;
+            const customW = null; // v3.5.8 文本卡片默认自然流式自适应包裹，仅当用户显式拖拽调整手柄时才锁定固定宽度
             const customFont = (typeof el.fontSize === "number" && el.fontSize >= 20 && el.fontSize <= 64) ? el.fontSize : null;
 
             const firstLineStyled = styledContent.split("\n")[0].trim().slice(0, 160) || firstLine;
