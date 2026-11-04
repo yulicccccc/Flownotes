@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.5)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.6)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.4.5">
+    <link rel="stylesheet" href="index.css?v=3.4.6">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -70,6 +70,15 @@
         </div>
 
         <div class="navbar-right">
+            <!-- 顶部番茄钟与心流专注胶囊 (Header Pomodoro Focus Capsule) -->
+            <div class="header-pomo-pill" id="headerPomoPill" title="🍅 点击打开「番茄专注与行动证据库」 (Alt+P 快速开始/暂停)">
+                <span class="pomo-pill-mode-dot" id="pomoPillDot"></span>
+                <span class="pomo-pill-icon">🍅</span>
+                <span class="pomo-pill-timer" id="pomoPillTimer">25:00</span>
+                <button class="pomo-pill-toggle-btn" id="pomoPillToggleBtn" title="开始/暂停番茄专注 (Alt+P)">▶</button>
+                <span class="pomo-pill-today-badge" id="pomoPillTodayBadge" title="今日已完成专注番茄数">0</span>
+            </div>
+
             <!-- 全局实时搜索 -->
             <div class="search-box">
                 <span class="search-icon">🔍</span>
@@ -504,8 +513,151 @@
         </div>
     </div>
 
+    <!-- 番茄专注与行动证据库 Modal (Pomodoro Focus & Evidence Modal) -->
+    <div class="modal-overlay" id="pomoFocusModal" style="display:none;">
+        <div class="modal-card modal-lg pomo-modal-card">
+            <div class="modal-header">
+                <div class="pomo-modal-title-group">
+                    <h3>🍅 番茄专注与行动证据库</h3>
+                    <span class="pomo-modal-subtitle">Evidence Over Emotion · 用确凿证据校准感受，记录每一个扎实脚印</span>
+                </div>
+                <button class="btn-close-modal" id="closePomoModalBtn">×</button>
+            </div>
+            
+            <div class="modal-body pomo-modal-body">
+                <!-- 顶部导航切换：计时器 / 证据库 / 偏好 -->
+                <div class="pomo-subtabs">
+                    <button class="pomo-subtab active" data-ptab="timer">⏱️ 专注计时器</button>
+                    <button class="pomo-subtab" data-ptab="evidence">📊 行动证据库 (<span id="pomoEvidenceCountBadge">0</span>)</button>
+                    <button class="pomo-subtab" data-ptab="settings">⚙️ 偏好设置</button>
+                </div>
+
+                <!-- 1. 计时器视图 -->
+                <div class="pomo-tab-pane active" id="pomoPaneTimer">
+                    <div class="pomo-modes-bar">
+                        <button class="pomo-mode-btn active" data-pmode="focus">🍅 深度专注 (25m)</button>
+                        <button class="pomo-mode-btn" data-pmode="shortBreak">☕ 快速小憩 (5m)</button>
+                        <button class="pomo-mode-btn" data-pmode="longBreak">🌴 彻底放松 (15m)</button>
+                    </div>
+
+                    <div class="pomo-ring-container">
+                        <svg class="pomo-ring-svg" viewBox="0 0 220 220">
+                            <circle class="pomo-ring-bg" cx="110" cy="110" r="95"></circle>
+                            <circle class="pomo-ring-progress" id="pomoRingProgress" cx="110" cy="110" r="95"></circle>
+                        </svg>
+                        <div class="pomo-ring-center">
+                            <div class="pomo-large-timer" id="pomoLargeTimer">25:00</div>
+                            <div class="pomo-mode-label" id="pomoModeLabel">深度专注中</div>
+                        </div>
+                    </div>
+
+                    <div class="pomo-target-row">
+                        <input type="text" id="pomoTargetInput" class="input-field pomo-target-input" placeholder="🎯 本轮专注目标（如：梳理宏基因组数据清洗逻辑）">
+                        <button class="btn btn-secondary btn-sm" id="btnPomoBindCard" title="一键绑定当前在画布上选中的思维图谱卡片">📍 绑定选中卡片</button>
+                    </div>
+
+                    <div class="pomo-quick-durations">
+                        <span class="pomo-quick-label">快速切片：</span>
+                        <button class="pomo-chip" data-mins="15">15分钟</button>
+                        <button class="pomo-chip active" data-mins="25">25分钟</button>
+                        <button class="pomo-chip" data-mins="45">45分钟</button>
+                        <button class="pomo-chip" data-mins="60">60分钟</button>
+                    </div>
+
+                    <div class="pomo-actions-row">
+                        <button class="btn btn-primary btn-lg" id="pomoPrimaryBtn">
+                            <span id="pomoPrimaryIcon">▶</span>
+                            <span id="pomoPrimaryText">开始专注 (Alt+P)</span>
+                        </button>
+                        <button class="btn btn-secondary" id="pomoResetBtn" title="重置本轮计时">↺ 重置</button>
+                        <button class="btn btn-secondary" id="pomoSkipBtn" title="跳过此轮">⏭ 跳过</button>
+                        <button class="btn btn-secondary" id="pomoFinishEarlyBtn" title="提前完成此轮并沉淀为一条行动证据">✅ 提前沉淀证据</button>
+                    </div>
+                </div>
+
+                <!-- 2. 行动证据库视图 -->
+                <div class="pomo-tab-pane" id="pomoPaneEvidence">
+                    <!-- 核心哲学信条 Banner -->
+                    <div class="pomo-philosophy-banner">
+                        <div class="phil-icon">🧠</div>
+                        <div class="phil-content">
+                            <h4>Evidence Over Emotion ｜ 用可信证据校准感受</h4>
+                            <p>不必等待感觉准备好才行动。每完成一个可控的小步骤，都形成一份扎实的客观证据。积累的真实证据越多，自信就越有依据。</p>
+                        </div>
+                    </div>
+
+                    <!-- 4 项证据统计看板 -->
+                    <div class="pomo-stats-grid">
+                        <div class="pomo-stat-card">
+                            <span class="pomo-stat-val" id="pomoStatTodayMins">0</span>
+                            <span class="pomo-stat-lbl">今日专注 (分钟)</span>
+                        </div>
+                        <div class="pomo-stat-card">
+                            <span class="pomo-stat-val" id="pomoStatTodayPomos">0</span>
+                            <span class="pomo-stat-lbl">今日番茄 (颗 🍅)</span>
+                        </div>
+                        <div class="pomo-stat-card">
+                            <span class="pomo-stat-val" id="pomoStatStreak">0 天</span>
+                            <span class="pomo-stat-lbl">连续专注打卡 🔥</span>
+                        </div>
+                        <div class="pomo-stat-card">
+                            <span class="pomo-stat-val" id="pomoStatTotalHours">0.0h</span>
+                            <span class="pomo-stat-lbl">历史总证据 (<span id="pomoStatTotalCount">0</span> 颗)</span>
+                        </div>
+                    </div>
+
+                    <!-- 历史证据时间轴 -->
+                    <div class="pomo-timeline-section">
+                        <div class="pomo-timeline-header">
+                            <h4>📜 行动足迹时间轴 (走过的路)</h4>
+                            <div class="pomo-timeline-actions">
+                                <button class="btn btn-sm btn-secondary" id="btnSyncAllToFlowStream">⚡ 全部同步到心流捕获</button>
+                                <button class="btn btn-sm btn-secondary" id="btnExportEvidenceMd">📋 复制证据 Markdown</button>
+                                <button class="btn btn-sm btn-danger-soft" id="btnClearEvidenceHistory">清空记录</button>
+                            </div>
+                        </div>
+                        <div class="pomo-timeline-list" id="pomoTimelineList">
+                            <!-- 动态渲染证据项 -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 设置视图 -->
+                <div class="pomo-tab-pane" id="pomoPaneSettings">
+                    <div class="form-group margin-top-sm">
+                        <label><b>专注时长 (分钟)：</b></label>
+                        <input type="number" id="cfgPomoFocusMins" class="input-field" value="25" min="1" max="120">
+                    </div>
+                    <div class="form-group margin-top-sm">
+                        <label><b>短休时长 (分钟)：</b></label>
+                        <input type="number" id="cfgPomoShortMins" class="input-field" value="5" min="1" max="30">
+                    </div>
+                    <div class="form-group margin-top-sm">
+                        <label><b>长休时长 (分钟)：</b></label>
+                        <input type="number" id="cfgPomoLongMins" class="input-field" value="15" min="1" max="60">
+                    </div>
+                    <div class="form-group margin-top-sm">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="cfgPomoSound" checked>
+                            <span>🔊 启用 Web Audio 禅意铜钟提示音 (432Hz 舒缓泛音)</span>
+                        </label>
+                    </div>
+                    <div class="form-group margin-top-sm">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="cfgPomoAutoSyncFlow" checked>
+                            <span>⚡ 每轮专注完成自动向「心流捕获」沉淀一条 #专注证据 记录</span>
+                        </label>
+                    </div>
+                    <div class="form-group margin-top-sm">
+                        <button class="btn btn-primary" id="btnSavePomoSettings">💾 保存偏好设置</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.4.5"></script>
+    <script src="app.js?v=3.4.6"></script>
 </body>
 </html>

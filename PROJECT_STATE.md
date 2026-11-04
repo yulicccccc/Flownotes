@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.5)
+# Project State: FlowNotes (v3.4.6)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.5`
+- **Current Version**: `v3.4.6`
 - **Latest Releases**:
+  - `v3.4.6`:
+    - **Pomodoro Focus Timer & Evidence Over Emotion Suite (`#headerPomoPill` + `#pomoFocusModal` + `Evidence Trail`)**: Integrated Pomodoro focus timer and daily study evidence tracker right in the top header. Embedded core philosophy: *Action before confidence, Evidence over emotion, Tiny tweaks, Willingness to feel fear*. Features 25/5/15m modes, SVG circular progress ring, one-click binding to selected mindmap card (`📍 绑定选中卡片`), Web Audio 432Hz Tibetan chime, live document.title sync, `Alt+P` global shortcut, automatic/manual `#专注证据` flowStream sync, and 4-metric evidence dashboard tracking today's minutes/pomodoros, streak days, total hours, and full footprint timeline.
   - `v3.4.5`:
     - **OneNote Card Frame Fill Swatches & Dual Font/Box Quick Suite (`🟥/🟩/🟨` + `toggleCardBgColor`)**: Added 3 square color swatches to the quick edit bubble toolbar representing card box background fill colors (`🟥` rose, `🟩` emerald, `🟨` amber); clearly decoupled from circular font/text colors (`🔴/🟢/🟡`); supports one-click apply and click-again toggle to restore clean defaults, active swatch glow cues (`.active-swatch`), and multi-card / inline-edit real-time tinting.
   - `v3.4.4`:

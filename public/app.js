@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.5 loaded — OneNote Card Frame Fill Swatches & Dual Font/Box Quick Suite");
+    console.log("[FlowNotes] v3.4.6 loaded — Pomodoro Focus Timer & Evidence Over Emotion Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -270,6 +270,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initClipboardPaste();
     initV31Enhancements();
     initV32XMindOneNoteSuite();
+    initPomodoroSuite();
     renderAll();
     initGhSyncUI();
     initPwaAndLifecycleSync();
@@ -7513,6 +7514,640 @@ function initInkDrawingEvents() {
         onEnd();
     });
 }
+
+// ==========================================
+// v3.4.6: 番茄专注与行动证据库 (Pomodoro Focus & Evidence Over Emotion Suite)
+// 核心哲学：Action before confidence · Evidence over emotion · Tiny tweaks · Willingness to feel fear
+// ==========================================
+function initPomodoroSuite() {
+    const defaultSettings = {
+        focusMins: 25,
+        shortBreakMins: 5,
+        longBreakMins: 15,
+        soundEnabled: true,
+        autoSyncFlow: true
+    };
+
+    let pomoSettings = { ...defaultSettings };
+    try {
+        const savedSettings = localStorage.getItem("flownotes_pomo_settings");
+        if (savedSettings) pomoSettings = { ...defaultSettings, ...JSON.parse(savedSettings) };
+    } catch (e) {
+        console.warn("[Pomo] Failed to parse settings:", e);
+    }
+
+    let pomoState = {
+        mode: "focus", // 'focus' | 'shortBreak' | 'longBreak'
+        totalSeconds: pomoSettings.focusMins * 60,
+        remainingSeconds: pomoSettings.focusMins * 60,
+        isRunning: false,
+        target: "",
+        completedPomosToday: 0,
+        lastTimestamp: Date.now()
+    };
+
+    try {
+        const savedState = localStorage.getItem("flownotes_pomo_state");
+        if (savedState) {
+            const parsed = JSON.parse(savedState);
+            pomoState.mode = parsed.mode || "focus";
+            pomoState.totalSeconds = parsed.totalSeconds || pomoSettings.focusMins * 60;
+            pomoState.remainingSeconds = typeof parsed.remainingSeconds === "number" ? parsed.remainingSeconds : pomoState.totalSeconds;
+            pomoState.target = parsed.target || "";
+        }
+    } catch (e) {
+        console.warn("[Pomo] Failed to restore state:", e);
+    }
+
+    let pomoEvidenceLog = [];
+    try {
+        const savedLog = localStorage.getItem("flownotes_pomo_evidence_log");
+        if (savedLog) pomoEvidenceLog = JSON.parse(savedLog);
+    } catch (e) {
+        console.warn("[Pomo] Failed to load evidence log:", e);
+    }
+
+    // DOM 元素引用
+    const headerPill = document.getElementById("headerPomoPill");
+    const pillTimer = document.getElementById("pomoPillTimer");
+    const pillToggleBtn = document.getElementById("pomoPillToggleBtn");
+    const pillTodayBadge = document.getElementById("pomoPillTodayBadge");
+
+    const modal = document.getElementById("pomoFocusModal");
+    const closeModalBtn = document.getElementById("closePomoModalBtn");
+
+    const subtabs = document.querySelectorAll(".pomo-subtab");
+    const paneTimer = document.getElementById("pomoPaneTimer");
+    const paneEvidence = document.getElementById("pomoPaneEvidence");
+    const paneSettings = document.getElementById("pomoPaneSettings");
+    const countBadge = document.getElementById("pomoEvidenceCountBadge");
+
+    const modeBtns = document.querySelectorAll(".pomo-mode-btn");
+    const ringProgress = document.getElementById("pomoRingProgress");
+    const largeTimer = document.getElementById("pomoLargeTimer");
+    const modeLabel = document.getElementById("pomoModeLabel");
+    const targetInput = document.getElementById("pomoTargetInput");
+    const btnBindCard = document.getElementById("btnPomoBindCard");
+    const durationChips = document.querySelectorAll(".pomo-chip");
+
+    const primaryBtn = document.getElementById("pomoPrimaryBtn");
+    const primaryIcon = document.getElementById("pomoPrimaryIcon");
+    const primaryText = document.getElementById("pomoPrimaryText");
+    const resetBtn = document.getElementById("pomoResetBtn");
+    const skipBtn = document.getElementById("pomoSkipBtn");
+    const finishEarlyBtn = document.getElementById("pomoFinishEarlyBtn");
+
+    const statTodayMins = document.getElementById("pomoStatTodayMins");
+    const statTodayPomos = document.getElementById("pomoStatTodayPomos");
+    const statStreak = document.getElementById("pomoStatStreak");
+    const statTotalHours = document.getElementById("pomoStatTotalHours");
+    const statTotalCount = document.getElementById("pomoStatTotalCount");
+    const timelineList = document.getElementById("pomoTimelineList");
+    const btnSyncAll = document.getElementById("btnSyncAllToFlowStream");
+    const btnExportMd = document.getElementById("btnExportEvidenceMd");
+    const btnClearHistory = document.getElementById("btnClearEvidenceHistory");
+
+    const cfgFocus = document.getElementById("cfgPomoFocusMins");
+    const cfgShort = document.getElementById("cfgPomoShortMins");
+    const cfgLong = document.getElementById("cfgPomoLongMins");
+    const cfgSound = document.getElementById("cfgPomoSound");
+    const cfgAutoSync = document.getElementById("cfgPomoAutoSyncFlow");
+    const btnSaveSettings = document.getElementById("btnSavePomoSettings");
+
+    const RING_CIRCUMFERENCE = 2 * Math.PI * 95; // ~596.903
+    if (ringProgress) {
+        ringProgress.style.strokeDasharray = `${RING_CIRCUMFERENCE}`;
+    }
+
+    const baseDocumentTitle = document.title;
+    let timerInterval = null;
+
+    function formatTime(totalSec) {
+        const m = Math.floor(Math.max(0, totalSec) / 60);
+        const s = Math.floor(Math.max(0, totalSec) % 60);
+        return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+
+    function getTodayStr() {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem("flownotes_pomo_state", JSON.stringify({
+                mode: pomoState.mode,
+                totalSeconds: pomoState.totalSeconds,
+                remainingSeconds: pomoState.remainingSeconds,
+                target: pomoState.target
+            }));
+        } catch (e) {}
+    }
+
+    function saveEvidenceLog() {
+        try {
+            localStorage.setItem("flownotes_pomo_evidence_log", JSON.stringify(pomoEvidenceLog));
+        } catch (e) {}
+    }
+
+    function saveSettings() {
+        try {
+            localStorage.setItem("flownotes_pomo_settings", JSON.stringify(pomoSettings));
+        } catch (e) {}
+    }
+
+    // 禅意和声：Web Audio 432Hz (专注结束) / 528Hz (休息结束) 舒缓泛音
+    function playChime(isBreak = false) {
+        if (!pomoSettings.soundEnabled) return;
+        try {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) return;
+            const ctx = new AudioCtx();
+            const now = ctx.currentTime;
+            const baseFreq = isBreak ? 528 : 432;
+            const harmonics = [1, 2, 2.76, 4];
+            const gains = [0.35, 0.2, 0.12, 0.06];
+
+            harmonics.forEach((ratio, i) => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(baseFreq * ratio, now);
+
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(gains[i], now + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 2.5);
+            });
+        } catch (e) {
+            console.warn("[Pomo] Audio play failed:", e);
+        }
+    }
+
+    function updateUI() {
+        const timeStr = formatTime(pomoState.remainingSeconds);
+        if (pillTimer) pillTimer.textContent = timeStr;
+        if (largeTimer) largeTimer.textContent = timeStr;
+
+        const todayStr = getTodayStr();
+        const todayItems = pomoEvidenceLog.filter(item => item.date === todayStr && item.mode === "focus");
+        pomoState.completedPomosToday = todayItems.length;
+
+        if (pillTodayBadge) pillTodayBadge.textContent = String(pomoState.completedPomosToday);
+        if (countBadge) countBadge.textContent = String(pomoEvidenceLog.length);
+
+        if (headerPill) {
+            headerPill.classList.toggle("pomo-running", pomoState.isRunning);
+            headerPill.classList.toggle("pomo-break", pomoState.mode !== "focus");
+        }
+
+        if (pillToggleBtn) {
+            pillToggleBtn.textContent = pomoState.isRunning ? "⏸" : "▶";
+            pillToggleBtn.title = pomoState.isRunning ? "暂停番茄专注 (Alt+P)" : "继续番茄专注 (Alt+P)";
+        }
+
+        if (primaryIcon && primaryText) {
+            if (pomoState.isRunning) {
+                primaryIcon.textContent = "⏸";
+                primaryText.textContent = "暂停专注 (Alt+P)";
+            } else {
+                primaryIcon.textContent = "▶";
+                primaryText.textContent = pomoState.mode === "focus" ? "开始专注 (Alt+P)" : "开始休息 (Alt+P)";
+            }
+        }
+
+        if (modeLabel) {
+            if (pomoState.mode === "focus") modeLabel.textContent = pomoState.isRunning ? "深度专注中..." : "准备专注";
+            else if (pomoState.mode === "shortBreak") modeLabel.textContent = pomoState.isRunning ? "快速小憩中..." : "准备小憩";
+            else modeLabel.textContent = pomoState.isRunning ? "彻底放松中..." : "准备放松";
+        }
+
+        modeBtns.forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.pmode === pomoState.mode);
+        });
+
+        if (ringProgress && pomoState.totalSeconds > 0) {
+            const progress = (pomoState.totalSeconds - pomoState.remainingSeconds) / pomoState.totalSeconds;
+            const offset = RING_CIRCUMFERENCE * (1 - Math.max(0, Math.min(1, progress)));
+            ringProgress.style.strokeDashoffset = `${offset}`;
+            ringProgress.style.stroke = pomoState.mode === "focus" ? "#ef4444" : "#10b981";
+        }
+
+        if (pomoState.isRunning) {
+            const icon = pomoState.mode === "focus" ? "🍅" : "☕";
+            document.title = `(${timeStr}) ${icon} FlowNotes`;
+        } else {
+            document.title = baseDocumentTitle;
+        }
+
+        if (targetInput && document.activeElement !== targetInput) {
+            targetInput.value = pomoState.target || "";
+        }
+    }
+
+    function switchMode(newMode, customMins = null) {
+        pomoState.mode = newMode;
+        let mins = customMins;
+        if (!mins) {
+            if (newMode === "focus") mins = pomoSettings.focusMins;
+            else if (newMode === "shortBreak") mins = pomoSettings.shortBreakMins;
+            else mins = pomoSettings.longBreakMins;
+        }
+        pomoState.totalSeconds = mins * 60;
+        pomoState.remainingSeconds = pomoState.totalSeconds;
+        pauseTimer();
+        updateUI();
+        saveState();
+    }
+
+    function startTimer() {
+        if (pomoState.isRunning) return;
+        pomoState.isRunning = true;
+        pomoState.lastTimestamp = Date.now();
+
+        if (timerInterval) clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            const now = Date.now();
+            const elapsedSec = Math.round((now - pomoState.lastTimestamp) / 1000);
+            if (elapsedSec >= 1) {
+                pomoState.remainingSeconds = Math.max(0, pomoState.remainingSeconds - elapsedSec);
+                pomoState.lastTimestamp = now;
+                updateUI();
+                saveState();
+
+                if (pomoState.remainingSeconds <= 0) {
+                    completeSession(false);
+                }
+            }
+        }, 500);
+
+        updateUI();
+    }
+
+    function pauseTimer() {
+        pomoState.isRunning = false;
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        updateUI();
+        saveState();
+    }
+
+    function toggleTimer() {
+        if (pomoState.isRunning) pauseTimer();
+        else startTimer();
+    }
+
+    function completeSession(isEarly = false) {
+        pauseTimer();
+        const isFocus = pomoState.mode === "focus";
+        playChime(!isFocus);
+
+        if (isFocus) {
+            const elapsedSec = pomoState.totalSeconds - pomoState.remainingSeconds;
+            const durationMins = isEarly ? Math.max(1, Math.round(elapsedSec / 60)) : Math.round(pomoState.totalSeconds / 60);
+            const targetText = (targetInput && targetInput.value.trim()) || pomoState.target.trim() || "深度沉浸学习与思维整理";
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString("zh-CN", { hour12: false });
+            const dateStr = getTodayStr();
+
+            const evidenceItem = {
+                id: `pomo_ev_${Date.now()}`,
+                date: dateStr,
+                timestamp: `${dateStr} ${timeStr}`,
+                mode: "focus",
+                target: targetText,
+                durationMins: durationMins,
+                type: isEarly ? "early_finish" : "completed",
+                syncedToFlow: false
+            };
+
+            pomoEvidenceLog.unshift(evidenceItem);
+            saveEvidenceLog();
+
+            if (pomoSettings.autoSyncFlow) {
+                pushEvidenceToFlowStream(evidenceItem);
+            }
+
+            renderEvidenceDashboard();
+
+            showToast(isEarly
+                ? `⚡ 已记录行动证据：${targetText} (${durationMins}分钟)`
+                : `🎉 太棒了！已完成 1 颗专注番茄并沉淀客观证据：${targetText} (${durationMins}分钟)`
+            );
+
+            const nextMode = (pomoState.completedPomosToday + 1) % 4 === 0 ? "longBreak" : "shortBreak";
+            switchMode(nextMode);
+        } else {
+            showToast("☕ 休息结束！带着刚才的蓄能，开启下一个可控行动吧！");
+            switchMode("focus");
+        }
+    }
+
+    function pushEvidenceToFlowStream(evItem) {
+        try {
+            if (typeof flowStream !== "undefined" && Array.isArray(flowStream)) {
+                const streamContent = `#专注证据 🍅【${evItem.target}】· 扎实投入 ${evItem.durationMins} 分钟 · ${evItem.type === "completed" ? "完整达成" : "灵活沉淀"}`;
+                flowStream.unshift({
+                    id: `f_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+                    content: streamContent,
+                    timestamp: evItem.timestamp
+                });
+                evItem.syncedToFlow = true;
+                saveEvidenceLog();
+                if (typeof saveFlowsToStorage === "function") saveFlowsToStorage();
+                if (typeof renderFlowStream === "function") renderFlowStream();
+            }
+        } catch (e) {
+            console.warn("[Pomo] Push to flowStream failed:", e);
+        }
+    }
+
+    function renderEvidenceDashboard() {
+        const todayStr = getTodayStr();
+        const focusItems = pomoEvidenceLog.filter(item => item.mode === "focus");
+        const todayItems = focusItems.filter(item => item.date === todayStr);
+
+        const todayMins = todayItems.reduce((acc, cur) => acc + (cur.durationMins || 0), 0);
+        const todayPomos = todayItems.length;
+        const totalMins = focusItems.reduce((acc, cur) => acc + (cur.durationMins || 0), 0);
+        const totalHours = (totalMins / 60).toFixed(1);
+
+        const uniqueDates = Array.from(new Set(focusItems.map(item => item.date))).sort().reverse();
+        let streak = 0;
+        let checkDate = new Date();
+
+        for (let i = 0; i < 365; i++) {
+            const y = checkDate.getFullYear();
+            const m = String(checkDate.getMonth() + 1).padStart(2, "0");
+            const d = String(checkDate.getDate()).padStart(2, "0");
+            const dateKey = `${y}-${m}-${d}`;
+
+            if (uniqueDates.includes(dateKey)) {
+                streak++;
+                checkDate.setDate(checkDate.getDate() - 1);
+            } else {
+                if (i === 0) {
+                    checkDate.setDate(checkDate.getDate() - 1);
+                    continue;
+                }
+                break;
+            }
+        }
+
+        if (statTodayMins) statTodayMins.textContent = String(todayMins);
+        if (statTodayPomos) statTodayPomos.textContent = String(todayPomos);
+        if (statStreak) statStreak.textContent = `${streak} 天`;
+        if (statTotalHours) statTotalHours.textContent = `${totalHours}h`;
+        if (statTotalCount) statTotalCount.textContent = String(focusItems.length);
+
+        if (timelineList) {
+            if (pomoEvidenceLog.length === 0) {
+                timelineList.innerHTML = `
+                    <div class="pomo-empty-hint">
+                        🌱 暂无行动证据记录。<br>不必等待感觉准备好，点击上方开始，完成一个可控的小步骤！
+                    </div>
+                `;
+            } else {
+                timelineList.innerHTML = pomoEvidenceLog.map(item => `
+                    <div class="pomo-timeline-item" data-evid="${item.id}">
+                        <div class="pomo-item-left">
+                            <span class="pomo-item-tag">${item.mode === "focus" ? "🍅 专注" : "☕ 休息"} ${item.durationMins}m</span>
+                            <span class="pomo-item-title">${escapeHtml(item.target || "未命名目标")}</span>
+                        </div>
+                        <div class="pomo-item-meta">
+                            <span>${item.timestamp}</span>
+                            ${!item.syncedToFlow ? `<button class="btn btn-xs btn-secondary btn-sync-single" data-evid="${item.id}" style="margin-left:8px;padding:1px 6px;font-size:10px;">⚡ 同步心流</button>` : `<span style="margin-left:8px;color:#10b981;font-size:11px;">✓ 已沉淀</span>`}
+                        </div>
+                    </div>
+                `).join("");
+
+                timelineList.querySelectorAll(".btn-sync-single").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        e.stopPropagation();
+                        const evid = btn.dataset.evid;
+                        const item = pomoEvidenceLog.find(x => x.id === evid);
+                        if (item) {
+                            pushEvidenceToFlowStream(item);
+                            renderEvidenceDashboard();
+                            showToast("已将该条证据同步至心流捕获！");
+                        }
+                    });
+                });
+            }
+        }
+    }
+
+    function escapeHtml(str) {
+        return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    // 事件监听绑定
+    if (headerPill) {
+        headerPill.addEventListener("click", (e) => {
+            if (e.target === pillToggleBtn || (pillToggleBtn && pillToggleBtn.contains(e.target))) return;
+            openModal();
+        });
+    }
+
+    if (pillToggleBtn) {
+        pillToggleBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            toggleTimer();
+        });
+    }
+
+    function openModal(defaultTab = null) {
+        if (!modal) return;
+        modal.style.display = "flex";
+        if (defaultTab) switchSubtab(defaultTab);
+        renderEvidenceDashboard();
+        updateUI();
+    }
+
+    function closeModal() {
+        if (!modal) return;
+        modal.style.display = "none";
+    }
+
+    if (closeModalBtn) closeModalBtn.addEventListener("click", closeModal);
+    if (modal) {
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) closeModal();
+        });
+    }
+
+    function switchSubtab(tabKey) {
+        subtabs.forEach(btn => btn.classList.toggle("active", btn.dataset.ptab === tabKey));
+        if (paneTimer) paneTimer.classList.toggle("active", tabKey === "timer");
+        if (paneEvidence) paneEvidence.classList.toggle("active", tabKey === "evidence");
+        if (paneSettings) paneSettings.classList.toggle("active", tabKey === "settings");
+        if (tabKey === "evidence") renderEvidenceDashboard();
+    }
+
+    subtabs.forEach(btn => {
+        btn.addEventListener("click", () => switchSubtab(btn.dataset.ptab));
+    });
+
+    modeBtns.forEach(btn => {
+        btn.addEventListener("click", () => {
+            switchMode(btn.dataset.pmode);
+        });
+    });
+
+    durationChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            durationChips.forEach(c => c.classList.remove("active"));
+            chip.classList.add("active");
+            const mins = parseInt(chip.dataset.mins, 10);
+            if (!isNaN(mins) && mins > 0) {
+                switchMode(pomoState.mode, mins);
+            }
+        });
+    });
+
+    if (targetInput) {
+        targetInput.addEventListener("input", (e) => {
+            pomoState.target = e.target.value;
+            saveState();
+        });
+    }
+
+    if (btnBindCard) {
+        btnBindCard.addEventListener("click", () => {
+            let cardTitle = "";
+            if (typeof selectedNode !== "undefined" && selectedNode) {
+                cardTitle = (selectedNode.label || selectedNode.content || "").replace(/<[^>]*>/g, "").trim();
+            }
+            if (cardTitle) {
+                if (targetInput) targetInput.value = cardTitle;
+                pomoState.target = cardTitle;
+                saveState();
+                showToast(`🎯 已绑定思维卡片：「${cardTitle}」`);
+            } else {
+                showToast("请先在画布上点击选中一张思维卡片，再点击绑定");
+            }
+        });
+    }
+
+    if (primaryBtn) primaryBtn.addEventListener("click", toggleTimer);
+    if (resetBtn) {
+        resetBtn.addEventListener("click", () => {
+            let mins = pomoSettings.focusMins;
+            if (pomoState.mode === "shortBreak") mins = pomoSettings.shortBreakMins;
+            if (pomoState.mode === "longBreak") mins = pomoSettings.longBreakMins;
+            pomoState.totalSeconds = mins * 60;
+            pomoState.remainingSeconds = pomoState.totalSeconds;
+            pauseTimer();
+            showToast("本轮番茄钟已重置");
+        });
+    }
+    if (skipBtn) {
+        skipBtn.addEventListener("click", () => {
+            pauseTimer();
+            const nextMode = pomoState.mode === "focus" ? "shortBreak" : "focus";
+            switchMode(nextMode);
+            showToast(`已跳过本轮，切换至 ${nextMode === "focus" ? "🍅 专注" : "☕ 休息"} 模式`);
+        });
+    }
+    if (finishEarlyBtn) {
+        finishEarlyBtn.addEventListener("click", () => {
+            completeSession(true);
+        });
+    }
+
+    if (btnSyncAll) {
+        btnSyncAll.addEventListener("click", () => {
+            let count = 0;
+            pomoEvidenceLog.forEach(item => {
+                if (!item.syncedToFlow) {
+                    pushEvidenceToFlowStream(item);
+                    count++;
+                }
+            });
+            renderEvidenceDashboard();
+            showToast(count > 0 ? `⚡ 已将 ${count} 条证据同步至心流捕获！` : "所有证据此前已全部同步过");
+        });
+    }
+
+    if (btnExportMd) {
+        btnExportMd.addEventListener("click", () => {
+            if (pomoEvidenceLog.length === 0) {
+                showToast("证据库为空，暂无数据可导出");
+                return;
+            }
+            let md = `# 🍅 FlowNotes 专注行动证据库 (Evidence Over Emotion)\n\n`;
+            md += `> "用可信证据校准感受，记录每一个扎实脚印。"\n\n`;
+            md += `| 日期时间 | 类型 | 投入时长 | 专注目标 / 任务 | 状态 |\n`;
+            md += `| :--- | :--- | :--- | :--- | :--- |\n`;
+            pomoEvidenceLog.forEach(item => {
+                md += `| ${item.timestamp} | ${item.mode === "focus" ? "🍅 深度专注" : "☕ 休息"} | ${item.durationMins} 分钟 | ${item.target.replace(/\|/g, "/")} | ${item.type === "completed" ? "完整达成" : "灵活沉淀"} |\n`;
+            });
+            navigator.clipboard.writeText(md).then(() => {
+                showToast("📋 证据 Markdown 表格已复制到剪贴板！可直接粘贴至 Obsidian/双链笔记");
+            }).catch(() => {
+                showToast("复制失败，请重试");
+            });
+        });
+    }
+
+    if (btnClearHistory) {
+        btnClearHistory.addEventListener("click", () => {
+            if (confirm("确定要清空所有专注证据历史吗？每一份走过的记录都很珍贵，建议先导出备份。")) {
+                pomoEvidenceLog = [];
+                saveEvidenceLog();
+                renderEvidenceDashboard();
+                updateUI();
+                showToast("专注证据记录已清空");
+            }
+        });
+    }
+
+    if (btnSaveSettings) {
+        btnSaveSettings.addEventListener("click", () => {
+            const f = parseInt(cfgFocus.value, 10);
+            const s = parseInt(cfgShort.value, 10);
+            const l = parseInt(cfgLong.value, 10);
+            if (!isNaN(f) && f > 0) pomoSettings.focusMins = f;
+            if (!isNaN(s) && s > 0) pomoSettings.shortBreakMins = s;
+            if (!isNaN(l) && l > 0) pomoSettings.longBreakMins = l;
+            pomoSettings.soundEnabled = cfgSound.checked;
+            pomoSettings.autoSyncFlow = cfgAutoSync.checked;
+            saveSettings();
+            showToast("💾 番茄钟偏好设置已保存");
+            switchSubtab("timer");
+        });
+    }
+
+    if (cfgFocus) cfgFocus.value = pomoSettings.focusMins;
+    if (cfgShort) cfgShort.value = pomoSettings.shortBreakMins;
+    if (cfgLong) cfgLong.value = pomoSettings.longBreakMins;
+    if (cfgSound) cfgSound.checked = pomoSettings.soundEnabled;
+    if (cfgAutoSync) cfgAutoSync.checked = pomoSettings.autoSyncFlow;
+
+    // 全局快捷键 Alt+P：启动/暂停番茄钟
+    window.addEventListener("keydown", (e) => {
+        if (e.altKey && (e.key === "p" || e.key === "P" || e.code === "KeyP")) {
+            e.preventDefault();
+            toggleTimer();
+            showToast(pomoState.isRunning ? "🍅 番茄专注已开始 (Alt+P)" : "⏸ 番茄专注已暂停 (Alt+P)");
+        }
+    });
+
+    updateUI();
+    renderEvidenceDashboard();
+}
+
 
 
 

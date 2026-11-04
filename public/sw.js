@@ -1,9 +1,9 @@
-const CACHE_NAME = "flownotes-cache-v3.4.5";
+const CACHE_NAME = "flownotes-cache-v3.4.6";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/index.css?v=3.4.5",
-  "/app.js?v=3.4.5",
+  "/index.css?v=3.4.6",
+  "/app.js?v=3.4.6",
   "/manifest.json",
   "/1.excalidraw",
   "/fonts/TsangerXuanSanM-W03.ttf",

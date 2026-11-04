@@ -1,9 +1,18 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.5)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.6)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Pomodoro Focus Timer & Evidence Over Emotion Suite (v3.4.6 番茄专注与行动证据库)**:
+  - **核心哲学驱动 (Evidence Over Emotion)**：贯彻“先行动后有自信、用证据校准感受、微小调整切片、允许恐惧存在”四大心智原则。记录实际走过的每一个扎实脚印，将主观焦虑转化为不可辩驳的客观行动证据。
+  - **顶部导航专注胶囊 (`#headerPomoPill`)**：集成于顶栏右侧，实时展示专注/休息呼吸光效、状态光点（红/绿）、倒计时文本、一键开始/暂停按钮（`▶` / `⏸`）以及今日已完成专注番茄计数徽标；全局快捷键 `Alt+P` 秒级启动/暂停。
+  - **高颜值毛玻璃专注视窗 (`#pomoFocusModal`)**：
+    - **计时器视图**：支持 25m 深度专注、5m 快速小憩、15m 彻底放松模式与 15/25/45/60m 快速切片；配备 SVG 环形渐变进度条与自适应大字号倒计时；支持输入当前本轮目标，或点击 `📍 绑定选中卡片` 一键提取当前在画布上选中的思维图谱卡片标题；支持重置、跳过与 `✅ 提前沉淀证据`。
+    - **行动证据库 (Evidence Trail Dashboard)**：实时计算并展示 4 项核心数据指标（今日专注分钟、今日番茄数、连续打卡天数 Streak 🔥、历史总证据小时数与总次数）；按时间倒序清晰呈现历史足迹时间轴；支持每条记录状态标示，提供一键 `⚡ 全部同步到心流捕获`、`📋 复制证据 Markdown 表格` 与清空归档能力。
+    - **心流捕获无缝协同**：每轮专注达成自动或手动向「心流捕获」沉淀带 `#专注证据` 标签的客观凭据，不干扰正常思考，让每天走过的路看得见摸得着。
+    - **100% 离线禅意和声**：通过 Web Audio API 动态合成 432Hz 专注达成禅意铜钟和声与 528Hz 舒缓泛音，零外部资源依赖，PWA 离线环境坚若磐石。
+    - **浏览器标签实时同步**：计时器运行期间动态更新网页标题（如 `(24:59) 🍅 FlowNotes`），切出后台亦能一目了然。
 - **OneNote Card Frame Fill Swatches & Dual Font/Box Quick Suite (v3.4.5 框框正方形填色与圆圈字体色双轨套件)**:
   - **正方形代表框框填色 (3色快速填色)**：在中央置顶快捷编辑栏中增加 3 个正方形颜色按钮（`🟥` 绯红底色、`🟩` 翡翠底色、`🟨` 琥珀底色），与圆圈字体色（🔴 🟢 🟡）形成清晰语义分离。
   - **解耦操作与即时反馈**：圆圈专司文字局部标色与荧光高亮，正方形专司卡片框框背景着色。点击正方形按钮，卡片框立即切换为对应渐变语义底色；再次点击同一正方形按钮即可一键取消填色（恢复默认纯净底色），按钮实时呈现发光高亮激活态（`.active-swatch`）。
@@ -143,4 +152,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.5_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.6_flownotes-eze.pages.dev_一键更新网站.bat`.
