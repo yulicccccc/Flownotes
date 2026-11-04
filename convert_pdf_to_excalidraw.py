@@ -249,6 +249,7 @@ for b in text_dict["blocks"]:
             is_red = False
             is_green = False
             is_gray = False
+            is_handwriting = False
             max_font_size = 3.1
             sub_bbox = [
                 min(l["bbox"][0] for l in sub_lines),
@@ -261,6 +262,10 @@ for b in text_dict["blocks"]:
                 line_str = ""
                 line_html_parts = []
                 for span in line["spans"]:
+                    f_name = span.get("font", "")
+                    if f_name in ["CIDFont+F2", "CIDFont+F3"] or "Jiandaoshitoubu" in f_name or "ZZXMCCSN" in f_name:
+                        is_handwriting = True
+
                     c = span["color"]
                     r = (c >> 16) & 255
                     g = (c >> 8) & 255
@@ -336,6 +341,20 @@ for b in text_dict["blocks"]:
                 full_text = full_text.strip()
                 full_html = full_html.strip()
 
+            handwriting_keywords = [
+                "如何做数据清洗应该是重点？",
+                "我们的目的是出一套",
+                "是不是都求",
+                "专门用于选择基因的",
+                "为什么从科学问题出发需要过滤？",
+                "数据是否支持过滤规则？过滤是否影响结论？",
+                "当时为什么这么做是合理的",
+                "但那么做有什么局限性",
+                "现在如果重来回如何做得更好"
+            ]
+            if any(kw in full_text for kw in handwriting_keywords):
+                is_handwriting = True
+
             bbox = sub_bbox
             x = bbox[0] * SCALE + OFFSET_X
             y = bbox[1] * SCALE + OFFSET_Y
@@ -395,10 +414,11 @@ for b in text_dict["blocks"]:
                 "customData": {
                     "richHtml": full_html,
                     "softWrapped": is_soft_wrapped,
-                    "preferredWidth": calc_w if is_soft_wrapped else None
+                    "preferredWidth": calc_w if is_soft_wrapped else None,
+                    "fontStyle": "handwriting" if is_handwriting else None
                 },
                 "fontSize": font_size,
-                "fontFamily": 1,
+                "fontFamily": 4 if is_handwriting else 1,
                 "textAlign": "left",
                 "verticalAlign": "top",
                 "baseline": round(font_size * 0.9, 1),

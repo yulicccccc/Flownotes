@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.3)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.4)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.4.3">
+    <link rel="stylesheet" href="index.css?v=3.4.4">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -243,6 +243,7 @@
                         <button class="format-btn color-preset-btn" data-format="color-red" title="🔴 红色核心词 / 科学问题 (Ctrl+Shift+R)" style="color:#ef4444; font-weight:bold;">🔴 红</button>
                         <button class="format-btn color-preset-btn" data-format="color-green" title="🟢 绿色特征指标 / 测量变量 (Ctrl+Shift+G)" style="color:#10b981; font-weight:bold;">🟢 绿</button>
                         <button class="format-btn color-preset-btn" data-format="highlight" title="🟡 荧光黄高亮 (Ctrl+Shift+H)" style="background:rgba(254,240,138,0.2); color:#fef08a;">🟡 亮</button>
+                        <button class="format-btn color-preset-btn" data-format="handwriting" title="✍️ 手写批注体 (选中文本或整卡切换, Ctrl+Shift+W)" style="font-family:'FlowNotesHandwriting', cursive; font-size:12px; font-weight:700;">✍️ 批注</button>
                         <button class="format-btn" data-format="clear" title="清除格式与列表 (🧹 / Ctrl+Shift+\)">🧹</button>
                         <span class="format-separator"></span>
                         <button class="format-btn" data-format="code" title="行内代码 (Ctrl+E)">&lt;&gt;</button>
@@ -260,15 +261,18 @@
                     </div>
 
                     <div id="note-workspace" data-preview-mode="live">
-                        <!-- 划选文字时的微型悬浮调色胶囊 (Selection Quick Bubble) -->
+                        <!-- 划选文字与卡片微型悬浮/置顶格式工具栏 (Selection & Card Quick Bubble) -->
                         <div id="selection-quick-bubble">
                             <button class="bubble-btn" data-action="red" title="🔴 标红 (Ctrl+Shift+R)">🔴</button>
                             <button class="bubble-btn" data-action="green" title="🟢 标绿 (Ctrl+Shift+G)">🟢</button>
                             <button class="bubble-btn" data-action="highlight" title="🟡 高亮 (Ctrl+Shift+H)">🟡</button>
                             <button class="bubble-btn" data-action="bold" title="B 加粗 (Ctrl+B)" style="font-weight:800;">B</button>
                             <button class="bubble-btn" data-action="underline" title="U 下划线 (Ctrl+U)" style="text-decoration:underline; font-weight:700;">U</button>
+                            <button class="bubble-btn" data-action="handwriting" title="✍️ 切换手写批注体 (选中文本或整卡切换, Ctrl+Shift+W)" style="font-size:14px;">✍️</button>
                             <button class="bubble-btn" data-action="todo" title="☑ 待办复选框 (Ctrl+1)">☑</button>
                             <button class="bubble-btn" data-action="clear" title="🧹 擦除格式 (Ctrl+Shift+\)">🧹</button>
+                            <span class="bubble-separator"></span>
+                            <button class="bubble-btn" data-action="toggle-dock" id="btn-toggle-bubble-dock" title="切换工具栏停靠方式：固定在画布上方 / 跟随选区悬浮">📌</button>
                         </div>
                         <div id="rich-editor" contenteditable="true" spellcheck="true"></div>
                         <textarea id="md-textarea" placeholder="在这里使用 Markdown 记录你的思考...&#10;&#10;使用 [[笔记名]] 快速引用关联卡片。"></textarea>
@@ -493,6 +497,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.4.3"></script>
+    <script src="app.js?v=3.4.4"></script>
 </body>
 </html>

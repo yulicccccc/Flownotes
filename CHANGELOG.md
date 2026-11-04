@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.4.4] - 2026-11-03
+
+### ✍️ OneNote 灵感批注手写体与画布置顶快捷格式栏 (Highlights)
+- **✍️ 灵感批注手写体 (Aa剪刀石头布 / 叶根友散墨手写)**:
+  - 内置 `AaJiandaoshitoubu.ttf` 与 `YeGenYouSanMo.ttf`，定义 `@font-face FlowNotesHandwriting`；
+  - 默认文字保持 `TsangerXuanSanM W03`，在微型工具栏点击 `✍️` 或按 `Ctrl+Shift+W` (或 `Cmd+Shift+W`) 即可切换为手写批注体；
+  - 既支持选中文本划词局部切换为手写批注（`<span class="font-handwriting">`），也支持直接选中整张卡片一键设为手写便利贴/提问卡片；
+  - 还原 1.pdf / OneNote 笔记中随手提问（如「如何做数据清洗应该是重点？」、「我们的目的是出一套好的考题」等）的随性批注感。
+- **📌 画布置顶 / 选区跟随双模工具栏**:
+  - 响应用户建议，快捷格式工具栏默认固定停靠在画布上方中央（如 OneNote 格式功能区 / Miro 顶栏），绝不遮挡当前正在编辑的卡片内容与四周手柄；
+  - 增加 `📌` / `📍` 模式切换按钮，用户可一键切换为跟随光标选区悬浮，选择自动记忆在 `localStorage` 中；
+  - 当选中卡片但未进入文字划词时，直接点击顶栏 `✍️`、`🔴`、`🟢`、`🟡`、`☑`、`🧹` 即可快速生效整张卡片。
+- **🔄 PDF / Excalidraw 自动手写体识别同步**:
+  - `convert_pdf_to_excalidraw.py` 与 `sanitizeGraph()` 自动识别 1.pdf 中的手写字体与思考设问，无感热迁移为手写体。
+
 ## 🚀 [v3.4.3] - 2026-11-03
 
 ### 🔍 OneNote 全需求复核修复

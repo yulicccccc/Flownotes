@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.3 loaded — OneNote TsangerXuanSanM W03 Font, 8-Way Anchored Resize, MTV Live Nudge & Rich Span Suite");
+    console.log("[FlowNotes] v3.4.4 loaded — OneNote Handwriting Annotation Font, Dockable Top Quick Bubble & Dynamic Thought Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -577,6 +577,22 @@ function sanitizeGraph() {
                     n.content = ONENOTE_SPAN_UPGRADE_MAP[plain];
                 } else if (typeof n.content === "string" && n.content.includes("<br>")) {
                     n.content = n.content.replace(/<br\s*\/?>/gi, "\n");
+                }
+
+                // v3.4.4 灵感批注手写体自动热迁移：1.pdf 中的思考、提问与反思批注自动恢复为 Aa剪刀石头布/叶根友散墨手写体
+                const handwritingPatterns = [
+                    "如何做数据清洗应该是重点",
+                    "我们的目的是出一套",
+                    "是不是都求",
+                    "专门用于选择基因的",
+                    "为什么从科学问题出发需要过滤",
+                    "数据是否支持过滤规则",
+                    "当时为什么这么做是合理的",
+                    "但那么做有什么局限性",
+                    "现在如果重来回如何做得更好"
+                ];
+                if (handwritingPatterns.some(kw => plain.includes(kw))) {
+                    n.fontStyle = "handwriting";
                 }
 
                 // 修复旧版导入把单行短句设得过窄导致末字意外折行（如「逻辑陷/阱」「负/担」「比较/多？」）
@@ -1354,6 +1370,7 @@ function refreshNodeStyles() {
                 .classed("is-selected", isSelected)
                 .classed("is-focus", isFocus)
                 .classed("is-image-card", !!(d.isImage && d.imageUrl))
+                .classed("is-handwriting", d.fontStyle === "handwriting")
                 .classed("has-custom-width", hasCustomW)
                 .classed("has-custom-height", hasCustomH)
                 .classed("has-custom-font", hasCustomFont)
@@ -1590,6 +1607,10 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             } else if (e.key === "H" || e.code === "KeyH") {
                 e.preventDefault();
                 applyFormatting("highlight");
+                syncFromInlineCard();
+            } else if (e.key === "W" || e.code === "KeyW") {
+                e.preventDefault();
+                applyFormatting("handwriting");
                 syncFromInlineCard();
             } else if (e.key === "\\" || e.code === "Backslash") {
                 e.preventDefault();
@@ -3321,6 +3342,11 @@ function initEvents() {
                 showToast("🟡 已应用高亮标注");
                 return;
             }
+            if (e.key === "W" || e.code === "KeyW") {
+                e.preventDefault();
+                applyFormatting("handwriting");
+                return;
+            }
             if (e.key === "\\" || e.code === "Backslash") {
                 e.preventDefault();
                 applyFormatting("clear");
@@ -3626,6 +3652,10 @@ function applyFormatting(format) {
                 clearTextareaFormatAndLists(mdTextarea);
                 if (selectedNode) { selectedNode.content = mdTextarea.value; saveGraphToStorage(false); }
                 return;
+            case "handwriting":
+                before = `<span class="font-handwriting">`;
+                after = "</span>";
+                break;
             case "task": before = "- [ ] "; after = ""; break;
             case "link": before = "["; after = "](url)"; break;
             case "color":
@@ -3661,10 +3691,82 @@ function applyFormatting(format) {
         ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body[contenteditable='true']")
         : null;
 
+    if (!activeInlineBody && !(richEditor && (previewMode === "live"))) {
+        // 卡片级零摩擦操作：当用户选中画布卡片但未进入局部文字划词时，点击格式工具栏直接生效整卡
+        if (selectedNode) {
+            if (format === "handwriting") {
+                selectedNode.fontStyle = (selectedNode.fontStyle === "handwriting" ? "" : "handwriting");
+                refreshNodeStyles();
+                showToast(selectedNode.fontStyle === "handwriting" ? "✍️ 已设为灵感批注手写体" : "已恢复默认印刷字体", "info");
+                scheduleSaveGraph(true);
+                return;
+            }
+            if (format === "color-red") {
+                selectedNode.color = "#ef4444";
+                refreshNodeStyles();
+                scheduleSaveGraph(true);
+                return;
+            }
+            if (format === "color-green") {
+                selectedNode.color = "#10b981";
+                refreshNodeStyles();
+                scheduleSaveGraph(true);
+                return;
+            }
+            if (format === "highlight") {
+                selectedNode.cardBgColor = selectedNode.cardBgColor === "amber" ? "" : "amber";
+                refreshNodeStyles();
+                scheduleSaveGraph(true);
+                return;
+            }
+            if (format === "clear") {
+                selectedNode.fontStyle = "";
+                selectedNode.cardBgColor = "";
+                selectedNode.color = null;
+                selectedNode.customWidth = null;
+                selectedNode.customHeight = null;
+                selectedNode.customFontSize = null;
+                refreshNodeStyles();
+                showToast("🧹 已清除卡片格式", "info");
+                scheduleSaveGraph(true);
+                return;
+            }
+        }
+        return;
+    }
+
     if (activeInlineBody || (richEditor && (previewMode === "live"))) {
         if (!sel || sel.rangeCount === 0) return;
 
         switch (format) {
+            case "handwriting":
+                if (!sel.isCollapsed) {
+                    const range = sel.getRangeAt(0);
+                    let container = range.commonAncestorContainer;
+                    if (container.nodeType === 3) container = container.parentElement;
+                    const existingSpan = container ? container.closest(".font-handwriting") : null;
+                    if (existingSpan) {
+                        const parent = existingSpan.parentNode;
+                        while (existingSpan.firstChild) {
+                            parent.insertBefore(existingSpan.firstChild, existingSpan);
+                        }
+                        parent.removeChild(existingSpan);
+                    } else {
+                        const span = document.createElement("span");
+                        span.className = "font-handwriting";
+                        try {
+                            range.surroundContents(span);
+                        } catch (err) {
+                            const frag = range.extractContents();
+                            span.appendChild(frag);
+                            range.insertNode(span);
+                        }
+                    }
+                } else if (selectedNode) {
+                    selectedNode.fontStyle = (selectedNode.fontStyle === "handwriting" ? "" : "handwriting");
+                    showToast(selectedNode.fontStyle === "handwriting" ? "✍️ 已设为灵感批注手写体" : "已恢复默认印刷字体", "info");
+                }
+                break;
             case "bold": document.execCommand("bold"); break;
             case "italic": document.execCommand("italic"); break;
             case "underline": document.execCommand("underline"); break;
@@ -3836,6 +3938,10 @@ function htmlToSafeMarkdown(html) {
             if (color) {
                 result = `<span style="color:${color}">${result}</span>`;
             }
+
+            if (tag === "span" && node.classList && node.classList.contains("font-handwriting")) {
+                result = `<span class="font-handwriting">${result}</span>`;
+            }
             
             return result;
         }
@@ -3851,9 +3957,10 @@ function renderMarkdownToHTML(text) {
     if (!text) return "";
     let cleaned = cleanHTMLSpill(text);
     
-    // 保护 <span style="color:..."> 和 <u> 标签不被 escapeHTML 破坏
+    // 保护 <span class="font-handwriting">, <span style="color:..."> 和 <u> 标签不被 escapeHTML 破坏
     // 我们只替换标签本身，不替换内容，从而完美支持嵌套！
     let protectedText = cleaned
+        .replace(/<span class=["']font-handwriting["']>/gi, '___HANDWRITING_START___')
         .replace(/<span style=["']color:\s*([^"'>]+)["']?>/gi, '___SPAN_START_$1___')
         .replace(/<\/span>/gi, '___SPAN_END___')
         .replace(/<u>/gi, '___U_START___')
@@ -3906,8 +4013,10 @@ function renderMarkdownToHTML(text) {
         .replace(/`([\s\S]*?)`/g, "<code style='background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;'>$1</code>")
         .replace(/\n/g, "<br>");
 
-    // 还原受保护的颜色 span 与 u 标签
+    // 还原受保护的颜色 span、手写体 span 与 u 标签
     html = html
+        .replace(/~✍️([\s\S]*?)✍️~/g, '<span class="font-handwriting">$1</span>')
+        .replace(/___HANDWRITING_START___/g, '<span class="font-handwriting">')
         .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
         .replace(/___SPAN_END___/g, '</span>')
         .replace(/___U_START___/g, '<u>')
@@ -4343,6 +4452,10 @@ function importExcalidrawFile(parsed, fileName = "") {
             }
 
             const isSoftWrapped = !!(el.customData && el.customData.softWrapped);
+            const isHandwriting = !!(el.customData && el.customData.fontStyle === "handwriting") ||
+                (el.fontFamily === 4) ||
+                (styledContent && styledContent.includes("font-handwriting"));
+            const fontStyle = isHandwriting ? "handwriting" : null;
             const preferredW = (el.customData && typeof el.customData.preferredWidth === "number")
                 ? el.customData.preferredWidth
                 : (isSoftWrapped ? Math.round((el.width || 240) + 38) : null);
@@ -4360,6 +4473,7 @@ function importExcalidrawFile(parsed, fileName = "") {
                 y: Math.round(el.y + (el.height || 40) / 2),
                 fx: Math.round(el.x + (el.width || 120) / 2),
                 fy: Math.round(el.y + (el.height || 40) / 2),
+                fontStyle: fontStyle,
                 customWidth: customW,
                 customHeight: null,
                 customFontSize: customFont
@@ -4877,64 +4991,110 @@ function escapeHTML(str) {
 }
 
 
-// --- v2.6.0 划词悬浮调色胶囊 (Selection Quick Bubble) ---
+// --- v3.4.4 划词与卡片快速格式工具栏 (Selection & Card Quick Bubble) ---
+let updateQuickBubblePosition = () => {};
+
 function initSelectionQuickBubble() {
     const bubble = document.getElementById("selection-quick-bubble");
     const richEditor = document.getElementById("rich-editor");
-    if (!bubble || !richEditor) return;
+    if (!bubble) return;
     if (bubble.parentElement !== document.body) {
         document.body.appendChild(bubble);
     }
 
-    function updateBubblePosition() {
+    // 默认固定在画布上方中央（如 OneNote 格式区），用户可随时点击 📌/📍 切换为跟随选区浮动
+    let isDockedTop = localStorage.getItem("flownotes_bubble_docked") !== "float";
+    const dockBtn = bubble.querySelector('[data-action="toggle-dock"]') || document.getElementById("btn-toggle-bubble-dock");
+
+    function updateDockUI() {
+        bubble.classList.toggle("is-docked-top", isDockedTop);
+        if (dockBtn) {
+            dockBtn.innerHTML = isDockedTop ? "📌" : "📍";
+            dockBtn.title = isDockedTop
+                ? "📌 工具栏位置：已固定在画布上方中央 (点击切换为跟随选区悬浮)"
+                : "📍 工具栏位置：跟随选区悬浮 (点击固定到画布顶部中央)";
+            dockBtn.classList.toggle("active", isDockedTop);
+        }
+    }
+    updateDockUI();
+
+    updateQuickBubblePosition = function() {
         const sel = window.getSelection();
-        if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-            bubble.style.display = "none";
-            return;
-        }
+        const hasTextSel = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim());
+        const hasCardSel = !!selectedNode;
+        const isEditingCard = !!document.querySelector(".canvas-note-card.is-editing");
 
-        const range = sel.getRangeAt(0);
-        const containerEl = range.commonAncestorContainer.nodeType === 1
-            ? range.commonAncestorContainer
-            : range.commonAncestorContainer.parentElement;
-        const inRichEditor = richEditor.contains(range.commonAncestorContainer);
-        const inCanvasCard = !!(containerEl && containerEl.closest && containerEl.closest(".canvas-note-card-body"));
-        if (!inRichEditor && !inCanvasCard) {
-            bubble.style.display = "none";
-            return;
-        }
-
-        const text = sel.toString().trim();
-        if (!text) {
-            bubble.style.display = "none";
-            return;
-        }
-
-        const rect = range.getBoundingClientRect();
-        if (rect.width === 0 && rect.height === 0) {
+        // 只要没有划词选区、也没有选中卡片、也没有正在卡片内打字，则隐藏工具栏
+        if (!hasTextSel && !hasCardSel && !isEditingCard) {
             bubble.style.display = "none";
             return;
         }
 
         bubble.style.display = "flex";
-        const bubbleWidth = bubble.offsetWidth || 140;
-        const left = Math.max(10, rect.left + (rect.width / 2) - (bubbleWidth / 2));
-        const top = Math.max(10, rect.top - 42);
-        bubble.style.left = `${left}px`;
-        bubble.style.top = `${top}px`;
-    }
+        const bubbleWidth = bubble.offsetWidth || 350;
 
-    document.addEventListener("mouseup", () => setTimeout(updateBubblePosition, 25));
+        if (isDockedTop) {
+            // 固定在画布上方中央模式
+            const container = document.getElementById("graph-container");
+            if (!container) {
+                bubble.style.display = "none";
+                return;
+            }
+
+            const cRect = container.getBoundingClientRect();
+            const left = Math.max(10, cRect.left + (cRect.width / 2) - (bubbleWidth / 2));
+            const top = Math.max(10, cRect.top + 14);
+            bubble.style.left = `${left}px`;
+            bubble.style.top = `${top}px`;
+        } else {
+            // 跟随选区 / 卡片悬浮模式
+            let targetRect = null;
+            if (hasTextSel) {
+                const range = sel.getRangeAt(0);
+                const rect = range.getBoundingClientRect();
+                if (rect.width > 0 || rect.height > 0) {
+                    targetRect = rect;
+                }
+            }
+            if (!targetRect) {
+                const cardEl = document.querySelector(".canvas-note-card.is-editing") ||
+                               document.querySelector(".canvas-note-card.is-selected");
+                if (cardEl) {
+                    targetRect = cardEl.getBoundingClientRect();
+                }
+            }
+
+            if (!targetRect) {
+                bubble.style.display = "none";
+                return;
+            }
+
+            const left = Math.max(10, targetRect.left + (targetRect.width / 2) - (bubbleWidth / 2));
+            const top = Math.max(10, targetRect.top - 46);
+            bubble.style.left = `${left}px`;
+            bubble.style.top = `${top}px`;
+        }
+    };
+
+    document.addEventListener("mouseup", () => setTimeout(updateQuickBubblePosition, 25));
     document.addEventListener("keyup", (e) => {
         if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Shift"].includes(e.key)) {
-            setTimeout(updateBubblePosition, 25);
+            setTimeout(updateQuickBubblePosition, 25);
         }
+    });
+    window.addEventListener("resize", () => {
+        if (bubble.style.display !== "none") updateQuickBubblePosition();
     });
 
     document.addEventListener("mousedown", (e) => {
-        const inCanvasCard = !!(e.target && e.target.closest && e.target.closest(".canvas-note-card-body"));
-        if (!bubble.contains(e.target) && !richEditor.contains(e.target) && !inCanvasCard) {
-            bubble.style.display = "none";
+        const inCanvasCard = !!(e.target && e.target.closest && e.target.closest(".canvas-note-card"));
+        const inMultiBar = !!(e.target && e.target.closest && e.target.closest("#multi-select-action-bar"));
+        if (!bubble.contains(e.target) && (!richEditor || !richEditor.contains(e.target)) && !inCanvasCard && !inMultiBar) {
+            setTimeout(() => {
+                if (!selectedNode && window.getSelection().isCollapsed) {
+                    bubble.style.display = "none";
+                }
+            }, 30);
         }
     });
 
@@ -4943,7 +5103,16 @@ function initSelectionQuickBubble() {
         btn.addEventListener("click", (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
-            if (action === "red") applyFormatting("color-red");
+            if (action === "toggle-dock") {
+                isDockedTop = !isDockedTop;
+                localStorage.setItem("flownotes_bubble_docked", isDockedTop ? "top" : "float");
+                updateDockUI();
+                updateQuickBubblePosition();
+                showToast(isDockedTop ? "📌 工具栏已固定在画布上方中央" : "📍 工具栏已切换为跟随选区悬浮", "info");
+                return;
+            }
+            if (action === "handwriting") applyFormatting("handwriting");
+            else if (action === "red") applyFormatting("color-red");
             else if (action === "green") applyFormatting("color-green");
             else if (action === "highlight") applyFormatting("highlight");
             else if (action === "bold") applyFormatting("bold");
@@ -4952,7 +5121,7 @@ function initSelectionQuickBubble() {
                 if (selectedNode) toggleTodoOnSelectedCard(selectedNode);
             }
             else if (action === "clear") applyFormatting("clear");
-            setTimeout(updateBubblePosition, 30);
+            setTimeout(updateQuickBubblePosition, 30);
         });
     });
 }
@@ -5293,6 +5462,11 @@ function updateFloatingActionBarsPosition() {
             linkBar.style.display = "none";
         }
     }
+
+    // C. 同步更新置顶/悬浮格式工具栏
+    if (typeof updateQuickBubblePosition === "function") {
+        updateQuickBubblePosition();
+    }
 }
 
 // 删除当前选中的箭头连线（保留卡片）
@@ -5546,6 +5720,7 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
         const lineCount = String(targetNode.content || "").split("\n").map(s => s.trim()).filter(Boolean).length;
         menu.innerHTML = `
             <div class="ctx-item" data-cact="edit">${isImg ? "🔍 高清放大查看图片" : "✏️ 编辑卡片文字"} <span class="ctx-kbd">直接打字 / 双击</span></div>
+            <div class="ctx-item" data-cact="toggle-handwriting">✍️ ${targetNode.fontStyle === "handwriting" ? "恢复默认印刷字体" : "切换为灵感批注手写体"} <span class="ctx-kbd">Ctrl+Shift+W</span></div>
             <div class="ctx-item" data-cact="todo">☑ 切换待办复选框 <span class="ctx-kbd">Ctrl+1</span></div>
             <div class="ctx-item" data-cact="child">➕ 衍生子卡片 <span class="ctx-kbd">Tab</span></div>
             <div class="ctx-item" data-cact="sibling">➕ 新增同级卡片 <span class="ctx-kbd">Enter</span></div>
@@ -5632,6 +5807,12 @@ function showCanvasContextMenu(clientX, clientY, targetNode) {
             if (act === "edit" && targetNode) {
                 if (targetNode.isImage && targetNode.imageUrl) openImageLightbox(targetNode);
                 else startInlineCardEditById(targetNode.id, false);
+            }
+            else if (act === "toggle-handwriting" && targetNode) {
+                targetNode.fontStyle = (targetNode.fontStyle === "handwriting" ? "" : "handwriting");
+                refreshNodeStyles();
+                showToast(targetNode.fontStyle === "handwriting" ? "✍️ 已设为灵感批注手写体" : "已恢复默认印刷字体", "info");
+                scheduleSaveGraph(true);
             }
             else if (act === "todo" && targetNode) toggleTodoOnSelectedCard(targetNode);
             else if (act === "child") createChildNode();

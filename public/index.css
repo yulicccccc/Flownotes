@@ -101,6 +101,21 @@
     font-display: swap;
 }
 
+/* OneNote 灵感批注手写体 (Aa剪刀石头布 / 叶根友散墨手写) */
+@font-face {
+    font-family: 'FlowNotesHandwriting';
+    src: local('AaJiandaoshitoubu (Non-Commercial Use)'),
+         local('Aa剪刀石头布'),
+         local('叶根友散墨手写'),
+         local('叶根友散墨手写 常规'),
+         local('AaZZXMCCSN (Non-Commercial Use)'),
+         url('/fonts/YeGenYouSanMo.ttf') format('truetype'),
+         url('/fonts/AaJiandaoshitoubu.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -920,29 +935,45 @@ body {
    v2.6.0 空间自由沙盘、快速高亮/标色胶囊与剪贴板截图图片卡片样式
    ========================================================================== */
 
-/* 划词悬浮调色胶囊 (Selection Quick Bubble) */
+/* 划词与卡片快速格式工具栏 (Selection & Card Quick Bubble)
+   v3.4.4 支持：
+   1. ✍️ 手写批注体切换 (类似于 1.pdf 散墨/剪刀石头布手写感)
+   2. 📌 固定在画布上方中央 vs 📍 跟随光标/卡片悬浮 一键自由切换 */
 #selection-quick-bubble {
     position: fixed;
     z-index: 9999;
     display: none;
-    background: var(--bg-surface-elevated, #1e293b);
-    border: 1px solid var(--accent-indigo, #6366f1);
-    border-radius: 24px;
-    padding: 4px 8px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 12px rgba(99, 102, 241, 0.3);
-    backdrop-filter: blur(10px);
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(99, 102, 241, 0.55);
+    border-radius: 999px;
+    padding: 4px 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(99, 102, 241, 0.35);
+    backdrop-filter: blur(14px);
     gap: 6px;
     align-items: center;
     pointer-events: auto;
+    transition: transform 0.2s cubic-bezier(0.18, 1.4, 0.38, 1), box-shadow 0.2s ease, opacity 0.15s ease;
+}
+
+html[data-theme="light"] #selection-quick-bubble {
+    background: rgba(255, 255, 255, 0.98);
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.15);
+}
+
+#selection-quick-bubble.is-docked-top {
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.3);
+    border-color: rgba(56, 189, 248, 0.6);
 }
 
 .bubble-btn {
     border: 1px solid transparent;
     background: rgba(255, 255, 255, 0.06);
+    color: var(--text-primary, #f1f5f9);
     cursor: pointer;
     font-size: 13px;
     padding: 3px 7px;
-    border-radius: 12px;
+    border-radius: 10px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -950,13 +981,51 @@ body {
     user-select: none;
 }
 
+html[data-theme="light"] .bubble-btn {
+    background: rgba(15, 23, 42, 0.05);
+    color: #0f172a;
+}
+
 .bubble-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgba(99, 102, 241, 0.25);
+    border-color: rgba(99, 102, 241, 0.5);
     transform: scale(1.12);
 }
 
 .bubble-btn:active {
     transform: scale(0.95);
+}
+
+.bubble-btn.active {
+    background: rgba(56, 189, 248, 0.25) !important;
+    border-color: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+
+.bubble-separator {
+    width: 1px;
+    height: 16px;
+    background: rgba(148, 163, 184, 0.25);
+    margin: 0 2px;
+}
+
+/* OneNote 手写批注字体样式 */
+.font-handwriting,
+.canvas-note-card.is-handwriting,
+.canvas-note-card.is-handwriting .canvas-note-card-body,
+.canvas-note-card .font-handwriting {
+    font-family: 'FlowNotesHandwriting', '叶根友散墨手写', 'AaJiandaoshitoubu (Non-Commercial Use)', 'Aa剪刀石头布', 'Kaiti', 'STKaiti', cursive !important;
+    letter-spacing: 0.6px;
+}
+
+.canvas-note-card.is-handwriting {
+    font-size: 15px !important;
+    line-height: 1.45;
+}
+
+.canvas-note-card .font-handwriting {
+    font-size: 1.08em;
+    display: inline-block;
 }
 
 .color-preset-btn {

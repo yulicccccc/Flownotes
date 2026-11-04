@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.3)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.4)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote Handwriting Annotation Font & Dockable Top Quick Bubble Suite (v3.4.4 灵感批注手写体与画布置顶快捷格式栏)**:
+  - **灵感批注手写体 (Aa剪刀石头布 / 叶根友散墨手写)**: 内置 `public/fonts/AaJiandaoshitoubu.ttf` 与 `public/fonts/YeGenYouSanMo.ttf`，CSS 定义 `@font-face FlowNotesHandwriting`（优先检测本地系统字体，无感回退本地静态资产）。支持划词选中文本包装 `<span class="font-handwriting">` 或选中整张卡片一键切换 `node.fontStyle = 'handwriting'`，还原 1.pdf / OneNote 中的真实思考、批注、提问与反思手写质感。
+  - **画布置顶 / 选区跟随双模快捷工具栏 (`#selection-quick-bubble`)**: 快捷格式工具栏新增 `📌` / `📍` 停靠切换按钮。默认优雅固定在画布上方中央（如同 OneNote / Miro 顶部格式栏，绝不遮挡当前正在编辑的卡片文本与手柄）；用户可随时点击切换为跟随光标选区悬浮，偏好自动持久化至 `localStorage`。
+  - **卡片级与文字级双重智能格式化**: 当用户选中卡片但未进入文字划选时，点击工具栏中的 `✍️`、`🔴`、`🟢`、`🟡`、`☑`、`🧹` 即可直接生效整张卡片；当卡片内划选具体词句时，精准格式化所选词句。
+  - **全局快捷键与上下文菜单**: 支持 `Ctrl+Shift+W` (或 `Cmd+Shift+W`) 极速切换手写体；卡片右键菜单加入 `✍️ 切换为灵感批注手写体`。
+  - **PDF / Excalidraw 自动手写体识别升级**: 增强 `convert_pdf_to_excalidraw.py` 与 `sanitizeGraph()`，自动将 1.pdf 中的思考与设问卡片（如「如何做数据清洗应该是重点？」、「我们的目的是出一套好的考题」等）标记为手写体。
 - **OneNote Fidelity Pass (v3.4.3 OneNote 高保真复核修复)**:
   - 字体：内置 `public/fonts/TsangerXuanSanM-W03.ttf` + `@font-face`（优先 `local()`），画布卡片、右侧标题、富文本与 Markdown 编辑器统一使用 `TsangerXuanSanM W03`。
   - 8 向缩放：新增上边 `.handle-n` 与上方对角 `.handle-ne/.handle-nw`；拉任一边时对侧边固定（不再两边同时动）；最小宽度 36px；左右拉自动清除固定高度让换行自适应；上下拉压扁时自动加宽重排；对角线拉同步缩放字号。手柄每次刷新绑定最新节点数据，修复“有时拉不动”。
@@ -133,4 +139,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.3_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.4_flownotes-eze.pages.dev_一键更新网站.bat`.
