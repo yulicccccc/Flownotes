@@ -87,6 +87,20 @@
     display: none !important;
 }
 
+@font-face {
+    font-family: 'TsangerXuanSanM W03';
+    src: local('TsangerXuanSanM W03'),
+         local('TsangerXuanSanM-W03'),
+         local('TsangerXuanSanM'),
+         local('仓耳玄三M'),
+         local('仓耳玄三 M'),
+         local('仓耳玄三'),
+         url('/fonts/TsangerXuanSanM-W03.ttf') format('truetype');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -604,7 +618,7 @@ body {
     outline: none;
     background: transparent;
     color: var(--text-color);
-    font-family: 'Outfit', sans-serif;
+    font-family: 'TsangerXuanSanM W03', 'TsangerXuanSanM', '仓耳玄三', 'Outfit', sans-serif;
     font-weight: 700;
     font-size: 1.25rem;
 }
@@ -650,6 +664,7 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 20px;
+    font-family: 'TsangerXuanSanM W03', 'TsangerXuanSanM', '仓耳玄三', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     font-size: 0.95rem;
     line-height: 1.7;
     outline: none;
@@ -662,7 +677,7 @@ body {
     border: none;
     color: var(--text-color);
     padding: 20px;
-    font-family: 'Fira Code', monospace;
+    font-family: 'TsangerXuanSanM W03', 'TsangerXuanSanM', '仓耳玄三', 'Fira Code', monospace;
     font-size: 0.92rem;
     line-height: 1.7;
     resize: none;
@@ -987,37 +1002,40 @@ body {
 .canvas-note-card {
     --card-accent: #6366f1;
     display: inline-block;
-    min-width: 76px;
-    max-width: 320px;
+    min-width: 36px;
+    max-width: 520px;
     padding: 7px 12px;
-    border-radius: 10px;
-    background: rgba(15, 23, 42, 0.92);
-    border: 1.5px solid rgba(148, 163, 184, 0.28);
-    border-left: 4px solid var(--card-accent);
+    border-radius: 9px;
+    background: rgba(15, 23, 42, 0.94);
+    border: 1.5px solid rgba(148, 163, 184, 0.32);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     color: var(--text-primary, #f1f5f9);
     font-family: 'TsangerXuanSanM W03', 'TsangerXuanSanM', '仓耳玄三', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
     font-size: 13.5px;
+    font-weight: 400;
     line-height: 1.5;
     cursor: grab;
     user-select: none;
-    transition: box-shadow 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+    pointer-events: auto;
+    transition: box-shadow 0.16s ease, border-color 0.16s ease;
     box-sizing: border-box;
     word-break: break-word;
 }
 
 html[data-theme="light"] .canvas-note-card {
-    background: rgba(255, 255, 255, 0.96);
-    border-color: rgba(100, 116, 139, 0.3);
-    border-left: 4px solid var(--card-accent);
+    background: rgba(255, 255, 255, 0.97);
+    border: 1.5px solid rgba(100, 116, 139, 0.3);
     color: #0f172a;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.1);
 }
 
 .canvas-note-card.is-root {
-    font-weight: 600;
-    border-width: 2px;
-    border-left-width: 5px;
+    font-weight: 400;
+}
+
+/* XMind 分支子卡片保留左侧分支色条；OneNote 自由文本框 (根/独立卡片) 保持统一干净边框 */
+.canvas-note-card:not(.is-root) {
+    border-left: 4px solid var(--card-accent);
 }
 
 .canvas-note-card.is-selected {
@@ -1391,70 +1409,105 @@ html[data-theme="light"] .ctx-item {
     pointer-events: auto;
 }
 
-/* 1. 左右拉手柄 (.handle-e 右侧边缘 / .handle-w 左侧边缘)：仅调整卡片宽度，文字自动换行自适应 */
+/* 1. 左右拉手柄 (.handle-e 右侧边缘 / .handle-w 左侧边缘)：仅调整卡片宽度，文字自动换行自适应
+   v3.4.3 修复：边缘手柄贯穿整条边，四角手柄缩小为 12px 且不再扩大热区，杜绝单行矮卡片右侧中段被对角手柄抢占（导致“左右拉有时变成字号缩放”） */
 .card-resize-handle.handle-e {
-    top: 4px;
+    top: 6px;
     right: -4px;
-    bottom: 14px;
+    bottom: 6px;
     width: 8px;
     cursor: ew-resize;
     border-radius: 4px;
 }
 
 .card-resize-handle.handle-w {
-    top: 4px;
+    top: 6px;
     left: -4px;
-    bottom: 14px;
+    bottom: 6px;
     width: 8px;
     cursor: ew-resize;
     border-radius: 4px;
 }
 
-/* 2. 上下拉手柄 (.handle-s 底部边缘)：仅调整卡片高度，排版自适应 */
+/* 2. 上下拉手柄 (.handle-s 底部边缘 / .handle-n 顶部边缘)：调整卡片高度，排版与换行自适应 */
 .card-resize-handle.handle-s {
-    left: 14px;
-    right: 14px;
+    left: 6px;
+    right: 6px;
     bottom: -4px;
     height: 8px;
     cursor: ns-resize;
     border-radius: 4px;
 }
 
-/* 3. 拉对角线手柄 (.handle-se 右下对角 / .handle-sw 左下对角)：框框与字体大小按比例同步缩放！ */
-.card-resize-handle.handle-se {
-    right: -5px;
-    bottom: -5px;
-    width: 22px;
-    height: 22px;
-    cursor: nwse-resize;
-    border-radius: 5px;
+.card-resize-handle.handle-n {
+    left: 6px;
+    right: 6px;
+    top: -4px;
+    height: 8px;
+    cursor: ns-resize;
+    border-radius: 4px;
+}
+
+/* 3. 拉对角线手柄 (.handle-se / .handle-sw / .handle-ne / .handle-nw)：框框与字体大小按比例同步缩放！ */
+.card-resize-handle.handle-se,
+.card-resize-handle.handle-sw,
+.card-resize-handle.handle-ne,
+.card-resize-handle.handle-nw {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
     z-index: 12;
+}
+
+.card-resize-handle.handle-se::before,
+.card-resize-handle.handle-sw::before,
+.card-resize-handle.handle-ne::before,
+.card-resize-handle.handle-nw::before {
+    inset: -2px;
+}
+
+.card-resize-handle.handle-se {
+    right: -6px;
+    bottom: -6px;
+    cursor: nwse-resize;
     display: flex;
     align-items: flex-end;
     justify-content: flex-end;
-    font-size: 11px;
+    font-size: 9px;
     line-height: 1;
-    padding: 2px;
+    padding: 0;
     color: transparent;
 }
 
 .card-resize-handle.handle-sw {
-    left: -5px;
-    bottom: -5px;
-    width: 18px;
-    height: 18px;
+    left: -6px;
+    bottom: -6px;
     cursor: nesw-resize;
-    border-radius: 5px;
-    z-index: 12;
+}
+
+.card-resize-handle.handle-ne {
+    right: -6px;
+    top: -6px;
+    cursor: nesw-resize;
+}
+
+.card-resize-handle.handle-nw {
+    left: -6px;
+    top: -6px;
+    cursor: nwse-resize;
 }
 
 .canvas-note-card:hover .card-resize-handle.handle-e,
-.canvas-note-card.is-selected .card-resize-handle.handle-e {
+.canvas-note-card.is-selected .card-resize-handle.handle-e,
+.canvas-note-card:hover .card-resize-handle.handle-w,
+.canvas-note-card.is-selected .card-resize-handle.handle-w {
     background: rgba(56, 189, 248, 0.45);
 }
 
 .canvas-note-card:hover .card-resize-handle.handle-s,
-.canvas-note-card.is-selected .card-resize-handle.handle-s {
+.canvas-note-card.is-selected .card-resize-handle.handle-s,
+.canvas-note-card:hover .card-resize-handle.handle-n,
+.canvas-note-card.is-selected .card-resize-handle.handle-n {
     background: rgba(56, 189, 248, 0.4);
 }
 

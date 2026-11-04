@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.2 loaded — OneNote Native Spatial Fonts, Collision Nudge & Rich Span Color Suite");
+    console.log("[FlowNotes] v3.4.3 loaded — OneNote TsangerXuanSanM W03 Font, 8-Way Anchored Resize, MTV Live Nudge & Rich Span Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -527,10 +527,63 @@ function sanitizeGraph() {
         if (!Number.isFinite(n.y)) n.y = 220 + Math.floor(idx / 3) * 180;
     });
 
-    // v3.4.2 还原 OneNote 原生视觉：清理 Excalidraw 导入节点误染色的整卡背景色，确保所有卡片框保持统一，仅文字局部标色
+    // v3.4.3 还原 OneNote 原生视觉与自动热迁移：
+    // 1. 清理 Excalidraw 导入节点误染色的整卡背景色，确保所有卡片框保持统一，仅文字局部标色
+    // 2. 自动将旧缓存中整句染色或包含死换行的 1.pdf 卡片无感升级为 OneNote 精确局部词语标色与流式自适应宽度
+    const ONENOTE_SPAN_UPGRADE_MAP = {
+        "肠道微生物合成丁酸的能力，如何随着年龄变化？": '肠道微生物<span style="color:#ef4444">合成丁酸</span>的能力，如何随着<span style="color:#ef4444">年龄</span>变化？',
+        "需要计算通路丰度与年龄的相关性、基因丰度比值、相关基因数量。": '需要计算<span style="color:#10b981">通路丰度</span>与<span style="color:#10b981">年龄</span>的相关性、<span style="color:#10b981">基因丰度</span>比值、<span style="color:#10b981">相关基因数量</span>。',
+        "shotgun metagenomic sequencing（宏基因组鸟枪法测序）": '==shotgun metagenomic sequencing==（宏基因组鸟枪法测序）',
+        "数据处理是否合理，取决于它想回答什么问题，以及过滤规则是否真的能识别想要排除的对象。": '数据处理是否合理，取决于它<span style="color:#ef4444">想回答什么问题</span>，以及过滤规则是否真的能识别想要排除的对象。',
+        "被过滤的 reads 确实主要来自人为添加的 Salmonella，并且过滤后不会明显扭曲我们想研究的原有菌群": '被过滤的 reads 确实主要来自<span style="color:#ef4444">人为添加的 Salmonella</span>，并且过滤后不会明显<span style="color:#ef4444">扭曲我们想研究的原有菌群</span>',
+        "biological justification: why": '<span style="color:#ef4444">biological</span> justification: why',
+        "empirical validation: how do you know": '<span style="color:#ef4444">empirical</span> validation: how do you know',
+        "合理平衡病例与对照组能够减少 batch confounding，但不代表批次差异会消失。": '合理<span style="color:#ef4444">平衡</span>病例与对照组能够减少 batch confounding，但不代表批次差异<span style="color:#ef4444">会消失</span>。',
+        "研究某个变量时，不能让另一个可能影响结果的变量与它完全重合": '研究某个变量时，不能让另一个<span style="color:#ef4444">可能影响结果</span>的<span style="color:#ef4444">变量</span>与它完全重合',
+        "AI 最主要的失败原因，往往不是无法运行分析工具，而是没有正确理解科学问题。": 'AI 最主要的失败原因，往往不是无法运行分析工具，而是没有<span style="color:#ef4444">正确理解科学问题</span>。',
+        "错误理解研究问题：Incorrect problem interpretation": '错误理解<span style="color:#ef4444">研究问题</span>：Incorrect problem interpretation',
+        "例如没有正确决定应该排除哪些基因、采用什么检测阈值。": '例如没有正确决定应该<span style="color:#ef4444">排除</span>哪些基因、采用什么<span style="color:#ef4444">检测阈值</span>。',
+        "例如忽略测序深度差异、混杂因素或重复采样之间的关联。": '例如忽略测序<span style="color:#ef4444">深度差异</span>、混杂因素或<span style="color:#ef4444">重复采样</span>之间的关联。',
+        "发现矛盾，却没有采取纠正行动：Ignored contradictory evidence": '发现矛盾，却没有采取纠正行动：<span style="color:#ef4444">Ignored </span><span style="color:#ef4444">contradictory evidence</span>',
+        "我们的目的是出一套好的考题": '我们的目的是出一套<span style="color:#ef4444">好</span>的考题',
+        "是不是都求关联性比较多？": '是不是都求<span style="color:#ef4444">关联性</span>比较多？'
+    };
+
     nodes.forEach(n => {
-        if (n.id && n.id.startsWith("ex_") && (n.cardBgColor === "rose" || n.cardBgColor === "emerald")) {
-            delete n.cardBgColor;
+        if (n.id && n.id.startsWith("ex_")) {
+            if (n.cardBgColor === "rose" || n.cardBgColor === "emerald" || n.cardBgColor === "") {
+                delete n.cardBgColor;
+            }
+            if (!n.isImage && !n._userResized && !n._oneNoteV343Migrated) {
+                n._oneNoteV343Migrated = true;
+                delete n.customHeight;
+                if (typeof n.customFontSize === "number" && n.customFontSize <= 16) {
+                    delete n.customFontSize;
+                }
+                const plain = String(n.content || n.label || "")
+                    .replace(/<br\s*\/?>/gi, "\n")
+                    .replace(/<[^>]+>/g, "")
+                    .replace(/批次差\s*\n\s*异/g, "批次差异")
+                    .replace(/排除哪些\s*\n\s*基因/g, "排除哪些基因")
+                    .replace(/混杂\s*\n\s*因素/g, "混杂因素")
+                    .replace(/仍然报\s*\n\s*告/g, "仍然报告")
+                    .replace(/无法运行\s*\n\s*分析工具/g, "无法运行分析工具")
+                    .replace(/也可能包括\s*\n\s*非编码/g, "也可能包括非编码")
+                    .replace(/Incorrect problem\s*\n\s*interpretation/g, "Incorrect problem interpretation")
+                    .replace(/Ignored\s*\n\s*contradictory/g, "Ignored contradictory")
+                    .trim();
+
+                if (ONENOTE_SPAN_UPGRADE_MAP[plain]) {
+                    n.content = ONENOTE_SPAN_UPGRADE_MAP[plain];
+                } else if (typeof n.content === "string" && n.content.includes("<br>")) {
+                    n.content = n.content.replace(/<br\s*\/?>/gi, "\n");
+                }
+
+                // 修复旧版导入把单行短句设得过窄导致末字意外折行（如「逻辑陷/阱」「负/担」「比较/多？」）
+                if (!plain.includes("\n") && plain.length <= 28) {
+                    delete n.customWidth;
+                }
+            }
         }
     });
 
@@ -938,20 +991,8 @@ function initMarqueeSelection() {
         }
 
         // 3. 默认 ✋ 抓手平移模式（Obsidian Canvas / Miro / OneNote 黄金标准）：
-        //    鼠标左键按住拖动 100% 纯粹平移画布，绝无任何计时器抢夺或意外变成框选！
-        //    (仅在移动设备纯触屏单指下，如果原地停顿 >350ms 未动且未外接键盘，微震提示可拉框)
-        if (isTouch) {
-            longPressPanTimer = setTimeout(() => {
-                longPressPanTimer = null;
-                if (!pointerDownActive || isLongPressHandPan || isMarqueeDragging) return;
-                isLongPressMarqueeReady = true;
-                prepareMarqueeVisibleCache();
-                showCanvasHandCursor(pointerLastClient.x, pointerLastClient.y, true, "🔳");
-                if (navigator.vibrate) {
-                    try { navigator.vibrate(12); } catch (e) {}
-                }
-            }, 350);
-        }
+        //    鼠标左键或触屏单指在空白处按住拖动 100% 纯粹平移画布，绝无任何计时器抢夺或意外变成框选！
+        //    （如需框选多张卡片，按住 Shift + 左键拖拽，或点击右下角 ✋/🔳 按钮切换框选模式）
     }
 
     function moveCanvasPointer(clientX, clientY, rawEvent) {
@@ -1293,9 +1334,16 @@ function refreshNodeStyles() {
                 }
             }
 
-            const hasCustomW = typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 76;
-            const hasCustomH = typeof d.customHeight === "number" && Number.isFinite(d.customHeight) && d.customHeight >= 28;
+            const hasCustomW = typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 36;
+            const hasCustomH = typeof d.customHeight === "number" && Number.isFinite(d.customHeight) && d.customHeight >= 24;
             const hasCustomFont = typeof d.customFontSize === "number" && Number.isFinite(d.customFontSize) && d.customFontSize >= 8;
+
+            // 关键修复 1：确保所有 8 向缩放手柄 (.card-resize-handle) 实时绑定当前最新的节点数据引用 d，杜绝 IDB 恢复或撤销后引用脱离导致拉动失效！
+            cardDiv.selectAll(".card-resize-handle").datum(d);
+
+            // 关键修复 2：先放开 foreignObject 容器宽度，避免旧窄宽度锁死内部 inline-block 卡片的扩展与重排测量
+            fo.attr("width", hasCustomW ? Math.max(120, d.customWidth + 32) : 980)
+              .attr("height", 920);
 
             bodyDiv
                 .style("font-size", hasCustomFont ? `${d.customFontSize}px` : null)
@@ -1310,15 +1358,15 @@ function refreshNodeStyles() {
                 .classed("has-custom-height", hasCustomH)
                 .classed("has-custom-font", hasCustomFont)
                 .attr("data-card-bg", d.cardBgColor || null)
-                .style("width", hasCustomW ? `${d.customWidth}px` : null)
-                .style("max-width", hasCustomW ? "none" : null)
+                .style("width", hasCustomW ? `${d.customWidth}px` : "max-content")
+                .style("max-width", hasCustomW ? "none" : "520px")
                 .style("min-height", hasCustomH ? `${d.customHeight}px` : null)
                 .style("--card-accent", borderColor);
 
-            // 测量卡片实际宽高，缓存到 d._cardW / d._cardH 供矩形边缘箭头交点算法使用
+            // 测量卡片实际宽高，缓存到 d._cardW / d._cardH 供矩形边缘箭头交点算法与碰撞避让使用
             const cardEl = cardDiv.node();
-            const measuredW = Math.max(76, Math.min(980, (cardEl ? cardEl.offsetWidth : 130) || 130));
-            const measuredH = Math.max(30, Math.min(860, (cardEl ? cardEl.offsetHeight : 38) || 38));
+            const measuredW = Math.max(36, Math.min(980, (cardEl ? cardEl.offsetWidth : 130) || 130));
+            const measuredH = Math.max(24, Math.min(860, (cardEl ? cardEl.offsetHeight : 34) || 34));
             d._cardW = measuredW;
             d._cardH = measuredH;
 
@@ -1469,18 +1517,22 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 richEditor.innerHTML = renderMarkdownToHTML(d.content);
             }
         }
-        // 更新卡片自适应宽高与连线端点
+        // 更新卡片自适应宽高与连线端点，并在输入增长触碰邻卡时按 OneNote 直觉自动轻微避让
         const cardEl = cardDiv.node();
         if (cardEl) {
-            d._cardW = Math.max(76, Math.min(980, cardEl.offsetWidth || 130));
-            d._cardH = Math.max(30, Math.min(860, cardEl.offsetHeight || 38));
+            const foSel = group.select(".node-card-fo");
+            const hasCW = typeof d.customWidth === "number" && Number.isFinite(d.customWidth) && d.customWidth >= 36;
+            foSel.attr("width", hasCW ? Math.max(120, d.customWidth + 32) : 980).attr("height", 920);
+            d._cardW = Math.max(36, Math.min(980, cardEl.offsetWidth || 130));
+            d._cardH = Math.max(24, Math.min(860, cardEl.offsetHeight || 34));
             const foW = d._cardW + 20;
             const foH = d._cardH + 20;
-            group.select(".node-card-fo")
+            foSel
                 .attr("width", foW)
                 .attr("height", foH)
                 .attr("x", -foW / 2)
                 .attr("y", -foH / 2);
+            applyOneNoteResizeNudge(d, "e");
             renderPositions();
         }
         scheduleSaveGraph(true);
@@ -1849,16 +1901,19 @@ function updateD3Graph() {
             cardDiv.append("xhtml:div")
                 .attr("class", "canvas-note-card-body");
 
-            // v3.3.0 智能分向缩放手柄：
-            // 1. 左右拉 (.handle-e / .handle-w)：仅调宽度，文字自动换行自适应，字号不变
-            // 2. 上下拉 (.handle-s)：仅调高度，容器高度自适应，字号不变
-            // 3. 拉对角线 (.handle-se / .handle-sw)：框框缩放的同时，内部字体大小自动按框框比例同步变大/变小！
+            // v3.4.3 全向 8 手柄智能分向缩放引擎：
+            // 1. 左右拉 (.handle-e / .handle-w)：仅调宽度，对侧边缘锚定不动，文字自动换行自适应，字号不变
+            // 2. 上下拉 (.handle-s / .handle-n)：调整高度，对侧边缘锚定不动，往上拉缩高时自动扩宽重排换行，字号不变
+            // 3. 拉对角线 (.handle-se / .handle-sw / .handle-ne / .handle-nw)：框框缩放的同时，内部字体大小自动按比例同步变大/变小！
             const resizeConfigs = [
                 { mode: "e", cls: "card-resize-handle handle-e", title: "↔ 左右拉：调整卡片宽度（内部文字自动换行自适应，字号不变；双击恢复默认）" },
                 { mode: "w", cls: "card-resize-handle handle-w", title: "↔ 左右拉：调整卡片宽度（内部文字自动换行自适应，字号不变；双击恢复默认）" },
-                { mode: "s", cls: "card-resize-handle handle-s", title: "↕ 上下拉：调整卡片高度（内部排版自适应，字号不变；双击恢复默认）" },
+                { mode: "s", cls: "card-resize-handle handle-s", title: "↕ 上下拉：调整卡片高度（内部换行与排版自适应，字号不变；双击恢复默认）" },
+                { mode: "n", cls: "card-resize-handle handle-n", title: "↕ 上下拉：调整卡片高度（内部换行与排版自适应，字号不变；双击恢复默认）" },
                 { mode: "se", cls: "card-resize-handle handle-se", title: "⤡ 拉对角线：字体大小自动随框框比例变大/变小！(双击恢复默认字号与尺寸)", text: "◢" },
-                { mode: "sw", cls: "card-resize-handle handle-sw", title: "⤢ 拉对角线：字体大小自动随框框比例变大/变小！(双击恢复默认字号与尺寸)" }
+                { mode: "sw", cls: "card-resize-handle handle-sw", title: "⤢ 拉对角线：字体大小自动随框框比例变大/变小！(双击恢复默认字号与尺寸)" },
+                { mode: "ne", cls: "card-resize-handle handle-ne", title: "⤢ 拉对角线：字体大小自动随框框比例变大/变小！(双击恢复默认字号与尺寸)" },
+                { mode: "nw", cls: "card-resize-handle handle-nw", title: "⤡ 拉对角线：字体大小自动随框框比例变大/变小！(双击恢复默认字号与尺寸)" }
             ];
             resizeConfigs.forEach(cfg => {
                 const h = cardDiv.append("xhtml:div")
@@ -1876,7 +1931,7 @@ function updateD3Graph() {
                     })
                     .on("dblclick", function(event, d) {
                         event.stopPropagation();
-                        resetCardCustomSize(d);
+                        resetCardCustomSize(d, this);
                     });
                 if (cfg.text) h.text(cfg.text);
             });
@@ -3694,6 +3749,7 @@ function renderAll() {
 function cleanHTMLSpill(text) {
     if (!text) return "";
     return text
+        .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<font color=["']?([^"'>]+)["']?>/gi, '<span style="color:$1">')
         .replace(/<\/font>/gi, '</span>')
         .replace(/<b>/gi, "**").replace(/<\/b>/gi, "**")
@@ -4286,9 +4342,12 @@ function importExcalidrawFile(parsed, fileName = "") {
                 }
             }
 
-            const customW = Math.round(Math.max(80, Math.min(960, el.width || 160)));
-            const customH = Math.round(Math.max(30, Math.min(820, el.height || 40)));
-            const customFont = (typeof el.fontSize === "number" && el.fontSize >= 9 && el.fontSize <= 64) ? el.fontSize : null;
+            const isSoftWrapped = !!(el.customData && el.customData.softWrapped);
+            const preferredW = (el.customData && typeof el.customData.preferredWidth === "number")
+                ? el.customData.preferredWidth
+                : (isSoftWrapped ? Math.round((el.width || 240) + 38) : null);
+            const customW = preferredW ? Math.round(Math.max(60, Math.min(960, preferredW))) : null;
+            const customFont = (typeof el.fontSize === "number" && el.fontSize >= 20 && el.fontSize <= 64) ? el.fontSize : null;
 
             importedNodes.push({
                 id: nodeId,
@@ -4302,9 +4361,8 @@ function importExcalidrawFile(parsed, fileName = "") {
                 fx: Math.round(el.x + (el.width || 120) / 2),
                 fy: Math.round(el.y + (el.height || 40) / 2),
                 customWidth: customW,
-                customHeight: customH,
-                customFontSize: customFont,
-                cardBgColor: ""
+                customHeight: null,
+                customFontSize: customFont
             });
         } else if (el.type === "image") {
             const fileData = files[el.fileId];
@@ -5661,16 +5719,29 @@ function promptEditSelectedLinkLabel() {
     showToast(selectedLink.label ? `🏷️ 已设置箭头关系词：「${selectedLink.label}」` : "🧹 已清除箭头关系词");
 }
 
-// 2. v3.3.0 智能分向调整卡片尺寸与对角线等比缩放字号引擎：
-// - 左右拉 (mode === "e" | "w")：仅调整卡片宽度 (d.customWidth)，字号不变，内部文字自动折行自适应
-// - 上下拉 (mode === "s")：仅调整卡片高度 (d.customHeight)，字号不变，内部容器高度自适应
-// - 拉对角线 (mode === "se" | "sw")：框框缩放的同时，内部字体大小 (d.customFontSize) 自动按框框比例同步变大/变小！
-function resetCardCustomSize(d) {
+// 2. v3.4.3 全向 8 手柄对侧锚定调整尺寸 + 上下拉智能重排 + 对角线等比字号缩放 + OneNote MTV 实时轻微避让引擎：
+// - 左右拉 (mode === "e" | "w")：对侧边缘固定，仅调宽度 (d.customWidth)，字号不变，内部文字自动折行自适应
+// - 上下拉 (mode === "s" | "n")：对侧边缘固定，调高度 (d.customHeight)，往上拉缩高时自动扩宽重排换行，字号不变
+// - 拉对角线 (mode === "se" | "sw" | "ne" | "nw")：对角顶点固定，框框缩放的同时，内部字体大小 (d.customFontSize) 自动按框框比例同步变大/变小！
+function resolveAuthoritativeNode(rawD, el) {
+    const groupEl = el && el.closest ? el.closest(".node-group") : null;
+    const groupDatum = groupEl ? d3.select(groupEl).datum() : null;
+    const targetId = (groupDatum && groupDatum.id) || (rawD && rawD.id);
+    if (targetId && Array.isArray(nodes)) {
+        const found = nodes.find(n => n.id === targetId);
+        if (found) return found;
+    }
+    return groupDatum || rawD;
+}
+
+function resetCardCustomSize(rawD, handleEl = null) {
+    const d = resolveAuthoritativeNode(rawD, handleEl);
     if (!d) return;
     delete d.customWidth;
     delete d.customHeight;
     delete d.customFontSize;
     delete d._manualHeight;
+    delete d._userResized;
     refreshNodeStyles();
     renderPositions();
     updateFloatingActionBarsPosition();
@@ -5678,131 +5749,188 @@ function resetCardCustomSize(d) {
     showToast("📏 已恢复卡片默认字号与自适应尺寸");
 }
 
-// OneNote 经典碰撞自动避让机制 (v3.4.2)：
-// 1. 当拉大/缩放某张卡片尺寸时，如果它碰撞到了邻近的其他卡片，被碰撞的卡片自动顺滑下移/右移避让，避免遮挡内容；
-// 2. 但如果是直接选中卡片用鼠标拖动位移，绝不触发避让，从而达到随心所欲自由重合叠放（“放到一坨”）的效果！
-function applyOneNoteResizeNudge(resizedNode) {
-    if (!resizedNode || !nodes) return;
-    const rW = (typeof resizedNode.customWidth === "number" && Number.isFinite(resizedNode.customWidth))
-        ? resizedNode.customWidth
-        : (resizedNode._cardW || 150);
-    const rH = (typeof resizedNode.customHeight === "number" && Number.isFinite(resizedNode.customHeight))
-        ? resizedNode.customHeight
-        : (resizedNode._cardH || 40);
-
-    const rLeft = resizedNode.x - rW / 2;
-    const rRight = resizedNode.x + rW / 2;
-    const rTop = resizedNode.y - rH / 2;
-    const rBottom = resizedNode.y + rH / 2;
-
+// OneNote 经典碰撞自动轻微避让机制 (v3.4.3 最小平移向量 MTV + 级联传导)：
+// 1. 当拉动边框/对角线改变卡片框大小（或打字使卡片框变大）碰到其他卡片时，被碰卡片沿最小重叠轴自动位移一点点 (8px 呼吸间距)；
+// 2. 但如果是选中卡片直接拖动移动位置 (dragged)，绝不触发避让，100% 保持自由重合叠放效果！
+function applyOneNoteResizeNudge(resizedNode, mode = "e") {
+    if (!resizedNode || !Array.isArray(nodes) || nodes.length < 2) return;
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
-    let anyNudged = false;
+    const visibleList = nodes.filter(n => isNodeVisible(n, nodeMap));
+    if (visibleList.length < 2) return;
 
-    // 按 y 坐标从小到大排序避让
-    const otherNodes = nodes.filter(n => n.id !== resizedNode.id && isNodeVisible(n, nodeMap));
-    otherNodes.sort((a, b) => a.y - b.y);
+    const getBox = (n) => {
+        const w = Math.max(36, n._cardW || n.customWidth || 130);
+        const h = Math.max(24, n._cardH || n.customHeight || 36);
+        const cx = Number.isFinite(n.x) ? n.x : 450;
+        const cy = Number.isFinite(n.y) ? n.y : 320;
+        return {
+            w, h, cx, cy,
+            left: cx - w / 2,
+            right: cx + w / 2,
+            top: cy - h / 2,
+            bottom: cy + h / 2
+        };
+    };
 
-    otherNodes.forEach(other => {
-        const oW = (typeof other.customWidth === "number" && Number.isFinite(other.customWidth))
-            ? other.customWidth
-            : (other._cardW || 150);
-        const oH = (typeof other.customHeight === "number" && Number.isFinite(other.customHeight))
-            ? other.customHeight
-            : (other._cardH || 40);
+    const GAP = 8; // OneNote 风格：碰到其他框时仅轻微推开一点点 (8px)
+    let anyMoved = false;
+    const activeSources = new Set([resizedNode.id]);
 
-        const oLeft = other.x - oW / 2;
-        const oRight = other.x + oW / 2;
-        const oTop = other.y - oH / 2;
-        const oBottom = other.y + oH / 2;
+    // 最多进行 4 轮级联微移（防止 A 推 B 后 B 压住 C）
+    for (let pass = 0; pass < 4; pass++) {
+        let passMoved = false;
+        const currentSources = Array.from(activeSources)
+            .map(id => nodeMap.get(id))
+            .filter(Boolean);
 
-        const overlapX = Math.min(rRight, oRight) - Math.max(rLeft, oLeft);
-        const overlapY = Math.min(rBottom, oBottom) - Math.max(rTop, oTop);
+        for (const src of currentSources) {
+            const boxA = getBox(src);
+            for (const other of visibleList) {
+                if (other.id === src.id || other.id === resizedNode.id) continue;
+                const boxB = getBox(other);
 
-        if (overlapX > 0 && overlapY > 0) {
-            anyNudged = true;
-            // OneNote 避让法则：下方卡片向下挪出间距，右侧卡片向右挪出间距
-            if (other.y >= resizedNode.y - 12) {
-                const shiftY = Math.round(overlapY + 16);
-                other.y += shiftY;
-                if (typeof other.fy === "number") other.fy = other.y;
-            } else if (other.x >= resizedNode.x) {
-                const shiftX = Math.round(overlapX + 18);
-                other.x += shiftX;
-                if (typeof other.fx === "number") other.fx = other.x;
-            } else {
-                const shiftY = Math.round(overlapY + 16);
-                other.y += shiftY;
-                if (typeof other.fy === "number") other.fy = other.y;
+                const overlapX = Math.min(boxA.right, boxB.right) - Math.max(boxA.left, boxB.left);
+                const overlapY = Math.min(boxA.bottom, boxB.bottom) - Math.max(boxA.top, boxB.top);
+
+                if (overlapX > 0 && overlapY > 0) {
+                    passMoved = true;
+                    anyMoved = true;
+
+                    // 沿最小重叠方向 (MTV) 轻微推开一点点，兼顾当前拉动方向直觉
+                    const preferHorizontal = (mode === "e" || mode === "w")
+                        ? (overlapX <= overlapY * 1.6)
+                        : (overlapX < overlapY * 0.85);
+
+                    if (preferHorizontal) {
+                        const pushRight = (boxB.cx > boxA.cx) || (boxB.cx === boxA.cx && mode !== "w");
+                        const shiftX = Math.ceil(overlapX + GAP);
+                        other.x = Math.round(boxB.cx + (pushRight ? shiftX : -shiftX));
+                        if (typeof other.fx === "number") other.fx = other.x;
+                    } else {
+                        const pushDown = (boxB.cy >= boxA.cy) || (boxB.cy === boxA.cy && mode !== "n");
+                        const shiftY = Math.ceil(overlapY + GAP);
+                        other.y = Math.round(boxB.cy + (pushDown ? shiftY : -shiftY));
+                        if (typeof other.fy === "number") other.fy = other.y;
+                    }
+                    activeSources.add(other.id);
+                }
             }
         }
-    });
+        if (!passMoved) break;
+    }
 
-    if (anyNudged) {
+    if (anyMoved) {
         renderPositions();
-        refreshNodeStyles();
     }
 }
 
-function startCardResize(event, d, handleEl, mode = "e") {
+function startCardResize(event, rawD, handleEl, mode = "e") {
+    const d = resolveAuthoritativeNode(rawD, handleEl);
     if (!d || !svg) return;
     const cardEl = handleEl.closest(".canvas-note-card");
     const pt0 = (event.touches && event.touches[0]) ? event.touches[0] : event;
     const startClientX = pt0.clientX;
     const startClientY = pt0.clientY;
 
-    const startW = (typeof d.customWidth === "number" && Number.isFinite(d.customWidth))
-        ? d.customWidth
-        : (cardEl ? cardEl.offsetWidth : (d._cardW || 150));
-    const startH = (typeof d.customHeight === "number" && Number.isFinite(d.customHeight))
-        ? d.customHeight
-        : (cardEl ? cardEl.offsetHeight : (d._cardH || 42));
+    const startW = (cardEl && cardEl.offsetWidth)
+        ? cardEl.offsetWidth
+        : ((typeof d.customWidth === "number" && Number.isFinite(d.customWidth)) ? d.customWidth : (d._cardW || 140));
+    const startH = (cardEl && cardEl.offsetHeight)
+        ? cardEl.offsetHeight
+        : ((typeof d.customHeight === "number" && Number.isFinite(d.customHeight)) ? d.customHeight : (d._cardH || 36));
     const startFontSize = (typeof d.customFontSize === "number" && Number.isFinite(d.customFontSize))
         ? d.customFontSize
         : 13.5;
+    const startNodeX = Number.isFinite(d.x) ? d.x : 450;
+    const startNodeY = Number.isFinite(d.y) ? d.y : 320;
 
     const zoomScale = (d3.zoomTransform(svg.node()) && d3.zoomTransform(svg.node()).k) || 1;
 
+    d._userResized = true;
     handleEl.classList.add("is-resizing");
     if (cardEl) cardEl.classList.add("is-resizing-card");
 
     const updateResize = (clientX, clientY) => {
         const rawDeltaX = (clientX - startClientX) / zoomScale;
         const rawDeltaY = (clientY - startClientY) / zoomScale;
-        const deltaX = (mode === "w" || mode === "sw") ? -rawDeltaX : rawDeltaX;
-        const deltaY = rawDeltaY;
 
         if (mode === "e" || mode === "w") {
-            // 左右拉：仅调宽度，字号保持不变，内部文字自动换行自适应
-            const nextW = Math.round(Math.max(80, Math.min(960, startW + deltaX)));
+            // 1. 左右拉：对侧边缘固定，仅调宽度，字号保持不变，内部文字自动换行自适应
+            const deltaW = (mode === "w") ? -rawDeltaX : rawDeltaX;
+            const nextW = Math.round(Math.max(36, Math.min(960, startW + deltaW)));
             d.customWidth = nextW;
-            if (!d._manualHeight) {
-                delete d.customHeight;
-            }
+            delete d.customHeight;
+            delete d._manualHeight;
+
+            refreshNodeStyles();
+            const actualW = d._cardW || nextW;
+            const signX = (mode === "w") ? -1 : 1;
+            d.x = Math.round(startNodeX + signX * (actualW - startW) / 2);
+            if (layoutMode !== "force") d.fx = d.x;
+
             if (cardEl) {
-                cardEl.setAttribute("data-resize-hud", `↔ 宽 ${nextW}px · 自动换行`);
+                cardEl.setAttribute("data-resize-hud", `↔ 宽 ${actualW}px · 自动换行`);
             }
-        } else if (mode === "s") {
-            // 上下拉：仅调高度，字号保持不变，内部排版自适应
-            const nextH = Math.round(Math.max(32, Math.min(820, startH + deltaY)));
+        } else if (mode === "s" || mode === "n") {
+            // 2. 上下拉：对侧边缘固定，调整卡片高度；若往上拉缩减多行卡片高度，自动扩宽让内部文字重排为更少行！
+            const deltaH = (mode === "n") ? -rawDeltaY : rawDeltaY;
+            const nextH = Math.round(Math.max(26, Math.min(820, startH + deltaH)));
             d.customHeight = nextH;
             d._manualHeight = true;
-            if (cardEl) {
-                cardEl.setAttribute("data-resize-hud", `↕ 高 ${nextH}px · 自适应`);
-            }
-        } else if (mode === "se" || mode === "sw") {
-            // 拉对角线：框框与内部字体大小同步按比例缩放！
-            const ratioX = (startW + deltaX) / Math.max(60, startW);
-            const ratioY = (startH + deltaY) / Math.max(28, startH);
-            const scaleFactor = Math.max(0.55, Math.min(4.5, ratioX * 0.65 + ratioY * 0.35));
 
-            const nextFontSize = Math.round(Math.max(9, Math.min(64, startFontSize * scaleFactor)) * 10) / 10;
-            const nextW = Math.round(Math.max(76, Math.min(960, startW * scaleFactor)));
-            const nextH = Math.round(Math.max(30, Math.min(820, startH * scaleFactor)));
+            if (nextH < startH - 2) {
+                // 用户正把卡片压扁（减少高度）：若当前宽度下文字换行导致高度大于目标高度，自动渐进加宽卡片以减少换行行数
+                let trialW = startW;
+                d.customWidth = trialW;
+                refreshNodeStyles();
+                let guard = 0;
+                while ((d._cardH || startH) > nextH + 4 && trialW < 920 && guard < 8) {
+                    trialW = Math.min(960, Math.round(trialW + Math.max(28, (startH - nextH) * 2.2)));
+                    d.customWidth = trialW;
+                    refreshNodeStyles();
+                    guard++;
+                }
+            } else {
+                refreshNodeStyles();
+            }
+
+            const actualH = d._cardH || nextH;
+            const signY = (mode === "n") ? -1 : 1;
+            d.y = Math.round(startNodeY + signY * (actualH - startH) / 2);
+            if (layoutMode !== "force") d.fy = d.y;
+
+            if (cardEl) {
+                cardEl.setAttribute("data-resize-hud", `↕ 高 ${actualH}px · 换行自适应`);
+            }
+        } else if (mode === "se" || mode === "sw" || mode === "ne" || mode === "nw") {
+            // 3. 拉对角线：对角顶点锚定，框框与内部字体大小同步按比例缩放！
+            const signX = (mode === "sw" || mode === "nw") ? -1 : 1;
+            const signY = (mode === "ne" || mode === "nw") ? -1 : 1;
+            const deltaW = rawDeltaX * signX;
+            const deltaH = rawDeltaY * signY;
+
+            const ratioX = (startW + deltaW) / Math.max(40, startW);
+            const ratioY = (startH + deltaH) / Math.max(26, startH);
+            const scaleFactor = Math.max(0.45, Math.min(4.5, ratioX * 0.65 + ratioY * 0.35));
+
+            const nextFontSize = Math.round(Math.max(8.5, Math.min(64, startFontSize * scaleFactor)) * 10) / 10;
+            const nextW = Math.round(Math.max(38, Math.min(960, startW * scaleFactor)));
+            const nextH = Math.round(Math.max(26, Math.min(820, startH * scaleFactor)));
 
             d.customFontSize = nextFontSize;
             d.customWidth = nextW;
             d.customHeight = nextH;
             d._manualHeight = false;
+
+            refreshNodeStyles();
+            const actualW = d._cardW || nextW;
+            const actualH = d._cardH || nextH;
+            d.x = Math.round(startNodeX + signX * (actualW - startW) / 2);
+            d.y = Math.round(startNodeY + signY * (actualH - startH) / 2);
+            if (layoutMode !== "force") {
+                d.fx = d.x;
+                d.fy = d.y;
+            }
 
             if (cardEl) {
                 const pct = Math.round((nextFontSize / 13.5) * 100);
@@ -5810,7 +5938,8 @@ function startCardResize(event, d, handleEl, mode = "e") {
             }
         }
 
-        refreshNodeStyles();
+        // OneNote 直觉：框变动碰到其他框时，实时自动轻微位移避让一点点
+        applyOneNoteResizeNudge(d, mode);
         renderPositions();
         updateFloatingActionBarsPosition();
     };
@@ -5837,9 +5966,8 @@ function startCardResize(event, d, handleEl, mode = "e") {
         window.removeEventListener("touchend", onUp);
         window.removeEventListener("touchcancel", onUp);
 
-        // OneNote 直觉：缩放调整完成后自动避让碰撞卡片
-        applyOneNoteResizeNudge(d);
         refreshNodeStyles();
+        applyOneNoteResizeNudge(d, mode);
         renderPositions();
         updateFloatingActionBarsPosition();
         scheduleSaveGraph(true);

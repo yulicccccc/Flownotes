@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.2)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.3)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote Fidelity Pass (v3.4.3 OneNote 高保真复核修复)**:
+  - 字体：内置 `public/fonts/TsangerXuanSanM-W03.ttf` + `@font-face`（优先 `local()`），画布卡片、右侧标题、富文本与 Markdown 编辑器统一使用 `TsangerXuanSanM W03`。
+  - 8 向缩放：新增上边 `.handle-n` 与上方对角 `.handle-ne/.handle-nw`；拉任一边时对侧边固定（不再两边同时动）；最小宽度 36px；左右拉自动清除固定高度让换行自适应；上下拉压扁时自动加宽重排；对角线拉同步缩放字号。手柄每次刷新绑定最新节点数据，修复“有时拉不动”。
+  - OneNote 碰撞微移：缩放/打字变大时，被碰到的卡片沿最小重叠方向实时推开 8px（最多 4 层级联）；直接拖动卡片仍可自由重合，不推人。
+  - 局部文字颜色：自由文本框（根卡片）不再有红色左色条与加粗，框统一；只有个别词语红/绿；旧缓存中的 1.pdf 卡片一次性自动升级为逐词标色（`_oneNoteV343Migrated` 标记，不会覆盖用户之后的手动编辑）。XMind 分支子卡片保留左侧分支色条。
+  - PDF 转换：拆分被误合并的跨列文本块（如「微生物氨基酸…」/「微生物与宿主…」）、合并「1.」序号行、软折行句子改为流式文本、黄色荧光高亮转 `==…==`、去掉箭头尖角生成的多余短箭头。
+  - 触屏单指长按不再变框选（与“长按/长触屏=手型移动画布”一致）；框选统一为 Shift+拖 或 🔳 模式。
 - **OneNote Native Spatial Fonts, Collision Nudge & Rich Span Color Suite (v3.4.2 还原 OneNote 原生字体、碰撞自动避让与局部文字色彩)**:
   - **OneNote Favorite Font Stack (`TsangerXuanSanM W03` / 仓耳玄三)**: System defaults to user's favorite OneNote font `TsangerXuanSanM W03`, falling back to `仓耳玄三`, `Inter`, `Microsoft YaHei` across cards, editor, and UI.
   - **OneNote Collision Nudge on Resize (`applyOneNoteResizeNudge`)**: When resizing a card expands into neighboring cards, neighboring cards automatically shift downward/outward to prevent content obscuration. Directly moving a card allows free overlap without shifting ("放到一坨", 自由重合).
@@ -126,4 +133,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.2_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.3_flownotes-eze.pages.dev_一键更新网站.bat`.

@@ -1,8 +1,9 @@
-# Project State: FlowNotes (v3.4.2)
+# Project State: FlowNotes (v3.4.3)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.2`
+- **Current Version**: `v3.4.3`
 - **Latest Releases**:
+  - `v3.4.3`: OneNote fidelity pass — bundled TsangerXuanSanM W03 font, 8-way edge-anchored resize (n/s/e/w + 4 corners), live MTV collision nudge on resize/typing only (drag stays free-overlap), uniform OneNote frames with per-word colors + one-time cache migration, improved PDF→Excalidraw block splitting/soft-wrap/highlight, touch long-press no longer marquee.
   - `v3.4.2`:
     - **OneNote Native Spatial Fonts, Collision Nudge & Rich Span Color Suite (`applyOneNoteResizeNudge` + `TsangerXuanSanM W03`)**: System font defaults to user's favorite OneNote font `TsangerXuanSanM W03`; card resizing automatically pushes colliding neighbor cards away to avoid obscuration, while direct dragging allows free overlap; expanded resize hit zones to 20px and spaced out edge buttons; removed whole-card pink/green dyes and restored precise inline keyword coloring.
   - `v3.4.1`:
@@ -60,7 +61,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.4.2_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.4.3_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.
