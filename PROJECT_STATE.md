@@ -1,7 +1,7 @@
-# Project State: FlowNotes (v3.5.1)
+# Project State: FlowNotes (v3.5.2)
 
 ## Current Version & Status
-- **Current Version**: `v3.5.1`
+- **Current Version**: `v3.5.2`
 - **Latest Releases**:
   - `v3.5.1`:
     - **Title-Only Mindmap Canvas & Anti-Clutter Layout Suite (`renderCardLabelHTML` + `getCardDisplayHTML` + `.card-has-note-badge` + Numbered List Preservation + `.canvas-action-pill-bar` + `.canvas-view-dock`)**: Resolved 3 major UX pain points. 1) Mindmap cards on canvas strictly display the title (`d.label`) and never get polluted or ballooned by large paragraphs in detailed notes (`d.content`). Cards with detailed notes show a clickable `📝` badge that opens the right note pane with 1 click; 2) Ordered list numbering (`1.`, `2.`, `4.`) is preserved verbatim without being reset to `1.` by `<ol>` rendering or serialization; 3) Replaced the clumsy 21-button two-row floating controls with a single-line frosted pill toolbar on the top-left and moved zoom/viewport controls to the bottom-left dock, completely eliminating clutter and collisions with the top-center formatting bubble.

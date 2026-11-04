@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.1)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.2)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Notion-Style Minimalist 3-Zone Header & Anti-Clutter Layout (v3.5.2 现代化三段式极简顶栏与防拥挤防折行套件)**:
+  - **彻底移除臃肿品牌大标题 (No-Brand Left Header)**：对标现代顶级笔记软件（Notion、Obsidian、Linear、Craft）规范，顶部工作区不再堆放巨大的 `FlowNotes` 冗余品牌文字，释放左侧黄金空间，让位于紧凑灵动的猫头鹰智慧图标（`#logoGroup`）与 OneNote 3 级彩色面包屑导航（`#currentMapBadge`）。
+  - **核心导航标签居中分段控制器 (Segmented Switcher)**：将工作区切换按钮抽离并置于中央独立的 `.navbar-center` 容器，采用精炼高质感的文字标（`🕸️ 导图`、`⚡ 心流`、`📝 笔记`、`✨ AI`），并施加严苛的 `white-space: nowrap !important; flex-shrink: 0 !important;`，彻底根除因宽度压缩导致汉字被逐字换行成竖列（`图/谱/工/作/台`）的严重视觉 Bug！
+  - **右侧功能区精简与「⋯ 更多」操作下拉菜单 (Clean Utilities & More Menu)**：
+    - 顶部保留核心高频动作：`[ 🍅 25:00 ▶ 0 ]` 番茄专注胶囊、`[ 🔍 搜索 (Ctrl+K) ]` 紧凑搜索框、`[ ☁️ 同步 ]` 极速云端同步按钮、`[ 🌙 ]` 主题切换按钮；
+    - 将次频操作（`📦 导出 Obsidian`、`📲 安装桌面独立版`、`🚪 退出登录`）优雅收纳进 `[ ⋯ ]` 更多操作悬浮毛玻璃下拉菜单中，完美保留原有 DOM ID 与业务逻辑，大幅减轻视线负担与水平拥挤。
+  - **全屏高度自适应微调 (48px Compact Height)**：顶栏高度统一由 64px 精简至现代紧凑标准的 48px，主工作区视野高度扩展至 `calc(100vh - 48px)`，大幅扩增思维图谱画布的纵向可用空间。
 - **Title-Only Mindmap Canvas & Anti-Clutter Layout Suite (v3.5.1 脑图卡片纯标题展示与防遮挡极简布局套件)**:
   - **画布卡片严格只显示标题 (Title-Only Map Cards)**：彻底解决长篇详细笔记溢出并占满思维图谱画布的致命问题。画布卡片（`d.label`）仅呈现凝练标题与行内强调（加粗、颜色、手写体、复选框等）；当卡片包含深度长文（`d.content`）时，卡片右上角呈现精致的 `📝` 笔记徽章标，点击卡片或徽章可在右侧详细笔记面板展开阅读与编辑，长篇大作绝不再污染脑图画布空间；卡片原地编辑时仅编辑标题，100% 保护底层详细长笔记不受任何覆盖或丢失。
   - **序号自增锁定与 1./2./4. 真实数字保留**：彻底根除用户输入 `2. ` 或 `4. ` 时系统自动变为 `1. ` 的严重缺陷。卡片标题渲染器移除了对行首序号的强制 `<ol>` 替换，同时修正了 Markdown 序列化中的 `start` 与 `value` 属性，精准保留用户书写的真实数字标号。

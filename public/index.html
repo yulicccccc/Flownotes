@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.1)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.2)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,13 +13,13 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.5.1">
+    <link rel="stylesheet" href="index.css?v=3.5.2">
 </head>
 <body>
-    <!-- 顶部导航栏 -->
+    <!-- 顶部导航栏 (v3.5.2 现代化三段式极简顶栏) -->
     <header class="navbar">
         <div class="navbar-left">
-            <div class="logo-group" id="logoGroup" title="点击呼唤智慧猫头鹰提示">
+            <div class="logo-group" id="logoGroup" title="FlowNotes - 点击查看智慧提示">
                 <div class="owl-mascot">
                     <svg viewBox="0 0 100 100" class="owl-svg">
                         <path d="M50 15 C30 15 18 32 18 58 C18 82 30 90 50 90 C70 90 82 82 82 58 C82 32 70 15 50 15 Z" fill="url(#owlGradient)" />
@@ -42,31 +42,30 @@
                         </defs>
                     </svg>
                 </div>
-                <div class="logo-text">
-                    <h1>FlowNotes</h1>
-                </div>
-                <div class="badge-local onenote-breadcrumb" id="currentMapBadge" style="cursor:pointer;" title="点击打开 OneNote 笔记本中心">
+                <div class="current-map-badge onenote-breadcrumb" id="currentMapBadge" style="cursor:pointer;" title="点击打开 OneNote 笔记本中心">
                     <span>🧠 默认思维导图</span>
                 </div>
             </div>
+        </div>
 
-            <!-- 核心导航标签 -->
+        <div class="navbar-center">
+            <!-- 核心导航标签 (Segmented Pill Switcher: 永不换行、极简防挤压) -->
             <nav class="nav-tabs">
-                <button class="nav-tab active" data-tab="graph">
+                <button class="nav-tab active" data-tab="graph" title="思维图谱可视化工作台">
                     <span class="tab-icon">🕸️</span>
-                    <span>思维图谱工作台</span>
+                    <span>导图</span>
                 </button>
-                <button class="nav-tab" data-tab="flow">
+                <button class="nav-tab" data-tab="flow" title="心流灵感极速捕获">
                     <span class="tab-icon">⚡</span>
-                    <span>心流捕获</span>
+                    <span>心流</span>
                 </button>
-                <button class="nav-tab" data-tab="editor">
+                <button class="nav-tab" data-tab="editor" title="双链长文笔记库">
                     <span class="tab-icon">📝</span>
-                    <span>双链笔记库</span>
+                    <span>笔记</span>
                 </button>
-                <button class="nav-tab" data-tab="ai">
+                <button class="nav-tab" data-tab="ai" title="AI 认知助手与思维重构">
                     <span class="tab-icon">✨</span>
-                    <span>智慧助手</span>
+                    <span>AI</span>
                 </button>
             </nav>
         </div>
@@ -81,40 +80,44 @@
                 <span class="pomo-pill-today-badge" id="pomoPillTodayBadge" title="今日已完成专注番茄数">0</span>
             </div>
 
-            <!-- 全局实时搜索 -->
+            <!-- 全局实时搜索 (紧凑优雅) -->
             <div class="search-box">
                 <span class="search-icon">🔍</span>
-                <input type="text" id="searchInput" placeholder="搜索标题、内容、标签或 #双链...">
-                <span class="shortcut-hint">Ctrl+K</span>
+                <input type="text" id="searchInput" placeholder="搜索 (Ctrl+K)">
             </div>
 
-            <!-- PWA 一键安装桌面/任务栏独立应用按钮 -->
-            <button class="btn btn-secondary" id="btnInstallPwa" title="将 FlowNotes 安装到桌面/任务栏作为独立窗口运行" style="display:none;">
-                <span class="btn-icon">📲</span>
-                <span>安装桌面版</span>
-            </button>
-
-            <!-- GitHub 同步防误删按钮 -->
-            <button class="btn btn-github" id="ghSyncBtn" title="GitHub 云端多端同步与历史回滚防误删">
-                <span class="btn-icon">🔄</span>
-                <span id="ghSyncText">GitHub 同步</span>
-            </button>
-
-            <!-- 数据导出到 Obsidian JSON -->
-            <button class="btn btn-obsidian" id="exportObsidianBtn" title="导出支持 sync_to_obsidian.ps1 脚本的备份文件">
-                <span class="btn-icon">📦</span>
-                <span>导出 Obsidian</span>
-            </button>
-
-            <!-- 退出登录 -->
-            <button class="btn-icon-only" id="btnLogout" title="退出登录" style="margin-right: 5px;">
-                <span>🚪</span>
+            <!-- GitHub 云端同步胶囊按钮 -->
+            <button class="btn btn-github btn-pill-sync" id="ghSyncBtn" title="GitHub 云端多端同步与历史回滚防误删">
+                <span class="btn-icon">☁️</span>
+                <span id="ghSyncText">同步</span>
             </button>
 
             <!-- 主题切换 -->
             <button class="btn-icon-only" id="themeToggle" title="切换深色/浅色外观">
                 <span id="themeIcon">🌙</span>
             </button>
+
+            <!-- 更多操作下拉菜单 (收纳安装桌面版、导出 Obsidian、退出登录) -->
+            <div class="navbar-more-wrap" id="navbarMoreWrap">
+                <button class="btn-icon-only btn-navbar-more" id="btnNavbarMore" title="更多功能 (导出、桌面版、退出)">
+                    <span>⋯</span>
+                </button>
+                <div class="navbar-dropdown-menu" id="navbarMoreDropdown" style="display: none;">
+                    <button class="navbar-dropdown-item" id="exportObsidianBtn" title="导出支持 sync_to_obsidian.ps1 脚本的备份文件">
+                        <span class="dropdown-item-icon">📦</span>
+                        <span class="dropdown-item-text">导出为 Obsidian (JSON/MD)</span>
+                    </button>
+                    <button class="navbar-dropdown-item" id="btnInstallPwa" title="将 FlowNotes 安装到桌面/任务栏独立运行">
+                        <span class="dropdown-item-icon">📲</span>
+                        <span class="dropdown-item-text">安装为桌面独立客户端</span>
+                    </button>
+                    <div class="navbar-dropdown-divider"></div>
+                    <button class="navbar-dropdown-item text-danger" id="btnLogout" title="退出登录">
+                        <span class="dropdown-item-icon">🚪</span>
+                        <span class="dropdown-item-text">退出当前登录</span>
+                    </button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -703,6 +706,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.5.1"></script>
+    <script src="app.js?v=3.5.2"></script>
 </body>
 </html>

@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.1 loaded — Title-Only Mindmap Canvas & Anti-Clutter Layout");
+    console.log("[FlowNotes] v3.5.2 loaded — Notion-Style Minimalist 3-Zone Header & Anti-Clutter Layout");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -3537,6 +3537,29 @@ function initEvents() {
     // 主题
     document.getElementById("themeToggle").addEventListener("click", toggleTheme);
 
+    // 顶部导航栏「更多」下拉菜单 (⋯) 控制 (v3.5.2)
+    const btnNavbarMore = document.getElementById("btnNavbarMore");
+    const navbarMoreDropdown = document.getElementById("navbarMoreDropdown");
+    if (btnNavbarMore && navbarMoreDropdown) {
+        btnNavbarMore.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isOpen = navbarMoreDropdown.style.display === "flex";
+            navbarMoreDropdown.style.display = isOpen ? "none" : "flex";
+        });
+
+        navbarMoreDropdown.querySelectorAll(".navbar-dropdown-item").forEach(item => {
+            item.addEventListener("click", () => {
+                navbarMoreDropdown.style.display = "none";
+            });
+        });
+
+        document.addEventListener("click", (e) => {
+            if (!navbarMoreDropdown.contains(e.target) && e.target !== btnNavbarMore) {
+                navbarMoreDropdown.style.display = "none";
+            }
+        });
+    }
+
     // 退出登录
     const btnLogout = document.getElementById("btnLogout");
     if (btnLogout) {
@@ -4723,7 +4746,7 @@ function updateSyncStatusUI(state, message, detailText = "") {
     } else {
         if (syncBtn) { syncBtn.disabled = false; syncBtn.innerHTML = "💾 同步"; }
         if (pullBtn) { pullBtn.disabled = false; }
-        if (ghSyncText) ghSyncText.textContent = state === "ok" ? `🟢 GitHub (${nodes.length}卡片)` : "GitHub 同步";
+        if (ghSyncText) ghSyncText.textContent = state === "ok" ? `🟢 已同步 (${nodes.length}卡片)` : "云同步";
     }
 
     if (ghSyncStatusBox) {

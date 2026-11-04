@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.2] - 2026-11-04
+
+### 💎 Notion 风格现代化三段式极简顶栏与防拥挤防折行套件 (Notion-Style Minimalist 3-Zone Header & Anti-Clutter Layout)
+- **✨ 彻底移除臃肿品牌大标题**：
+  - 对标 Notion、Obsidian、Linear、Craft 等国际顶级笔记软件标准，移除顶栏左侧冗余的 `FlowNotes` 品牌大字；
+  - 释放左侧黄金空间，让位于猫头鹰智慧微标（`#logoGroup`）与 OneNote 3 级彩色面包屑导航（`#currentMapBadge`），让当前思维沙盘所处的【笔记本 / 分区 / 页面】一目了然；
+- **🛡️ 居中分段控制器与严苛防挤压防折行**：
+  - 将导航切页按钮置于中央独立容器 `.navbar-center`，使用高质感精炼文字标（`🕸️ 导图`、`⚡ 心流`、`📝 笔记`、`✨ AI`）；
+  - 全面施加 `white-space: nowrap !important; flex-shrink: 0 !important;`，彻底根除水平宽度受限时汉字被纵向挤压折行（`图/谱/工/作/台`）的恶性视觉 Bug；
+- **⋯ 极简右侧功能区与悬浮毛玻璃下拉菜单**：
+  - 顶部右侧保留高频胶囊：`[ 🍅 25:00 ▶ 0 ]` 番茄专注胶囊、`[ 🔍 搜索 (Ctrl+K) ]` 紧凑搜索框、`[ ☁️ 同步 ]` 极速云端同步按钮、`[ 🌙 ]` 主题切换按钮；
+  - 将次频操作（`📦 导出 Obsidian`、`📲 安装桌面独立版`、`🚪 退出登录`）优雅收拢至 `[ ⋯ ]` 悬浮毛玻璃下拉菜单中，完美保留原有 DOM ID 与业务逻辑，大幅减轻视线负担；
+- **📐 顶栏高度紧凑化至 48px**：
+  - 顶栏高度由 64px 瘦身至 48px，主工作区视野高度扩展至 `calc(100vh - 48px)`，大幅扩增思维图谱画布的纵向可用空间。
+
 ## 🚀 [v3.5.1] - 2026-11-04
 
 ### 🏷️ 脑图卡片纯标题展示与防遮挡极简布局套件 (Title-Only Map Cards & Anti-Clutter Layout)
