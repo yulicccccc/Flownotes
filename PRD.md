@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.1)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Title-Only Mindmap Canvas & Anti-Clutter Layout Suite (v3.5.1 脑图卡片纯标题展示与防遮挡极简布局套件)**:
+  - **画布卡片严格只显示标题 (Title-Only Map Cards)**：彻底解决长篇详细笔记溢出并占满思维图谱画布的致命问题。画布卡片（`d.label`）仅呈现凝练标题与行内强调（加粗、颜色、手写体、复选框等）；当卡片包含深度长文（`d.content`）时，卡片右上角呈现精致的 `📝` 笔记徽章标，点击卡片或徽章可在右侧详细笔记面板展开阅读与编辑，长篇大作绝不再污染脑图画布空间；卡片原地编辑时仅编辑标题，100% 保护底层详细长笔记不受任何覆盖或丢失。
+  - **序号自增锁定与 1./2./4. 真实数字保留**：彻底根除用户输入 `2. ` 或 `4. ` 时系统自动变为 `1. ` 的严重缺陷。卡片标题渲染器移除了对行首序号的强制 `<ol>` 替换，同时修正了 Markdown 序列化中的 `start` 与 `value` 属性，精准保留用户书写的真实数字标号。
+  - **单行极简防碰撞操作栏与左下角视口 Dock**：将拥挤遮挡视线的 21 个圆形浮动按钮解耦重构——左上角精简为单行胶囊操作栏（`+子`、`+同`、`➔`、`🖍️`、`✋`、`↩️`、`↪️`、`☰`、`📖`、`💡`），将缩放与布局按钮（`🧭 树状`、`✦ 自由`、`⛶`、`-`、`100%`、`+`）优雅下沉至左下角视口 Dock（Miro/Figma 经典布局），彻底释放画布顶部空间，杜绝与顶部格式栏重叠打架。
 - **OneNote 3-Tier Collapsible Tree Notebook Center (v3.5.0 OneNote 3级树状层级笔记本中心)**:
   - **完整 OneNote 三级体系 (【笔记本 📔】➔【彩色分区 📑】➔【页面/思维沙盘 📄】)**：
     - 告别旧版扁平拥挤的 280px 浮层，彻底升级为现代化左侧可折叠抽屉（`.onenote-tree-drawer`），完美契合大规模文献、课题研究与多主题思维沙盘沉淀；

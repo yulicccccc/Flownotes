@@ -342,38 +342,172 @@ body {
     display: block;
 }
 
-/* 浮动控制工具栏 */
-#nav-controls {
+/* v3.5.1 单行防碰撞极简操作栏 */
+#nav-controls.canvas-action-pill-bar {
     position: absolute;
-    top: 16px;
-    left: 16px;
+    top: 12px;
+    left: 14px;
     z-index: 20;
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-width: min(520px, calc(100vw - 420px));
-    pointer-events: none;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 4px;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    backdrop-filter: blur(16px);
+    padding: 3px 6px;
+    border-radius: 999px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+    pointer-events: auto;
+}
+
+html[data-theme="light"] #nav-controls.canvas-action-pill-bar {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(203, 213, 225, 0.8);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
 }
 
 .nav-btn {
-    width: 34px;
-    height: 34px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    border: 1px solid var(--panel-border);
-    background: var(--panel-bg);
-    color: var(--text-color);
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
     cursor: pointer;
-    font-size: 14px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    font-size: 13px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
+    user-select: none;
+}
+
+html[data-theme="light"] .nav-btn {
+    color: #475569;
+}
+
+.nav-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    transform: translateY(-1px);
+}
+
+html[data-theme="light"] .nav-btn:hover {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+
+.nav-btn[data-active="true"], .nav-btn.active {
+    background: var(--accent-indigo, #6366f1);
+    color: white;
+}
+
+/* v3.5.1 左下角视口与缩放 Dock (Miro/Figma 黄金左下角) */
+.canvas-view-dock {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    backdrop-filter: blur(16px);
+    padding: 3px 8px;
+    border-radius: 999px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
     pointer-events: auto;
 }
 
-.nav-btn:hover { background: var(--accent-indigo); color: white; border-color: var(--accent-indigo); transform: translateY(-1px); }
-.nav-btn[data-active="true"] { background: var(--accent-indigo); color: white; border-color: var(--accent-indigo); }
+html[data-theme="light"] .canvas-view-dock {
+    background: rgba(255, 255, 255, 0.92);
+    border-color: rgba(203, 213, 225, 0.8);
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.1);
+}
+
+.dock-btn {
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary, #cbd5e1);
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+html[data-theme="light"] .dock-btn {
+    color: #475569;
+}
+
+.dock-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+html[data-theme="light"] .dock-btn:hover {
+    background: rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+}
+
+.dock-zoom-group {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 999px;
+    padding: 1px 3px;
+    margin-left: 2px;
+}
+
+html[data-theme="light"] .dock-zoom-group {
+    background: rgba(15, 23, 42, 0.06);
+}
+
+.dock-btn.btn-zoom {
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    font-size: 13px;
+    border-radius: 50%;
+}
+
+.dock-btn.btn-zoom-val {
+    width: auto;
+    min-width: 36px;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+/* 详细笔记附注胶囊标 */
+.card-has-note-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    margin-left: 5px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(99, 102, 241, 0.22);
+    border: 1px solid rgba(99, 102, 241, 0.45);
+    color: #c7d2fe;
+    vertical-align: middle;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.card-has-note-badge:hover {
+    transform: scale(1.15);
+    background: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.5);
+}
 
 #io-controls {
     position: absolute;

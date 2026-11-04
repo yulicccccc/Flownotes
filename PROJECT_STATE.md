@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.5.0)
+# Project State: FlowNotes (v3.5.1)
 
 ## Current Version & Status
-- **Current Version**: `v3.5.0`
+- **Current Version**: `v3.5.1`
 - **Latest Releases**:
+  - `v3.5.1`:
+    - **Title-Only Mindmap Canvas & Anti-Clutter Layout Suite (`renderCardLabelHTML` + `getCardDisplayHTML` + `.card-has-note-badge` + Numbered List Preservation + `.canvas-action-pill-bar` + `.canvas-view-dock`)**: Resolved 3 major UX pain points. 1) Mindmap cards on canvas strictly display the title (`d.label`) and never get polluted or ballooned by large paragraphs in detailed notes (`d.content`). Cards with detailed notes show a clickable `📝` badge that opens the right note pane with 1 click; 2) Ordered list numbering (`1.`, `2.`, `4.`) is preserved verbatim without being reset to `1.` by `<ol>` rendering or serialization; 3) Replaced the clumsy 21-button two-row floating controls with a single-line frosted pill toolbar on the top-left and moved zoom/viewport controls to the bottom-left dock, completely eliminating clutter and collisions with the top-center formatting bubble.
   - `v3.5.0`:
     - **OneNote 3-Tier Collapsible Tree Notebook Center (`.onenote-tree-drawer` + `notebooksManifest` + `sectionsManifest` + 3-Tier Breadcrumb + Real-Time Search + Cross-Section Page Migration)**: Upgraded the flat, cramped Organizer into a modern OneNote 3-tier collapsible tree navigation drawer. Structures personal knowledge hierarchically across **Notebooks 📔 ➔ Color-Coded Sections 📑 ➔ Pages / Sandboxes 📄**. Supports full CRUD for notebooks and sections, signature OneNote section pastel color pills (`#38bdf8`, `#a855f7`, `#10b981`, `#f59e0b`, `#f43f5e`, `#ec4899`, etc.) with one-click cyclic color switching (`🎨`), real-time keyword tree filtering (`#onenote-tree-search`), expand/collapse all with persistent state, page duplication and moving across sections (`🚚`), dynamic 3-tier navbar breadcrumb pills (`#currentMapBadge`), and seamless integration into GitHub Gist cloud sync and high-capacity IndexedDB.
   - `v3.4.9`:

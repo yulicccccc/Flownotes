@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.0 loaded — OneNote 3-Tier Collapsible Tree Notebook Center");
+    console.log("[FlowNotes] v3.5.1 loaded — Title-Only Mindmap Canvas & Anti-Clutter Layout");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1393,23 +1393,70 @@ function renderPositions() {
     }
 }
 
-// 生成画布卡片内部直接显示的富文本 HTML（直接呈现 🔴红字、🟢绿字、🟡荧光高亮与 📸粘贴截图）
+// v3.5.1 卡片标题专用富文本渲染器：仅渲染行内加粗、斜体、手写体、颜色与复选框，绝不自动转为 <ol> 列表，保证 1.、2.、4. 等数字序号原汁原味！
+function renderCardLabelHTML(text) {
+    if (!text) return "";
+    let cleaned = cleanHTMLSpill(text);
+
+    let protectedText = cleaned
+        .replace(/<span class=["']font-handwriting["']>/gi, '___HANDWRITING_START___')
+        .replace(/<span style=["']color:\s*([^"'>]+)["']?>/gi, '___SPAN_START_$1___')
+        .replace(/<\/span>/gi, '___SPAN_END___')
+        .replace(/<u>/gi, '___U_START___')
+        .replace(/<\/u>/gi, '___U_END___');
+
+    let html = escapeHTML(protectedText);
+
+    // 检查 To-Do 复选框 - [ ] / - [x] / [ ] / [x]
+    const taskMatch = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(html);
+    if (taskMatch) {
+        const checked = taskMatch[1].toLowerCase() === "x";
+        html = `<input type="checkbox" class="canvas-todo-checkbox" data-task-index="0" ${checked ? "checked" : ""}><span class="task-item-text">${taskMatch[2]}</span>`;
+    }
+
+    html = html
+        .replace(/___HANDWRITING_START___/g, '<span class="font-handwriting">')
+        .replace(/___SPAN_START_([^\s_]+)___/g, '<span style="color:$1">')
+        .replace(/___SPAN_END___/g, '</span>')
+        .replace(/___U_START___/g, '<u>')
+        .replace(/___U_END___/g, '</u>');
+
+    html = html
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+        .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/==([^=]+)==/g, '<mark>$1</mark>');
+
+    return html;
+}
+
+// 生成画布卡片内部直接显示的 HTML (v3.5.1 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记点进右侧面板呈现)
 function getCardDisplayHTML(d) {
     if (!d) return "";
     if (d.isImage && d.imageUrl) {
-        const caption = (d.label && !d.label.startsWith("📸 截图")) ? `<div class="canvas-card-caption">${renderMarkdownToHTML(d.label)}</div>` : "";
+        const caption = (d.label && !d.label.startsWith("📸 截图")) ? `<div class="canvas-card-caption">${renderCardLabelHTML(d.label)}</div>` : "";
         return `<img class="canvas-card-img" src="${d.imageUrl}" alt="截图" draggable="false" />${caption}`;
     }
 
-    let raw = (d.content || "").trim();
-    const isDefaultPlaceholder = !raw || raw.includes("点击编辑 Markdown 内容...");
-    if (isDefaultPlaceholder) {
-        raw = d.label || "未命名";
-    } else {
-        // 如果第一行是 # Title，去掉多余的 # 符号以便在画布卡片上更自然地显示句子与颜色
-        raw = raw.replace(/^#{1,4}\s+/gm, "");
-    }
-    return renderMarkdownToHTML(raw);
+    // 画布卡片仅展示标题 (d.label)！
+    const title = (d.label || "").trim() || "未命名";
+
+    // 判断是否在右侧详细笔记中写有实际内容（且不是占位符、不是与标题雷同的一句话）
+    const hasDetailedNote = !!(
+        d.content &&
+        d.content.trim() &&
+        !d.content.includes("点击编辑 Markdown 内容...") &&
+        d.content.trim() !== title &&
+        d.content.trim() !== `# ${title}` &&
+        d.content.trim() !== `## ${title}`
+    );
+
+    const noteBadge = hasDetailedNote
+        ? `<span class="card-has-note-badge" title="📝 包含详细笔记 (点击选中并在右侧查看)">📝</span>`
+        : "";
+
+    return `${renderCardLabelHTML(title)}${noteBadge}`;
 }
 
 // 轻量级：刷新画布富文本卡片样式、自适应尺寸测量、折叠徽章与选中发光状态
@@ -1585,20 +1632,14 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     selectedNodeIds = new Set([d.id]);
     renderEditor();
 
-    // 载入纯净可编辑富文本
-    let raw = (d.content || "").trim();
-    if (!raw || raw.includes("点击编辑 Markdown 内容...")) {
-        raw = d.label || "";
-    } else {
-        raw = raw.replace(/^#{1,4}\s+/gm, "");
-    }
+    // 载入纯净可编辑标题 (v3.5.1 画布卡片仅编辑标题，绝不带入长篇详细笔记，更不覆盖已有的详细笔记)
+    let raw = (d.label || "").trim() || "未命名";
     if (initialAppendChar) {
         const isDefaultPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(raw.trim());
         raw = isDefaultPlaceholder ? initialAppendChar : (raw + initialAppendChar);
-        d.content = raw;
-        d.label = raw.split("\n")[0].slice(0, 42) || "未命名";
+        d.label = raw;
     }
-    bodyEl.innerHTML = renderMarkdownToHTML(raw);
+    bodyEl.innerHTML = renderCardLabelHTML(raw);
     bodyEl.setAttribute("contenteditable", "true");
     cardDiv.classed("is-editing", true);
     bodyEl.focus();
@@ -1619,19 +1660,25 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     }
 
     const syncFromInlineCard = () => {
-        const md = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
-        d.content = md || "未命名";
-        const plainFirstLine = bodyEl.innerText.split("\n").map(s => s.trim()).find(Boolean) || "未命名";
-        d.label = plainFirstLine.replace(/^\[[ xX]\]\s*/, "").slice(0, 42) || "未命名";
+        const rawLabel = bodyEl.innerText.split("\n").map(s => s.trim()).find(Boolean) || "未命名";
+        d.label = rawLabel.replace(/^\[[ xX]\]\s*/, "") || "未命名";
+
+        // 仅在 content 为空或无有效详细笔记时，才初始化 content；如果已有详细长笔记，绝不覆盖！
+        const isContentEmpty = !d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容...");
+        if (isContentEmpty) {
+            d.content = `# ${d.label}\n\n`;
+        }
 
         const titleInput = document.getElementById("title-input");
         const mdTextarea = document.getElementById("md-textarea");
         const richEditor = document.getElementById("rich-editor");
         if (selectedNode && selectedNode.id === d.id) {
             if (titleInput) titleInput.value = d.label;
-            if (mdTextarea) mdTextarea.value = d.content;
-            if (richEditor && document.activeElement !== richEditor) {
-                richEditor.innerHTML = renderMarkdownToHTML(d.content);
+            if (isContentEmpty) {
+                if (mdTextarea) mdTextarea.value = d.content;
+                if (richEditor && document.activeElement !== richEditor) {
+                    richEditor.innerHTML = renderMarkdownToHTML(d.content);
+                }
             }
         }
         // 更新卡片自适应宽高与连线端点，并在输入增长触碰邻卡时按 OneNote 直觉自动轻微避让
@@ -2107,6 +2154,19 @@ function updateD3Graph() {
                     event.stopPropagation();
                     const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
                     toggleNthTaskCheckboxInNode(d, idx, cb.checked);
+                });
+
+            cardDiv.on("click.noteBadge", function(event, d) {
+                    const badge = event.target && event.target.closest ? event.target.closest(".card-has-note-badge") : null;
+                    if (!badge) return;
+                    event.stopPropagation();
+                    selectedNode = d;
+                    selectedNodeIds = new Set([d.id]);
+                    setEditorPanelCollapsed(false);
+                    renderEditor();
+                    const richEditor = document.getElementById("rich-editor");
+                    if (richEditor) richEditor.focus();
+                    showToast(`📖 已打开【${d.label}】详细笔记`);
                 });
 
             cardDiv.append("xhtml:div")
@@ -3149,7 +3209,7 @@ function initEvents() {
     const owlBanner = document.getElementById("owlBanner");
     const closeBannerBtn = document.getElementById("closeBannerBtn");
     const logoGroup = document.getElementById("logoGroup");
-    if (localStorage.getItem("flownotes_banner_hidden") === "true" && owlBanner) {
+    if (localStorage.getItem("flownotes_banner_hidden") !== "false" && owlBanner) {
         owlBanner.style.display = "none";
     }
     if (closeBannerBtn) {
@@ -4296,12 +4356,18 @@ function htmlToSafeMarkdown(html) {
             }
             
             if (tag === "ol") {
-                let idx = 1;
+                const startAttr = node.getAttribute("start");
+                let idx = startAttr ? parseInt(startAttr, 10) : 1;
                 const items = Array.from(node.childNodes).map(child => {
                     const text = serializeNode(child).trim();
                     if (!text) return "";
+                    let currentNum = idx++;
+                    if (child.getAttribute && child.getAttribute("value")) {
+                        currentNum = parseInt(child.getAttribute("value"), 10);
+                        idx = currentNum + 1;
+                    }
                     const cleanText = text.replace(/^(\d+\.|[•·▪⁃‣\-\*])[ \t]*/, "");
-                    return `${idx++}. ${cleanText}`;
+                    return `${currentNum}. ${cleanText}`;
                 }).filter(Boolean).join("\n");
                 return `\n${items}\n`;
             }
@@ -4441,8 +4507,12 @@ function renderMarkdownToHTML(text) {
             listProcessed.push(`<li>${isBullet[1]}</li>`);
         } else if (isOrdered) {
             if (inUl) { listProcessed.push("</ul>"); inUl = false; }
-            if (!inOl) { listProcessed.push("<ol>"); inOl = true; }
-            listProcessed.push(`<li>${isOrdered[2]}</li>`);
+            const startNum = parseInt(isOrdered[1], 10);
+            if (!inOl) { 
+                listProcessed.push(`<ol start="${startNum}">`); 
+                inOl = true; 
+            }
+            listProcessed.push(`<li value="${startNum}">${isOrdered[2]}</li>`);
         } else {
             if (inUl) { listProcessed.push("</ul>"); inUl = false; }
             if (inOl) { listProcessed.push("</ol>"); inOl = false; }

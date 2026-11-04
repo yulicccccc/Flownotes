@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.1)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.5.0">
+    <link rel="stylesheet" href="index.css?v=3.5.1">
 </head>
 <body>
     <!-- 顶部导航栏 -->
@@ -138,27 +138,35 @@
                     <svg id="graph-svg"></svg>
                     <input type="text" id="edit-input" autocomplete="off" spellcheck="false">
 
-                    <div id="nav-controls">
-                        <button class="nav-btn" id="btn-organizer" title="🗂️ 图谱组织器：创建与管理多个思维导图项目">🗂️</button>
-                        <button class="nav-btn" id="btn-toggle-editor" title="展开/收起右侧 Markdown 编辑器">📖</button>
-                        <button class="nav-btn" id="btn-hint" title="显示/隐藏快捷键提示面板">💡</button>
+                    <!-- 画布左上角极简单行操作栏 (v3.5.1 单行防碰撞极简布局) -->
+                    <div id="nav-controls" class="canvas-action-pill-bar">
+                        <button class="nav-btn" id="btn-add-child" title="衍生子卡片 (Tab 键)">+子</button>
+                        <button class="nav-btn" id="btn-add-sibling" title="新增同级卡片 (Enter 键)">+同</button>
+                        <button class="nav-btn" id="btn-relation" title="连接有向箭头 (L 键)">➔</button>
+                        <button class="nav-btn" id="btn-ink-draw" title="OneNote 自由手绘/荧光笔圈注 (按 P 切换)">🖍️</button>
+                        <button class="nav-btn" id="btn-marquee" title="切换手势：✋ 0ms丝滑抓手 / 🔳 左键框选">✋</button>
                         <button class="nav-btn" id="btn-undo" title="撤销 (Ctrl + Z)">↩️</button>
                         <button class="nav-btn" id="btn-redo" title="重做 (Ctrl + Y)">↪️</button>
                         <button class="nav-btn" id="btn-outline" title="节点目录大纲">☰</button>
-                        <button class="nav-btn" id="btn-articles" title="AI 文章合成库">📝</button>
-                        <button class="nav-btn" id="btn-search" title="搜索 / 快速打开 (Ctrl+K)">🔎</button>
-                        <button class="nav-btn" id="btn-add-child" title="衍生子卡片 (等同 Tab 键，触屏/鼠标一键建子卡)" style="font-size:11px; font-weight:700;">+子</button>
-                        <button class="nav-btn" id="btn-add-sibling" title="新增同级卡片 (等同 Enter 键，触屏/鼠标一键建同级)" style="font-size:11px; font-weight:700;">+同</button>
-                        <button class="nav-btn" id="btn-multi-select" title="点选多选模式：开启后无需按住 Shift 即可依次点选多张卡片，再点 ➔ 按“先 make 的是父”连箭头">☑️</button>
-                        <button class="nav-btn" id="btn-relation" title="连接有向可折叠箭头：多选卡片后按 L 或点此按钮（默认先 make 的卡片作为父节点 Parent ➔ Child）">➔</button>
-                        <button class="nav-btn" id="btn-ink-draw" title="OneNote 画布自由手绘/荧光笔圈注模式 (按 P 开启或关闭)">🖍️</button>
-                        <button class="nav-btn" id="btn-marquee" title="切换手势模式：默认 ✋ 0ms丝滑抓手 (直接拖=平移画布，按住Shift+拖=框选多卡)；点此可切换为 🔳 左键直接框选">✋</button>
-                        <button class="nav-btn" id="btn-graph" title="自由力导力学网络 (按 G)">✦</button>
-                        <button class="nav-btn" id="btn-layout" title="整理为 XMind 树状清晰结构 (按 M)">🧭</button>
-                        <button class="nav-btn" id="btn-fit" title="全景适配视图 (Ctrl+0)">⛶</button>
-                        <button class="nav-btn" id="btn-zoom-out" title="缩小视图">-</button>
-                        <button class="nav-btn" id="btn-zoom-reset" title="当前缩放比例 (点击一键恢复 100% 原始大小)" style="width:auto; min-width:42px; padding:0 6px; font-size:11px; font-weight:700;">100%</button>
-                        <button class="nav-btn" id="btn-zoom-in" title="放大视图">+</button>
+                        <button class="nav-btn" id="btn-toggle-editor" title="展开/收起右侧详细笔记 (Alt+E)">📖</button>
+                        <button class="nav-btn" id="btn-hint" title="显示/隐藏快捷键提示面板">💡</button>
+                        <!-- 隐藏保留兼容性 -->
+                        <button id="btn-organizer" style="display:none;"></button>
+                        <button id="btn-articles" style="display:none;"></button>
+                        <button id="btn-search" style="display:none;"></button>
+                        <button id="btn-multi-select" style="display:none;"></button>
+                    </div>
+
+                    <!-- 画布左下角视口与缩放 Dock (v3.5.1 Miro/Figma 黄金左下角) -->
+                    <div id="canvas-view-dock" class="canvas-view-dock">
+                        <button class="dock-btn" id="btn-layout" title="整理为 XMind 树状清晰结构 (按 M)">🧭 树状</button>
+                        <button class="dock-btn" id="btn-graph" title="自由力导力学网络 (按 G)">✦ 自由</button>
+                        <button class="dock-btn" id="btn-fit" title="全景适配视图 (Ctrl+0)">⛶</button>
+                        <div class="dock-zoom-group">
+                            <button class="dock-btn btn-zoom" id="btn-zoom-out" title="缩小视图">-</button>
+                            <button class="dock-btn btn-zoom btn-zoom-val" id="btn-zoom-reset" title="恢复 100% 原始大小">100%</button>
+                            <button class="dock-btn btn-zoom" id="btn-zoom-in" title="放大视图">+</button>
+                        </div>
                     </div>
 
                     <div id="io-controls">
@@ -695,6 +703,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.5.0"></script>
+    <script src="app.js?v=3.5.1"></script>
 </body>
 </html>
