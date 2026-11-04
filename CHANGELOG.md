@@ -2,6 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.4.9] - 2026-11-03
+
+### 📈 番茄专注长进分析与多端云同步套件 (Focus Growth & Cloud Sync Highlights)
+- **📊 专注长进趋势看板 (Focus Growth & Trends Dashboard)**：
+  - 在「行动证据库」中新增可视化长进看板，包含近 7 天每日专注时长微型趋势柱状图（`#pomoGrowthChart`），实时呈现每日专注分钟数，悬停提示详细数据，并对当天柱子赋予专属玫瑰红呼吸光晕；
+  - 呈现 4 项成长洞察指标：本周累计专注时长、日均专注时长、近 7 天单日峰值记录、以及周环比长进幅度（如 `↑ 较上周长进 +25%` 或 `🌱 稳步积累中`），让用户直观看到自己的专注力是否在持续精进；
+- **☁️ GitHub Gist 多端云同步打通**：
+  - `pushToGhGist` 自动将 `pomoEvidenceLog` 和 `pomoSettings` 随全量思维导图与心流流式笔记一并打包备份至 GitHub Gist；
+  - `applyParsedBackupData` 实现了云端与本地证据记录的智能去重合并与时间倒序重排，用户在手机、平板或不同电脑间切换时，番茄记录与 Streak 连击 100% 无缝漫游；
+- **🛡️ IndexedDB 双重持久化与实时自动推送**：
+  - 专注证据除 LocalStorage 外同步存入 IndexedDB (`FlowNotesIDB`)，形成本地数据双保险；
+  - 每次专注达成沉淀证据时自动触发 `triggerAutoGhSync()`，无感静默推送到云端。
+
 ## 🚀 [v3.4.8] - 2026-11-03
 
 ### ▦ OneNote 交互式卡片表格套件 (OneNote Interactive Card Table Suite)

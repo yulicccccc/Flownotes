@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.8)
+# Project State: FlowNotes (v3.4.9)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.8`
+- **Current Version**: `v3.4.9`
 - **Latest Releases**:
+  - `v3.4.9`:
+    - **Pomodoro Focus Growth Analytics & Multi-Device Cloud Sync Suite (`pomo-growth-card` + `pomoGrowthChart` + GitHub Gist Cloud Sync + IndexedDB Dual-Save)**: Added focus progress tracking and multi-device cloud synchronization for the Pomodoro Evidence Suite. Features a 7-day focus mini bar chart with daily minutes and weekday labels, weekly focus total, daily average, 7-day personal best peak, and week-over-week growth percentage (`↑ +X% 较上周长进` or `🌱 稳步积累中`). Fully integrates Pomodoro evidence into GitHub Gist multi-map backups with smart cloud deduplication and merging, plus dual IndexedDB persistence and auto-cloud sync on session completion.
   - `v3.4.8`:
     - **OneNote Interactive Card Table Suite (`renderMarkdownToHTML` + `htmlToSafeMarkdown` + `applyFormatting` + Table Cell Keyboard Navigation + Context Menu Table Suite)**: Brought full OneNote-style table creation, navigation, and editing directly into FlowNotes mindmap cards and Markdown editor. Full GFM Markdown table rendering into interactive, styled `<table class="canvas-card-table">`; bi-directional lossless Markdown serialization supporting inline bold, italic, handwriting, and colors; OneNote signature `Tab` cell jumping (with automatic new row generation at last cell), `Shift+Tab` previous cell jumping, `Enter` insert row below and focus directly underneath, and `Alt+T` quick table shortcut; quick formatting bubble & editor toolbar button `▦`; right-click context menu row/column manipulation tools (`table-insert-row`, `table-insert-col`, `table-delete-row`, `table-delete-col`, `table-delete`).
   - `v3.4.7`:

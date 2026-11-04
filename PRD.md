@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.8)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.9)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Pomodoro Focus Growth Analytics & Multi-Device Cloud Sync Suite (v3.4.9 番茄专注长进分析与多端云同步套件)**:
+  - **专注长进趋势看板 (Focus Growth & Trends Dashboard)**：在「行动证据库」中新增可视化长进看板，包含近 7 天每日专注时长微型趋势柱状图（`#pomoGrowthChart`），实时标注每日投入分钟与高亮当天；计算并展示 4 项成长洞察指标：本周累计投入时长、日均专注时长、近 7 天单日峰值投入、以及与上周同期的周环比长进幅度（如 `↑ 较上周长进 +25%` 或 `🌱 稳步积累中`），让用户直观看见自己随时间流逝而不断成长的专注能力。
+  - **GitHub Gist 多端云同步打通**：在 `pushToGhGist` 中将 `pomoEvidenceLog` 和 `pomoSettings` 纳入云端全量数据包，并在 `applyParsedBackupData` 中实现云端与本地证据记录的智能去重合并与时间倒序重排，换手机、平板、办公电脑均能 100% 漫游同步专注记录与 Streak 连击！
+  - **本地双重持久化与自动云备份**：每次专注达成自动双写 LocalStorage 与 IndexedDB (`FlowNotesIDB`)，并在会话结束时自动调用 `triggerAutoGhSync()` 触发静默推送到云端。
 - **OneNote Interactive Card Table Suite (v3.4.8 OneNote 交互式卡片表格套件)**:
   - **GFM Markdown 双向无损表格渲染与序列化**：卡片支持标准 Markdown 表格语法（`| 列 1 | 列 2 |\n| --- | --- |\n| 内容 1 | 内容 2 |`）。画布卡片与右侧编辑器将表格渲染为优雅高质感的 `.canvas-card-table`；保存与编辑时自动双向无损序列化，并完美兼容单元格内的加粗、斜体、手写体、颜色与高亮。
   - **OneNote 招牌按键与极速流转体验**：

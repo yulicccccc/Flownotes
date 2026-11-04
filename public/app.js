@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.8 loaded — OneNote Interactive Card Table Suite");
+    console.log("[FlowNotes] v3.4.9 loaded — Pomodoro Focus Growth Analytics & Multi-Device Cloud Sync Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -4709,7 +4709,9 @@ async function pushToGhGist(silent = false) {
             nodes: nodes,
             links: cleanLinks(),
             flowStream: flowStream,
-            inkStrokes: inkStrokes
+            inkStrokes: inkStrokes,
+            pomoEvidenceLog: (window.pomoEvidenceLog && Array.isArray(window.pomoEvidenceLog)) ? window.pomoEvidenceLog : JSON.parse(localStorage.getItem("flownotes_pomo_evidence_log") || "[]"),
+            pomoSettings: (window.pomoSettings) ? window.pomoSettings : JSON.parse(localStorage.getItem("flownotes_pomo_settings") || "{}")
         };
         allMapsMemoryCache[activeMapId] = allMapsData[activeMapId];
 
@@ -4723,7 +4725,9 @@ async function pushToGhGist(silent = false) {
             nodes: nodes,
             links: cleanLinks(),
             flowStream: flowStream,
-            inkStrokes: inkStrokes
+            inkStrokes: inkStrokes,
+            pomoEvidenceLog: (window.pomoEvidenceLog && Array.isArray(window.pomoEvidenceLog)) ? window.pomoEvidenceLog : JSON.parse(localStorage.getItem("flownotes_pomo_evidence_log") || "[]"),
+            pomoSettings: (window.pomoSettings) ? window.pomoSettings : JSON.parse(localStorage.getItem("flownotes_pomo_settings") || "{}")
         }, null, 2);
 
         const patchRes = await fetch(`https://api.github.com/gists/${gistId}`, {
@@ -4998,6 +5002,32 @@ function applyParsedBackupData(parsed, fileName = "") {
         inkStrokes = Array.isArray(parsed.inkStrokes) ? parsed.inkStrokes : [];
         sanitizeGraph();
         allMapsMemoryCache[activeMapId] = { nodes, links: cleanLinks(), flowStream, inkStrokes };
+    }
+
+    // 恢复与合并番茄专注行动证据库 (v3.4.9 多端云同步)
+    const incomingPomoLog = parsed.pomoEvidenceLog || (parsed.allMapsData && parsed.activeMapId && parsed.allMapsData[parsed.activeMapId]?.pomoEvidenceLog);
+    if (incomingPomoLog && Array.isArray(incomingPomoLog) && incomingPomoLog.length > 0) {
+        try {
+            const localRaw = localStorage.getItem("flownotes_pomo_evidence_log");
+            const localLog = localRaw ? JSON.parse(localRaw) : [];
+            const evMap = new Map();
+            localLog.forEach(it => { if (it && it.id) evMap.set(it.id, it); });
+            incomingPomoLog.forEach(it => { if (it && it.id) evMap.set(it.id, it); });
+            const mergedLog = Array.from(evMap.values()).sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+            safeLocalStorageSet("flownotes_pomo_evidence_log", JSON.stringify(mergedLog));
+            if (typeof FlowNotesIDB !== "undefined") {
+                FlowNotesIDB.set("flownotes_pomo_evidence_log", mergedLog);
+            }
+            if (window.pomoEvidenceLog) {
+                window.pomoEvidenceLog.length = 0;
+                mergedLog.forEach(item => window.pomoEvidenceLog.push(item));
+            }
+            if (typeof window.renderEvidenceDashboard === "function") {
+                window.renderEvidenceDashboard();
+            }
+        } catch (e) {
+            console.warn("[Pomo] Merge cloud evidence failed:", e);
+        }
     }
 
     const stampMs = parsed.updatedAtMs || Date.now();
@@ -8072,6 +8102,22 @@ function initPomodoroSuite() {
     } catch (e) {
         console.warn("[Pomo] Failed to load evidence log:", e);
     }
+    window.pomoEvidenceLog = pomoEvidenceLog;
+    window.pomoSettings = pomoSettings;
+    if (typeof FlowNotesIDB !== "undefined") {
+        FlowNotesIDB.get("flownotes_pomo_evidence_log").then(idbLog => {
+            if (idbLog && Array.isArray(idbLog) && idbLog.length > pomoEvidenceLog.length) {
+                pomoEvidenceLog = idbLog;
+                window.pomoEvidenceLog = pomoEvidenceLog;
+                localStorage.setItem("flownotes_pomo_evidence_log", JSON.stringify(pomoEvidenceLog));
+            if (typeof FlowNotesIDB !== "undefined") {
+                FlowNotesIDB.set("flownotes_pomo_evidence_log", pomoEvidenceLog);
+            }
+                if (typeof renderEvidenceDashboard === "function") renderEvidenceDashboard();
+                if (typeof updateUI === "function") updateUI();
+            }
+        }).catch(() => {});
+    }
 
     // DOM 元素引用
     const headerPill = document.getElementById("headerPomoPill");
@@ -8108,6 +8154,11 @@ function initPomodoroSuite() {
     const statStreak = document.getElementById("pomoStatStreak");
     const statTotalHours = document.getElementById("pomoStatTotalHours");
     const statTotalCount = document.getElementById("pomoStatTotalCount");
+    const growthChart = document.getElementById("pomoGrowthChart");
+    const statWeekMins = document.getElementById("pomoStatWeekMins");
+    const statWeekTrend = document.getElementById("pomoStatWeekTrend");
+    const statDailyAvg = document.getElementById("pomoStatDailyAvg");
+    const statPeakDay = document.getElementById("pomoStatPeakDay");
     const timelineList = document.getElementById("pomoTimelineList");
     const btnSyncAll = document.getElementById("btnSyncAllToFlowStream");
     const btnExportMd = document.getElementById("btnExportEvidenceMd");
@@ -8156,6 +8207,9 @@ function initPomodoroSuite() {
     function saveEvidenceLog() {
         try {
             localStorage.setItem("flownotes_pomo_evidence_log", JSON.stringify(pomoEvidenceLog));
+            if (typeof FlowNotesIDB !== "undefined") {
+                FlowNotesIDB.set("flownotes_pomo_evidence_log", pomoEvidenceLog);
+            }
         } catch (e) {}
     }
 
@@ -8343,6 +8397,7 @@ function initPomodoroSuite() {
 
             if (pomoSettings.autoSyncFlow) {
                 pushEvidenceToFlowStream(evidenceItem);
+                if (typeof triggerAutoGhSync === "function") triggerAutoGhSync();
             }
 
             renderEvidenceDashboard();
@@ -8417,6 +8472,86 @@ function initPomodoroSuite() {
         if (statTotalHours) statTotalHours.textContent = `${totalHours}h`;
         if (statTotalCount) statTotalCount.textContent = String(focusItems.length);
 
+        // 专注长进与成长趋势分析 (v3.4.9 近 7 天每日趋势柱状图与周环比)
+        const daysMap = [];
+        const weekdays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+        let thisWeekMins = 0;
+        let prevWeekMins = 0;
+
+        for (let i = 6; i >= 0; i--) {
+            const curDate = new Date();
+            curDate.setDate(curDate.getDate() - i);
+            const y = curDate.getFullYear();
+            const m = String(curDate.getMonth() + 1).padStart(2, "0");
+            const d = String(curDate.getDate()).padStart(2, "0");
+            const dateStr = `${y}-${m}-${d}`;
+            const dayName = (i === 0) ? "今天" : weekdays[curDate.getDay()];
+
+            const dayFocusItems = focusItems.filter(it => it.date === dateStr);
+            const dayMins = dayFocusItems.reduce((acc, it) => acc + (it.durationMins || 0), 0);
+            thisWeekMins += dayMins;
+            daysMap.push({
+                date: dateStr,
+                dayName: dayName,
+                mins: dayMins,
+                isToday: i === 0
+            });
+        }
+
+        for (let i = 13; i >= 7; i--) {
+            const prevDate = new Date();
+            prevDate.setDate(prevDate.getDate() - i);
+            const y = prevDate.getFullYear();
+            const m = String(prevDate.getMonth() + 1).padStart(2, "0");
+            const d = String(prevDate.getDate()).padStart(2, "0");
+            const dateStr = `${y}-${m}-${d}`;
+            const prevFocusItems = focusItems.filter(it => it.date === dateStr);
+            prevWeekMins += prevFocusItems.reduce((acc, it) => acc + (it.durationMins || 0), 0);
+        }
+
+        const dailyAvg = Math.round(thisWeekMins / 7);
+        const peakDayMins = Math.max(...daysMap.map(d => d.mins), 0);
+
+        if (statWeekMins) statWeekMins.textContent = String(thisWeekMins);
+        if (statDailyAvg) statDailyAvg.textContent = String(dailyAvg);
+        if (statPeakDay) statPeakDay.textContent = String(peakDayMins);
+
+        if (statWeekTrend) {
+            if (prevWeekMins > 0) {
+                const diff = thisWeekMins - prevWeekMins;
+                const pct = Math.round((diff / prevWeekMins) * 100);
+                if (pct >= 0) {
+                    statWeekTrend.className = "pomo-trend-badge";
+                    statWeekTrend.textContent = `↑ 较上周长进 +${pct}%`;
+                } else {
+                    statWeekTrend.className = "pomo-trend-badge trend-down";
+                    statWeekTrend.textContent = `↓ 较上周 ${pct}%`;
+                }
+            } else if (thisWeekMins > 0) {
+                statWeekTrend.className = "pomo-trend-badge";
+                statWeekTrend.textContent = "🌱 稳步积累中";
+            } else {
+                statWeekTrend.className = "pomo-trend-badge";
+                statWeekTrend.textContent = "🎯 准备开始";
+            }
+        }
+
+        if (growthChart) {
+            const maxMins = Math.max(peakDayMins, 30);
+            growthChart.innerHTML = daysMap.map(day => {
+                const fillPct = Math.max(day.mins > 0 ? 8 : 4, Math.round((day.mins / maxMins) * 100));
+                return `
+                    <div class="pomo-bar-col ${day.isToday ? 'is-today' : ''}" title="${day.date} (${day.dayName}): 投入 ${day.mins} 分钟">
+                        <span class="pomo-bar-val">${day.mins > 0 ? `${day.mins}m` : '0'}</span>
+                        <div class="pomo-bar-fill-wrap">
+                            <div class="pomo-bar-fill" style="height: ${fillPct}%;"></div>
+                        </div>
+                        <span class="pomo-bar-day">${day.dayName}</span>
+                    </div>
+                `;
+            }).join("");
+        }
+
         if (timelineList) {
             if (pomoEvidenceLog.length === 0) {
                 timelineList.innerHTML = `
@@ -8453,6 +8588,8 @@ function initPomodoroSuite() {
             }
         }
     }
+
+    window.renderEvidenceDashboard = renderEvidenceDashboard;
 
     function escapeHtml(str) {
         return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
