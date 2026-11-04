@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.9)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.6.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Direct Header Cloud Sync Binding & Real-Time Status Engine (v3.6.0 顶栏黄金单点云同步深度打通与双向状态响应引擎)**:
+  - 顶栏右上角「`☁️ 云同步`」胶囊全面接入全局同步事件总线：未配置时点击智能弹出配置模态框，配置完成后点击立即执行多图谱防误删备份推送；
+  - 状态实时响应：精准联动 `updateSyncStatusUI` 呈现 `☁️ 配置云同步`、`⏳ 同步中...`、`🟢 已同步 (N)`、`🔴 同步失败`；
+  - 确立顶栏右上角单点同步规范，彻底消除多处同步混淆。
 - **iPad Freeform 6-Macaron Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync (v3.5.9 iPad 无边记 6 色调色盘、超紧凑格式栏与顶栏黄金单点云同步套件)**:
   - **iPad 无边记 6 色马卡龙调色盘**：
     - 针对用户最喜爱的 6 大经典清新马卡龙色系（珊瑚红、暖杏橙、琥珀金、薄荷绿、晴空蓝、薰衣草紫），深度区分高清晰高可读性「字体颜色」与柔和半透明「荧光笔涂色」，字色鲜明易读，荧光笔通透不抢眼；

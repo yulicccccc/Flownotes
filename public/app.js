@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.9 loaded — iPad Freeform 6-Macaron Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync");
+    console.log("[FlowNotes] v3.6.0 loaded — iPad Freeform 6-Macaron Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -3769,6 +3769,20 @@ function initEvents() {
     document.getElementById("pushToGhBtn").addEventListener("click", () => pushToGhGist(false));
     document.getElementById("pullFromGhBtn").addEventListener("click", () => pullFromGhGist(false));
 
+    // 顶部唯一黄金云同步胶囊绑定 (v3.6.0 统一步骤)
+    const btnTopSync = document.getElementById("btnTopSync");
+    if (btnTopSync) {
+        btnTopSync.addEventListener("click", () => {
+            const pat = localStorage.getItem("flownotes_gh_pat");
+            const gistId = localStorage.getItem("flownotes_gh_gist_id");
+            if (!pat || !gistId) {
+                openGhModal();
+            } else {
+                pushToGhGist(false);
+            }
+        });
+    }
+
     // 左下角快捷 IO 栏按钮绑定 (💾 同步、↙️ 拉取、⬆️ 导入 JSON)
     const btnQuickSync = document.getElementById("btn-sync");
     if (btnQuickSync) btnQuickSync.addEventListener("click", () => pushToGhGist(false));
@@ -5104,6 +5118,31 @@ function updateSyncStatusUI(state, message, detailText = "") {
     const pullBtn = document.getElementById("btn-pull");
     const ghSyncText = document.getElementById("ghSyncText");
     const ghSyncStatusBox = document.getElementById("ghSyncStatusBox");
+    const btnTopSync = document.getElementById("btnTopSync");
+    const syncPillText = document.getElementById("syncPillText");
+
+    // 同步刷新顶栏唯一黄金云同步胶囊 UI
+    if (btnTopSync && syncPillText) {
+        if (state === "busy") {
+            btnTopSync.classList.add("is-busy");
+            btnTopSync.classList.remove("is-ok");
+            syncPillText.textContent = "⏳ 同步中...";
+        } else if (state === "ok") {
+            btnTopSync.classList.remove("is-busy");
+            btnTopSync.classList.add("is-ok");
+            syncPillText.textContent = `🟢 已同步 (${nodes.length})`;
+        } else if (state === "error") {
+            btnTopSync.classList.remove("is-busy", "is-ok");
+            syncPillText.textContent = "🔴 同步失败";
+        } else if (state === "warn") {
+            btnTopSync.classList.remove("is-busy", "is-ok");
+            syncPillText.textContent = "⚠️ 同步警告";
+        } else {
+            const hasPat = !!localStorage.getItem("flownotes_gh_pat");
+            btnTopSync.classList.remove("is-busy", "is-ok");
+            syncPillText.textContent = hasPat ? "☁️ 云同步" : "☁️ 配置云同步";
+        }
+    }
 
     if (syncStatusEl) {
         syncStatusEl.dataset.state = state; // "busy", "ok", "error", "warn", "local"

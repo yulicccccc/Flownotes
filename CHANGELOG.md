@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.6.0] - 2026-11-04
+
+### ☁️ 顶栏黄金单点云同步深度打通与双向状态响应引擎 (Direct Header Cloud Sync Binding & Real-Time Status Engine)
+- **🎯 顶栏「☁️ 云同步」胶囊全功能打通**：
+  - 点击顶栏右侧「`☁️ 云同步`」按钮直接触发 GitHub Gist 备份；
+  - 若尚未配置个人 Token 与 Gist ID，智能弹出「GitHub 云端同步设置」对话框引导配置；
+  - 若已配置，立即执行全量多图谱备份推送，并在成功后动态更新胶囊显示「`🟢 已同步 (N)`」；
+- **🛡️ 状态双向实时同步**：
+  - 胶囊双向联动 `updateSyncStatusUI`，精确呈现 `☁️ 配置云同步`、`⏳ 同步中...`、`🟢 已同步`、`🔴 同步失败` 状态；
+- **🔒 消除多处同步混淆与按键职责统合**：
+  - 彻底确认图谱底栏重复同步按键的退役，确立顶栏右上角作为唯一且标准的云同步触发点。
+
 ## 🚀 [v3.5.9] - 2026-11-04
 
 ### 🎨 iPad 无边记 6 色马卡龙调色盘、超紧凑悬浮格式栏与顶栏黄金单点云同步套件 (iPad Freeform Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync)
