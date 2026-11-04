@@ -3654,3 +3654,10 @@ mark,
     min-width: 260px;
     max-width: 760px;
 }
+
+/* v3.5.6 整卡荧光高亮效果 */
+.canvas-note-card.is-card-highlight .canvas-note-card-body {
+    background: rgba(254, 240, 138, 0.28) !important;
+    border-radius: 6px;
+    box-shadow: 0 0 10px rgba(254, 240, 138, 0.45);
+}

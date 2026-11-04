@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.6] - 2026-11-04
+
+### 🎨 画布卡片行内色彩与高保真标题全量恢复引擎 (Zero-Loss Font Colors & High-Fidelity Title Recovery Engine)
+- **🎯 根除“之前改的字体颜色全都不见”致命缺陷**：
+  - **根本病因排查**：在 v3.5.1 引入纯标题展示以防长文溢出后，画布卡片直接读取 `d.label`，然而 Excalidraw 导入卡片、示范导图以及用户在详细笔记中写的彩色富文本均存放在 `d.content` 中，而 `d.label` 此前被初始化或提纯为无格式纯文本，导致脑图卡片上的红字（如 `biological`、`empirical`、`想回答什么问题`、`人为添加的 Salmonella`、`合成丁酸`、`年龄`等）全部失真丢失！
+  - **高保真标题提取器 (`getCardDisplayHTML`)**：卡片渲染时动态解析标题——若 `d.label` 带有富文本标签直接展示；若 `d.label` 为纯文本但 `d.content` 首行包含标红、标绿或高亮标签，系统自动提取首行富文本作为标题呈现，瞬间让所有红字/绿字全量复活，同时依然牢牢锁死正文段落不溢出卡片！
+  - **自动热修复旧缓存 (`sanitizeGraph` + `importExcalidrawFile`)**：系统启动或切换导图时自动将 `n.content` 首行的富文本样式同步进 `n.label`；新导入 Excalidraw / PDF 时直接将首行富文本存入 `n.label`；
+- **🧹 消除假 `📝` 笔记徽章**：
+  - 修复了单句变色卡片因 `d.content !== d.label` 被错误打上 `📝` 笔记徽章的 Bug；现在严格检查扣除首行标题与表格后是否有超过 20 字后续正文，还画布清爽视界；
+- **🟡 整卡荧光高亮全链路打通**：
+  - 在 `refreshNodeStyles()` 中接入 `.is-card-highlight`，在 CSS 中增加温润的琥珀黄发光底色与柔和边框阴影。
+
 ## 🚀 [v3.5.5] - 2026-11-04
 
 ### ▦ 表格双工作区引擎：画布卡片与详细笔记双向全功能协同套件 (Dual-Workspace Table Engine)

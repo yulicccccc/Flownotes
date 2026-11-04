@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.5 loaded — Dual-Workspace Table Engine (Map & Detailed Notes Both Active)");
+    console.log("[FlowNotes] v3.5.6 loaded — Zero-Loss Font Colors & High-Fidelity Title Recovery Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -667,8 +667,16 @@ function sanitizeGraph() {
 
                 if (ONENOTE_SPAN_UPGRADE_MAP[plain]) {
                     n.content = ONENOTE_SPAN_UPGRADE_MAP[plain];
+                    n.label = ONENOTE_SPAN_UPGRADE_MAP[plain];
                 } else if (typeof n.content === "string" && n.content.includes("<br>")) {
                     n.content = n.content.replace(/<br\s*\/?>/gi, "\n");
+                }
+                // v3.5.6 自动热修复旧缓存：若 n.content 首行包含格式化颜色，自动同步进 n.label
+                if (n.content && (!n.label || !n.label.includes("<span")) && (n.content.includes("<span style=\"color") || n.content.includes("<font color") || n.content.includes("=="))) {
+                    const fLine = n.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
+                    if (fLine.includes("<span") || fLine.includes("<font") || fLine.includes("==")) {
+                        n.label = fLine;
+                    }
                 }
 
                 // v3.4.4 灵感批注手写体自动热迁移：1.pdf 中的思考、提问与反思批注自动恢复为 Aa剪刀石头布/叶根友散墨手写体
@@ -1499,7 +1507,7 @@ function renderCardLabelHTML(text) {
 
     html = html
         .replace(/___HANDWRITING_START___/g, '<span class="font-handwriting">')
-        .replace(/___SPAN_START_([^\s_]+)___/g, '<span style="color:$1">')
+        .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
         .replace(/___SPAN_END___/g, '</span>')
         .replace(/___U_START___/g, '<u>')
         .replace(/___U_END___/g, '</u>');
@@ -1561,22 +1569,37 @@ function getCardDisplayHTML(d) {
         return `<img class="canvas-card-img" src="${d.imageUrl}" alt="截图" draggable="false" />${caption}`;
     }
 
-    const title = (d.label || "").trim() || "未命名";
-    const titleHTML = renderCardLabelHTML(title);
+    // v3.5.6 高保真标题提取：优先保留 d.label 中的格式；若 d.label 是纯文本而 d.content 首行包含格式化颜色或强调，智能恢复首行色彩
+    let rawTitle = (d.label || "").trim();
+    const labelHasStyle = rawTitle.includes("<span") || rawTitle.includes("<font") || rawTitle.includes("<mark") || rawTitle.includes("==") || rawTitle.includes("**");
+    
+    if (!labelHasStyle && d.content && typeof d.content === "string") {
+        const firstLine = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
+        const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
+        if (firstLineHasStyle) {
+            rawTitle = firstLine;
+        }
+    }
+    if (!rawTitle) rawTitle = "未命名";
+
+    const titleHTML = renderCardLabelHTML(rawTitle);
     const tableHTML = extractTableHTMLFromContent(d.content);
 
-    // 判断是否在详细笔记中写有长文（扣除表格和标题后的其他段落）
-    const contentWithoutTable = (d.content || "")
-        .replace(/\|[^\n]+\|/g, "")
-        .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
-        .replace(/^#{1,4}\s+[^\n]+/gm, "")
-        .trim();
-
-    const hasDetailedNote = !!(
-        contentWithoutTable &&
-        !contentWithoutTable.includes("点击编辑 Markdown 内容...") &&
-        contentWithoutTable.length > 20
-    );
+    // v3.5.6 精确长文判定：仅当扣除第一行标题与表格后，后续段落仍有超过 20 字实际正文时，才展示 📝 徽章，杜绝单句变色卡片被误标
+    let hasDetailedNote = false;
+    if (d.content && typeof d.content === "string") {
+        const lines = d.content.split("\n").map(l => l.trim()).filter(Boolean);
+        if (lines.length > 1) {
+            const bodyLines = lines.slice(1).join("\n")
+                .replace(/\|[^\n]+\|/g, "")
+                .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
+                .replace(/^#{1,4}\s+[^\n]+/gm, "")
+                .trim();
+            if (bodyLines && !bodyLines.includes("点击编辑 Markdown 内容...") && bodyLines.length > 20) {
+                hasDetailedNote = true;
+            }
+        }
+    }
 
     const noteBadge = hasDetailedNote
         ? `<span class="card-has-note-badge" title="📝 包含详细笔记 (点击选中并在右侧查看)">📝</span>`
@@ -1648,6 +1671,7 @@ function refreshNodeStyles() {
                 .classed("is-card-italic", !!d.isItalic)
                 .classed("is-card-underline", !!d.isUnderline)
                 .classed("is-card-strike", !!d.isStrike)
+                .classed("is-card-highlight", !!d.isHighlight)
                 .classed("has-custom-width", hasCustomW)
                 .classed("has-custom-height", hasCustomH)
                 .classed("has-custom-font", hasCustomFont)
@@ -4471,9 +4495,9 @@ function applyFormatting(format) {
             break;
         }
         case "highlight": {
-            const willHi = !targetNodes.every(n => n.cardBgColor === "amber");
-            targetNodes.forEach(n => { n.cardBgColor = willHi ? "amber" : ""; });
-            showToast(willHi ? "🟡 已将整个框设为高亮底色" : "已取消整个框高亮底色");
+            const willHl = !targetNodes.every(n => n.isHighlight);
+            targetNodes.forEach(n => { n.isHighlight = willHl; });
+            showToast(willHl ? "🟡 已为整个框内文字添加荧光高亮" : "已取消整个框内高亮");
             break;
         }
         case "clear": {
@@ -5258,9 +5282,10 @@ function importExcalidrawFile(parsed, fileName = "") {
             const customW = preferredW ? Math.round(Math.max(60, Math.min(960, preferredW))) : null;
             const customFont = (typeof el.fontSize === "number" && el.fontSize >= 20 && el.fontSize <= 64) ? el.fontSize : null;
 
+            const firstLineStyled = styledContent.split("\n")[0].trim().slice(0, 160) || firstLine;
             importedNodes.push({
                 id: nodeId,
-                label: firstLine,
+                label: firstLineStyled,
                 content: styledContent,
                 parentId: null,
                 order: idx,

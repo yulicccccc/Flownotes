@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.5)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.6)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Zero-Loss Font Colors & High-Fidelity Title Recovery Engine (v3.5.6 画布卡片行内色彩与高保真标题全量恢复引擎)**:
+  - **根本病因根除 (Zero-Loss Title Colors)**：彻底根除 v3.5.1 引入纯标题展示后，由于历史或导入卡片的富文本颜色存放在 `d.content` 中而导致脑图画布卡片字体颜色全部失真退化为白字纯文本的重大 Bug；
+  - **高保真标题解析器 (`getCardDisplayHTML`)**：卡片渲染时动态解析标题——若 `d.label` 具备格式化标签，直接渲染；若 `d.label` 为纯文本但 `d.content` 首行包含标红、标绿、高亮等标签，系统**自动提取首行富文本呈现**，既瞬间让红字、绿字、高亮全量复活，又 100% 杜绝了后续长篇段落污染脑图卡片；
+  - **自动愈合旧缓存 (`sanitizeGraph` + `importExcalidrawFile`)**：系统启动或切换导图时自动将 `n.content` 首行的富文本样式同步进 `n.label`；新导入 Excalidraw / PDF 时直接将首行富文本存入 `n.label`；
+  - **精准长文徽章过滤**：重构 `hasDetailedNote` 判定，严格过滤仅包含单句变色标题的卡片，彻底消除了单句变色卡片被误加 `📝` 笔记徽章的假徽章问题；
+  - **整卡荧光高亮增强**：在 `refreshNodeStyles()` 中接入 `.is-card-highlight`，在 CSS 中增加温润的琥珀黄发光底色与柔和边框阴影。
 - **Dual-Workspace Table Engine (v3.5.5 表格双工作区引擎：画布卡片与详细笔记双向全功能协同套件)**:
   - **双工作区同屏运作 (Both Workspaces Active)**：彻底解决“纯标题卡片隐藏表格”与“详细笔记内表格难以在思维图谱中直观查看”的矛盾。当卡片包含表格时，思维图谱画布卡片上**同时渲染标题与 OneNote 交互式表格**（`.canvas-card-table`），而卡片内超过 20 字的冗长段落依然智能折叠收纳在右侧详细笔记中（通过右上角 `📝` 徽章标展开），兼顾宏观图谱清晰度与微观表格可视化！
   - **全功能双向流转编辑**：
