@@ -3633,3 +3633,24 @@ mark,
     font-weight: 600;
     box-shadow: 0 0 6px rgba(254, 240, 138, 0.4);
 }
+
+/* v3.5.5 画布卡片内部表格容器与标题行 (双工作区表格支持) */
+.canvas-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    margin-bottom: 6px;
+    gap: 8px;
+}
+
+.canvas-card-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+    margin-top: 4px;
+}
+
+.canvas-note-card:has(.canvas-card-table) {
+    min-width: 260px;
+    max-width: 760px;
+}

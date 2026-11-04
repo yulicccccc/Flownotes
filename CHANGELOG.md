@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.5.5] - 2026-11-04
+
+### ▦ 表格双工作区引擎：画布卡片与详细笔记双向全功能协同套件 (Dual-Workspace Table Engine)
+- **🎯 双工作区全功能呈现 (Both Map Cards & Detailed Notes Active)**：
+  - 彻底满足用户在思维图谱画布与详细笔记双端同时使用表格的核心诉求；
+  - 脑图卡片在坚持“纯标题展示避免长文本溢出”的基础上，特设表格识别器 `extractTableHTMLFromContent`，使含有 Markdown 表格的卡片在画布上直接以 OneNote 风格交互式表格（`.canvas-card-table`）完美呈现；
+  - 超过 20 字的冗长详细笔记段落依然智能折叠收纳在右侧详细笔记面板，通过卡片右上角的 `📝` 徽章标展开，兼顾宏观脉络的清爽与微观表格的数据可视性；
+- **⌨️ 详细笔记 OneNote 招牌 Tab 跳格与末尾自动加行**：
+  - 在右侧详细笔记编辑器（`#rich-editor`）中注入 OneNote 核心键盘交互：在表格单元格内按 `Tab` 顺畅向前跳格，按 `Shift+Tab` 逆向回跳；
+  - 在表格最后一个单元格按下 `Tab` 时，系统自动在表格末尾追加全新行并将光标平滑聚焦于新行首列，且即时触发脑图画布表格与 Markdown 底层的全量同步；
+- **🔄 双向实时同步与底层长文无损保护**：
+  - 在脑图卡片端编辑表格或标题时，`syncFromInlineCard` 自动分离标题与表格 Markdown，并 100% 完整保留底层可能写下的海量后续长文段落；
+  - 在右侧详细笔记端键入或修改表格时，`refreshNodeStyles()` 实时联动更新脑图画布卡片上的表格内容，毫秒级所见即所得；
+- **🖱️ 上下文菜单操作双端打通**：
+  - 封装统一的 `syncNodeContentFromTableChange` 数据管道，无论用户在画布卡片上的表格、还是在右侧详细笔记内的表格执行右键「➕ 在下方插入行」、「➕ 在右侧插入列」、「➖ 删除当前行/列」等命令，均能在双端同步更新。
+
 ## 🚀 [v3.5.4] - 2026-11-04
 
 ### 🖍️ 画布卡片行内划词变色、荧光高亮与排版精准引擎 (Canvas Title Word Typography Engine)

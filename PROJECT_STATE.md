@@ -1,8 +1,16 @@
-# Project State: FlowNotes (v3.5.4)
+# Project State: FlowNotes (v3.5.5)
 
 ## Current Version & Status
-- **Current Version**: `v3.5.4`
+- **Current Version**: `v3.5.5`
 - **Latest Releases**:
+  - `v3.5.5`:
+    - **Dual-Workspace Table Engine (Map Canvas Cards & Detailed Notes Both Active)**: Tables (`<table class="canvas-card-table">`) now fully render and operate **BOTH** on the Map Canvas Cards and inside the Right-Side Detailed Notes (`#rich-editor`). Title-Only canvas cards selectively extract and display interactive tables (`extractTableHTMLFromContent`), while keeping massive detailed narrative text paragraphs folded into the right panel with the `📝` badge to prevent visual clutter. Full bidirectional synchronization: editing table cells on the map card serializes title and table markdown cleanly into `d.label` and `d.content` while preserving detailed narrative notes; editing table cells in the right panel (`#rich-editor`) immediately updates the canvas card table in real time via `refreshNodeStyles()`. Added OneNote signature `Tab` cell navigation and automatic last-cell row appending directly into `#rich-editor` keydown handler. Unified table context menu operations ("➕ 在下方插入行", "➕ 在右侧插入列", "➖ 已删除当前行", etc.) via `syncNodeContentFromTableChange` across both workspaces.
+  - `v3.5.4`:
+    - **Card Typography & Word Highlighting Precision Engine (`serializeCardLabelFromHTML` + `renderCardLabelHTML` + `stripFormattingToPlainText`)**: Fixed the card inline word coloring/highlighting bug where selecting specific text and coloring it red/green or highlighting with amber did not persist on the card or in the right panel.
+  - `v3.5.3`:
+    - **Pure 3-Zone Header Navbar & Unified Cloud Sync Suite**: Removed duplicate `[ ☁️ 云同步 ]` from the top navbar, unpinned GitHub configurations to the `⋯` menu, and established the bottom dock `[ 💾 同步 ]` as the single canonical sync trigger.
+  - `v3.5.2`:
+    - **Modern 3-Zone Segmented Header Navbar (`.nav-zone-left` + `.nav-zone-center` + `.nav-zone-right`)**: Notion-style ultra-clean 48px header with centered segmented view switcher and overflow dropdown.
   - `v3.5.1`:
     - **Title-Only Mindmap Canvas & Anti-Clutter Layout Suite (`renderCardLabelHTML` + `getCardDisplayHTML` + `.card-has-note-badge` + Numbered List Preservation + `.canvas-action-pill-bar` + `.canvas-view-dock`)**: Resolved 3 major UX pain points. 1) Mindmap cards on canvas strictly display the title (`d.label`) and never get polluted or ballooned by large paragraphs in detailed notes (`d.content`). Cards with detailed notes show a clickable `📝` badge that opens the right note pane with 1 click; 2) Ordered list numbering (`1.`, `2.`, `4.`) is preserved verbatim without being reset to `1.` by `<ol>` rendering or serialization; 3) Replaced the clumsy 21-button two-row floating controls with a single-line frosted pill toolbar on the top-left and moved zoom/viewport controls to the bottom-left dock, completely eliminating clutter and collisions with the top-center formatting bubble.
   - `v3.5.0`:

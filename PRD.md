@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.4)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.5.5)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Dual-Workspace Table Engine (v3.5.5 表格双工作区引擎：画布卡片与详细笔记双向全功能协同套件)**:
+  - **双工作区同屏运作 (Both Workspaces Active)**：彻底解决“纯标题卡片隐藏表格”与“详细笔记内表格难以在思维图谱中直观查看”的矛盾。当卡片包含表格时，思维图谱画布卡片上**同时渲染标题与 OneNote 交互式表格**（`.canvas-card-table`），而卡片内超过 20 字的冗长段落依然智能折叠收纳在右侧详细笔记中（通过右上角 `📝` 徽章标展开），兼顾宏观图谱清晰度与微观表格可视化！
+  - **全功能双向流转编辑**：
+    - **画布卡片端**：双击卡片进入行内编辑时，标题与表格同屏呈现；可直接点击任何单元格键入数据，支持 OneNote 招牌 `Tab` 换格与末尾自动追加新行；保存时通过 `syncFromInlineCard` 自动分离标题与表格 Markdown，并 100% 保护卡片底层已有的其他详细段落笔记不受任何丢失；
+    - **详细笔记端 (`#rich-editor`)**：全文呈现标题、表格与详细文字段落；新增 `Tab` / `Shift+Tab` 键位劫持，光标在单元格内按 `Tab` 顺畅跳格，在末尾单元格按 `Tab` 自动生成新行并平滑光标过渡，双端实时同步；
+    - **右键上下文菜单**：统一通过 `syncNodeContentFromTableChange` 抽象，无论在画布卡片还是在右侧详细笔记内右键点击表格执行「➕ 在下方插入行」、「➕ 在右侧插入列」、「➖ 删除当前行/列」等操作，双端同步即时生效。
 - **Canvas Title Inline Word Typography & Highlighting Precision Engine (v3.5.4 画布卡片行内划词变色、荧光高亮与排版精准引擎)**:
   - **核心缺陷根除 (Zero-Loss Inline Typography)**：彻底修复在思维图谱画布上划选具体字词（如“清洗数据”）后，点击 🔴 标红、🟢 标绿、🟡 荧光高亮、✍️ 手写批注、B 粗体、U 下划线等格式化按钮无法保留或失焦后退化为纯文本的严重 Bug；
   - **精准行内 DOM 序列化器 (`serializeCardLabelFromHTML`)**：重构卡片标题提取逻辑，引入精确的行内 Markdown 与 HTML 序列化器，告别单纯调用 `innerText` 抹杀样式的旧方案；精准保留 `<span style="color:#ef4444">`、`<mark>`、`<strong>`、`<u>`、`<span class="font-handwriting">` 等所有视觉表现；

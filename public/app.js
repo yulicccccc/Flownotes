@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.5.4 loaded — Card Typography & Word Highlighting Precision Engine");
+    console.log("[FlowNotes] v3.5.5 loaded — Dual-Workspace Table Engine (Map & Detailed Notes Both Active)");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1514,6 +1514,45 @@ function renderCardLabelHTML(text) {
     return html;
 }
 
+// v3.5.5 表格双工作区引擎：从卡片内容中提取 Markdown 表格并渲染为交互式表格 HTML
+function extractTableHTMLFromContent(content) {
+    if (!content || !content.includes("|")) return "";
+    if (!/\|[ \t]*:?---+:?[ \t]*\|/.test(content)) return "";
+    const fullHtml = renderMarkdownToHTML(content);
+    const match = fullHtml.match(/<table class="canvas-card-table">[\s\S]*?<\/table>/gi);
+    if (match && match.length > 0) {
+        return match.join("<br>");
+    }
+    return "";
+}
+
+// v3.5.5 表格变更双向同步：无论在画布卡片还是右侧详细笔记触发表格增删行列，双向平滑同步
+function syncNodeContentFromTableChange(targetNode, targetTable) {
+    if (!targetNode || !targetTable) return;
+    const richEditorEl = document.getElementById("rich-editor");
+    const mdTextarea = document.getElementById("md-textarea");
+    if (targetTable.closest("#rich-editor") && richEditorEl) {
+        targetNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML).trim();
+        if (mdTextarea) mdTextarea.value = targetNode.content;
+    } else {
+        const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
+        if (bodyEl) {
+            const tableWrap = bodyEl.querySelector(".canvas-card-table-wrap") || bodyEl.querySelector("table.canvas-card-table") || targetTable;
+            const tableMd = htmlToSafeMarkdown(tableWrap.matches("table") ? tableWrap.outerHTML : tableWrap.innerHTML);
+            const otherNotes = (targetNode.content || "")
+                .replace(/\|[^\n]+\|/g, "")
+                .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
+                .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                .trim();
+            targetNode.content = `# ${stripFormattingToPlainText(targetNode.label)}\n\n${tableMd}` + (otherNotes ? `\n\n${otherNotes}` : "");
+            if (mdTextarea) mdTextarea.value = targetNode.content;
+            if (richEditorEl && document.activeElement !== richEditorEl) {
+                richEditorEl.innerHTML = renderMarkdownToHTML(targetNode.content);
+            }
+        }
+    }
+}
+
 // 生成画布卡片内部直接显示的 HTML (v3.5.1 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记点进右侧面板呈现)
 function getCardDisplayHTML(d) {
     if (!d) return "";
@@ -1522,24 +1561,32 @@ function getCardDisplayHTML(d) {
         return `<img class="canvas-card-img" src="${d.imageUrl}" alt="截图" draggable="false" />${caption}`;
     }
 
-    // 画布卡片仅展示标题 (d.label)！
     const title = (d.label || "").trim() || "未命名";
+    const titleHTML = renderCardLabelHTML(title);
+    const tableHTML = extractTableHTMLFromContent(d.content);
 
-    // 判断是否在右侧详细笔记中写有实际内容（且不是占位符、不是与标题雷同的一句话）
+    // 判断是否在详细笔记中写有长文（扣除表格和标题后的其他段落）
+    const contentWithoutTable = (d.content || "")
+        .replace(/\|[^\n]+\|/g, "")
+        .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
+        .replace(/^#{1,4}\s+[^\n]+/gm, "")
+        .trim();
+
     const hasDetailedNote = !!(
-        d.content &&
-        d.content.trim() &&
-        !d.content.includes("点击编辑 Markdown 内容...") &&
-        d.content.trim() !== title &&
-        d.content.trim() !== `# ${title}` &&
-        d.content.trim() !== `## ${title}`
+        contentWithoutTable &&
+        !contentWithoutTable.includes("点击编辑 Markdown 内容...") &&
+        contentWithoutTable.length > 20
     );
 
     const noteBadge = hasDetailedNote
         ? `<span class="card-has-note-badge" title="📝 包含详细笔记 (点击选中并在右侧查看)">📝</span>`
         : "";
 
-    return `${renderCardLabelHTML(title)}${noteBadge}`;
+    if (tableHTML) {
+        return `<div class="canvas-card-title-row"><span>${titleHTML}</span>${noteBadge}</div><div class="canvas-card-table-wrap">${tableHTML}</div>`;
+    }
+
+    return `${titleHTML}${noteBadge}`;
 }
 
 // 轻量级：刷新画布富文本卡片样式、自适应尺寸测量、折叠徽章与选中发光状态
@@ -1715,27 +1762,33 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     selectedNodeIds = new Set([d.id]);
     renderEditor();
 
-    // 载入纯净可编辑标题 (v3.5.1 画布卡片仅编辑标题，绝不带入长篇详细笔记，更不覆盖已有的详细笔记)
+    // 载入可编辑内容 (v3.5.5: 若卡片包含表格，在画布上同步呈现表格与标题，供双向交互编辑)
     let raw = (d.label || "").trim() || "未命名";
     if (initialAppendChar) {
         const isDefaultPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(raw.trim());
         raw = isDefaultPlaceholder ? initialAppendChar : (raw + initialAppendChar);
         d.label = raw;
     }
-    bodyEl.innerHTML = renderCardLabelHTML(raw);
+    const inlineTableHTML = extractTableHTMLFromContent(d.content);
+    if (inlineTableHTML) {
+        bodyEl.innerHTML = `<div class="canvas-card-title-row"><span>${renderCardLabelHTML(raw)}</span></div><div class="canvas-card-table-wrap">${inlineTableHTML}</div>`;
+    } else {
+        bodyEl.innerHTML = renderCardLabelHTML(raw);
+    }
     bodyEl.setAttribute("contenteditable", "true");
     cardDiv.classed("is-editing", true);
     bodyEl.focus();
 
+    const titleEl = bodyEl.querySelector(".canvas-card-title-row span") || bodyEl;
     if (selectAll && !initialAppendChar) {
         const range = document.createRange();
-        range.selectNodeContents(bodyEl);
+        range.selectNodeContents(titleEl);
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
     } else if (cursorAtEnd || initialAppendChar) {
         const range = document.createRange();
-        range.selectNodeContents(bodyEl);
+        range.selectNodeContents(titleEl);
         range.collapse(false);
         const sel = window.getSelection();
         sel.removeAllRanges();
@@ -1743,13 +1796,36 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     }
 
     const syncFromInlineCard = () => {
-        // v3.5.4 精确行内富文本标题序列化：保留标红、标绿、高亮、加粗、手写体等行内样式
-        d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
+        // v3.5.5 双工作区表格引擎：若卡片含有表格，提取标题与表格分别同步
+        const tableWrap = bodyEl.querySelector(".canvas-card-table-wrap") || bodyEl.querySelector("table.canvas-card-table");
+        const titleRow = bodyEl.querySelector(".canvas-card-title-row");
 
-        // 仅在 content 为空或无有效详细笔记时，才初始化 content；如果已有详细长笔记，绝不覆盖！
-        const isContentEmpty = !d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容...");
-        if (isContentEmpty) {
-            d.content = `# ${d.label}\n\n`;
+        if (tableWrap) {
+            let titleSourceHtml = "";
+            if (titleRow) {
+                titleSourceHtml = titleRow.innerHTML;
+            } else {
+                const clone = bodyEl.cloneNode(true);
+                clone.querySelectorAll(".canvas-card-table-wrap, table.canvas-card-table").forEach(el => el.remove());
+                titleSourceHtml = clone.innerHTML;
+            }
+            d.label = serializeCardLabelFromHTML(titleSourceHtml);
+            const tableNode = tableWrap.matches("table.canvas-card-table") ? tableWrap : (tableWrap.querySelector("table.canvas-card-table") || tableWrap);
+            const tableMd = htmlToSafeMarkdown(tableNode.outerHTML || tableWrap.innerHTML || "");
+            
+            // 保留原有除表格外的长篇详细笔记
+            const otherNotes = (d.content || "")
+                .replace(/\|[^\n]+\|/g, "")
+                .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
+                .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                .trim();
+            d.content = `# ${stripFormattingToPlainText(d.label)}\n\n${tableMd}` + (otherNotes ? `\n\n${otherNotes}` : "");
+        } else {
+            d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
+            const isContentEmpty = !d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容...");
+            if (isContentEmpty) {
+                d.content = `# ${d.label}\n\n`;
+            }
         }
 
         const titleInput = document.getElementById("title-input");
@@ -1757,7 +1833,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         const richEditor = document.getElementById("rich-editor");
         if (selectedNode && selectedNode.id === d.id) {
             if (titleInput) titleInput.value = stripFormattingToPlainText(d.label);
-            if (isContentEmpty) {
+            if (tableWrap || (!d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容..."))) {
                 if (mdTextarea) mdTextarea.value = d.content;
                 if (richEditor && document.activeElement !== richEditor) {
                     richEditor.innerHTML = renderMarkdownToHTML(d.content);
@@ -3489,6 +3565,69 @@ function initEvents() {
         mdTextarea.value = selectedNode.content;
         refreshNodeStyles();
         scheduleSaveGraph(true);
+    });
+
+    // v3.5.5 OneNote 招牌表格体验：在详细笔记 richEditor 中支持 Tab/Shift+Tab 换格与末尾自动加行
+    richEditor.addEventListener("keydown", (e) => {
+        const activeSel = window.getSelection();
+        const activeCell = activeSel && activeSel.anchorNode
+            ? (activeSel.anchorNode.nodeType === 1 ? activeSel.anchorNode : activeSel.anchorNode.parentElement)?.closest("td, th")
+            : null;
+
+        if (e.key === "Tab" && activeCell) {
+            e.preventDefault();
+            const activeTr = activeCell.closest("tr");
+            const activeTable = activeTr ? activeTr.closest("table") : null;
+            if (activeTable) {
+                const allCells = Array.from(activeTable.querySelectorAll("th, td"));
+                const currIdx = allCells.indexOf(activeCell);
+                if (e.shiftKey) {
+                    const prevCell = allCells[currIdx - 1];
+                    if (prevCell) {
+                        const r = document.createRange();
+                        r.selectNodeContents(prevCell);
+                        activeSel.removeAllRanges();
+                        activeSel.addRange(r);
+                    }
+                } else {
+                    if (currIdx < allCells.length - 1) {
+                        const nextCell = allCells[currIdx + 1];
+                        if (nextCell) {
+                            const r = document.createRange();
+                            r.selectNodeContents(nextCell);
+                            activeSel.removeAllRanges();
+                            activeSel.addRange(r);
+                        }
+                    } else {
+                        // 位于整个表格最后一个单元格：在末尾自动追加新行！
+                        const colCount = activeTr.children.length || 2;
+                        const newTr = document.createElement("tr");
+                        for (let c = 0; c < colCount; c++) {
+                            const newTd = document.createElement("td");
+                            newTd.innerHTML = "<br>";
+                            newTr.appendChild(newTd);
+                        }
+                        const tbody = activeTable.querySelector("tbody") || activeTable;
+                        tbody.appendChild(newTr);
+                        if (selectedNode) {
+                            selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
+                            if (mdTextarea) mdTextarea.value = selectedNode.content;
+                            refreshNodeStyles();
+                            scheduleSaveGraph(true);
+                        }
+                        const firstCell = newTr.firstElementChild;
+                        if (firstCell) {
+                            const r = document.createRange();
+                            r.selectNodeContents(firstCell);
+                            r.collapse(true);
+                            activeSel.removeAllRanges();
+                            activeSel.addRange(r);
+                        }
+                        showToast("▦ 已在表格末尾追加新行 (Tab)");
+                    }
+                }
+            }
+        }
     });
 
     // 格式化按钮
@@ -6997,10 +7136,7 @@ function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
                         newTr.appendChild(newTd);
                     }
                     activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
-                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
-                    if (bodyEl) {
-                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
-                    }
+                    syncNodeContentFromTableChange(targetNode, targetTable);
                     renderEditor();
                     updateD3Graph();
                     renderPositions();
@@ -7024,10 +7160,7 @@ function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
                             row.appendChild(newCell);
                         }
                     });
-                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
-                    if (bodyEl) {
-                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
-                    }
+                    syncNodeContentFromTableChange(targetNode, targetTable);
                     renderEditor();
                     updateD3Graph();
                     renderPositions();
@@ -7044,10 +7177,7 @@ function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
                     } else {
                         activeTr.remove();
                     }
-                    const bodyEl = targetTable.closest(".canvas-note-card-body") || document.querySelector(`.node-card-body[data-node-id="${targetNode.id}"]`);
-                    if (bodyEl) {
-                        targetNode.content = htmlToSafeMarkdown(bodyEl.innerHTML).trim();
-                    }
+                    syncNodeContentFromTableChange(targetNode, targetTable);
                     renderEditor();
                     updateD3Graph();
                     renderPositions();
