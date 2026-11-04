@@ -1,8 +1,10 @@
-# Project State: FlowNotes (v3.4.4)
+# Project State: FlowNotes (v3.4.5)
 
 ## Current Version & Status
-- **Current Version**: `v3.4.4`
+- **Current Version**: `v3.4.5`
 - **Latest Releases**:
+  - `v3.4.5`:
+    - **OneNote Card Frame Fill Swatches & Dual Font/Box Quick Suite (`🟥/🟩/🟨` + `toggleCardBgColor`)**: Added 3 square color swatches to the quick edit bubble toolbar representing card box background fill colors (`🟥` rose, `🟩` emerald, `🟨` amber); clearly decoupled from circular font/text colors (`🔴/🟢/🟡`); supports one-click apply and click-again toggle to restore clean defaults, active swatch glow cues (`.active-swatch`), and multi-card / inline-edit real-time tinting.
   - `v3.4.4`:
     - **OneNote Handwriting Annotation Font & Dockable Top Quick Bubble Suite (`AaJiandaoshitoubu` + `YeGenYouSanMo` + `isDockedTop`)**: Bundled Chinese handwriting fonts for thought annotations; quick formatting bubble toolbar can now dock elegantly at canvas top-center (`📌`) or float with selection (`📍`); direct card-level formatting support; `Ctrl+Shift+W` shortcut; enhanced Excalidraw and 1.pdf handwriting migration.
   - `v3.4.3`: OneNote fidelity pass — bundled TsangerXuanSanM W03 font, 8-way edge-anchored resize (n/s/e/w + 4 corners), live MTV collision nudge on resize/typing only (drag stays free-overlap), uniform OneNote frames with per-word colors + one-time cache migration, improved PDF→Excalidraw block splitting/soft-wrap/highlight, touch long-press no longer marquee.
@@ -63,7 +65,7 @@
   - `v2.6.0`: SVG directional arrow markers (`#arrow-marker`), `#selection-quick-bubble`, `Ctrl+Shift+R/G/H/\` shortcuts, and clipboard screenshot/text paste (`initClipboardPaste` + `compressImage`).
 - **Live Site**: https://flownotes-eze.pages.dev
 - **GitHub Repository**: https://github.com/yulicccccc/Flownotes
-- **Cloudflare Deployment Script**: `FlowNotes_V3.4.4_flownotes-eze.pages.dev_一键更新网站.bat`
+- **Cloudflare Deployment Script**: `FlowNotes_V3.4.5_flownotes-eze.pages.dev_一键更新网站.bat`
 
 ## Finalized & Locked Features
 1. **Freeform Spatial Dumping ("放到一坨", v2.9.0)**: `layoutMode = "free"` default; no forced `tidyLayout()` or accidental proximity reparenting when placing cards near each other.

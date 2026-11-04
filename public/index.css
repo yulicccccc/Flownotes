@@ -1002,6 +1002,25 @@ html[data-theme="light"] .bubble-btn {
     color: #38bdf8 !important;
 }
 
+.bubble-btn-swatch {
+    font-size: 13px;
+    padding: 2px 5px !important;
+    transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.bubble-btn.active-swatch {
+    background: rgba(255, 255, 255, 0.22) !important;
+    border-color: rgba(255, 255, 255, 0.9) !important;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.55) !important;
+    transform: scale(1.18);
+}
+
+html[data-theme="light"] .bubble-btn.active-swatch {
+    background: rgba(15, 23, 42, 0.14) !important;
+    border-color: rgba(15, 23, 42, 0.8) !important;
+    box-shadow: 0 0 8px rgba(15, 23, 42, 0.35) !important;
+}
+
 .bubble-separator {
     width: 1px;
     height: 16px;

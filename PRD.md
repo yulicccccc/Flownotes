@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.4)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.4.5)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote Card Frame Fill Swatches & Dual Font/Box Quick Suite (v3.4.5 框框正方形填色与圆圈字体色双轨套件)**:
+  - **正方形代表框框填色 (3色快速填色)**：在中央置顶快捷编辑栏中增加 3 个正方形颜色按钮（`🟥` 绯红底色、`🟩` 翡翠底色、`🟨` 琥珀底色），与圆圈字体色（🔴 🟢 🟡）形成清晰语义分离。
+  - **解耦操作与即时反馈**：圆圈专司文字局部标色与荧光高亮，正方形专司卡片框框背景着色。点击正方形按钮，卡片框立即切换为对应渐变语义底色；再次点击同一正方形按钮即可一键取消填色（恢复默认纯净底色），按钮实时呈现发光高亮激活态（`.active-swatch`）。
+  - **全选与原地打字兼容**：支持单选卡片、多选卡片或处于原地文字编辑模式下实时变色，点击 🧹 即可同步重置框框底色与内联格式。
 - **OneNote Handwriting Annotation Font & Dockable Top Quick Bubble Suite (v3.4.4 灵感批注手写体与画布置顶快捷格式栏)**:
   - **灵感批注手写体 (Aa剪刀石头布 / 叶根友散墨手写)**: 内置 `public/fonts/AaJiandaoshitoubu.ttf` 与 `public/fonts/YeGenYouSanMo.ttf`，CSS 定义 `@font-face FlowNotesHandwriting`（优先检测本地系统字体，无感回退本地静态资产）。支持划词选中文本包装 `<span class="font-handwriting">` 或选中整张卡片一键切换 `node.fontStyle = 'handwriting'`，还原 1.pdf / OneNote 中的真实思考、批注、提问与反思手写质感。
   - **画布置顶 / 选区跟随双模快捷工具栏 (`#selection-quick-bubble`)**: 快捷格式工具栏新增 `📌` / `📍` 停靠切换按钮。默认优雅固定在画布上方中央（如同 OneNote / Miro 顶部格式栏，绝不遮挡当前正在编辑的卡片文本与手柄）；用户可随时点击切换为跟随光标选区悬浮，偏好自动持久化至 `localStorage`。
@@ -139,4 +143,4 @@ A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system 
 - **Obsidian Sync Workflow**:
   - One-click export to `obsidian_graph_backup.json` fully compatible with `sync_to_obsidian.ps1`.
 - **Automated Cloudflare Deployment**:
-  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.4_flownotes-eze.pages.dev_一键更新网站.bat`.
+  - Cloudflare Pages project `flownotes` deployed via `FlowNotes_V3.4.5_flownotes-eze.pages.dev_一键更新网站.bat`.

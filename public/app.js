@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.4.4 loaded — OneNote Handwriting Annotation Font, Dockable Top Quick Bubble & Dynamic Thought Suite");
+    console.log("[FlowNotes] v3.4.5 loaded — OneNote Card Frame Fill Swatches & Dual Font/Box Quick Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -3690,8 +3690,9 @@ function applyFormatting(format) {
     const activeInlineBody = (sel && sel.rangeCount > 0 && sel.anchorNode)
         ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body[contenteditable='true']")
         : null;
+    const inRichEditor = !!(richEditor && (previewMode === "live") && sel && sel.anchorNode && richEditor.contains(sel.anchorNode));
 
-    if (!activeInlineBody && !(richEditor && (previewMode === "live"))) {
+    if (!activeInlineBody && !inRichEditor) {
         // 卡片级零摩擦操作：当用户选中画布卡片但未进入局部文字划词时，点击格式工具栏直接生效整卡
         if (selectedNode) {
             if (format === "handwriting") {
@@ -3721,21 +3722,22 @@ function applyFormatting(format) {
             }
             if (format === "clear") {
                 selectedNode.fontStyle = "";
-                selectedNode.cardBgColor = "";
+                delete selectedNode.cardBgColor;
                 selectedNode.color = null;
                 selectedNode.customWidth = null;
                 selectedNode.customHeight = null;
                 selectedNode.customFontSize = null;
                 refreshNodeStyles();
-                showToast("🧹 已清除卡片格式", "info");
+                showToast("🧹 已清除卡片格式与底色", "info");
                 scheduleSaveGraph(true);
+                if (typeof updateQuickBubblePosition === "function") updateQuickBubblePosition();
                 return;
             }
         }
         return;
     }
 
-    if (activeInlineBody || (richEditor && (previewMode === "live"))) {
+    if (activeInlineBody || inRichEditor) {
         if (!sel || sel.rangeCount === 0) return;
 
         switch (format) {
@@ -5074,6 +5076,15 @@ function initSelectionQuickBubble() {
             bubble.style.left = `${left}px`;
             bubble.style.top = `${top}px`;
         }
+
+        // 同步更新 3 个正方形框框填色按钮的激活高亮状态
+        const activeBg = (selectedNode && selectedNode.cardBgColor) || "";
+        const btnRose = bubble.querySelector('[data-action="bg-rose"]');
+        const btnEmerald = bubble.querySelector('[data-action="bg-emerald"]');
+        const btnAmber = bubble.querySelector('[data-action="bg-amber"]');
+        if (btnRose) btnRose.classList.toggle("active-swatch", activeBg === "rose");
+        if (btnEmerald) btnEmerald.classList.toggle("active-swatch", activeBg === "emerald");
+        if (btnAmber) btnAmber.classList.toggle("active-swatch", activeBg === "amber");
     };
 
     document.addEventListener("mouseup", () => setTimeout(updateQuickBubblePosition, 25));
@@ -5111,7 +5122,10 @@ function initSelectionQuickBubble() {
                 showToast(isDockedTop ? "📌 工具栏已固定在画布上方中央" : "📍 工具栏已切换为跟随选区悬浮", "info");
                 return;
             }
-            if (action === "handwriting") applyFormatting("handwriting");
+            if (action === "bg-rose") toggleCardBgColor("rose");
+            else if (action === "bg-emerald") toggleCardBgColor("emerald");
+            else if (action === "bg-amber") toggleCardBgColor("amber");
+            else if (action === "handwriting") applyFormatting("handwriting");
             else if (action === "red") applyFormatting("color-red");
             else if (action === "green") applyFormatting("color-green");
             else if (action === "highlight") applyFormatting("highlight");
@@ -5120,7 +5134,16 @@ function initSelectionQuickBubble() {
             else if (action === "todo") {
                 if (selectedNode) toggleTodoOnSelectedCard(selectedNode);
             }
-            else if (action === "clear") applyFormatting("clear");
+            else if (action === "clear") {
+                if (selectedNode) {
+                    delete selectedNode.cardBgColor;
+                    selectedNode.fontStyle = "";
+                    selectedNode.customFontSize = null;
+                    refreshNodeStyles();
+                    scheduleSaveGraph(true);
+                }
+                applyFormatting("clear");
+            }
             setTimeout(updateQuickBubblePosition, 30);
         });
     });
@@ -6311,6 +6334,21 @@ const CARD_BG_LABELS = {
     "violet": "🔮 紫晶底色 (文献/灵感)"
 };
 
+function toggleCardBgColor(colorKey = "", singleFallbackNode = null) {
+    const targetList = selectedNodeIds.size > 0
+        ? nodes.filter(n => selectedNodeIds.has(n.id))
+        : (singleFallbackNode ? [singleFallbackNode] : (selectedNode ? [selectedNode] : []));
+    if (targetList.length === 0) return;
+
+    // 如果选中的所有卡片此前已经是该底色，则再次点击取消底色（恢复默认深空/浅色纯净背景）
+    const allMatch = targetList.every(n => n.cardBgColor === colorKey);
+    const newColor = allMatch ? "" : colorKey;
+    setCardBgColor(newColor, singleFallbackNode);
+    if (typeof updateQuickBubblePosition === "function") {
+        updateQuickBubblePosition();
+    }
+}
+
 function setCardBgColor(colorKey = "", singleFallbackNode = null) {
     const targetList = selectedNodeIds.size > 0
         ? nodes.filter(n => selectedNodeIds.has(n.id))
@@ -6323,7 +6361,10 @@ function setCardBgColor(colorKey = "", singleFallbackNode = null) {
     });
     refreshNodeStyles();
     scheduleSaveGraph(true);
-    showToast(`🎨 已设为 ${CARD_BG_LABELS[colorKey] || "默认底色"}`);
+    showToast(colorKey ? `🎨 框框底色已设为 ${CARD_BG_LABELS[colorKey] || colorKey}` : "🎨 框框已恢复默认底色");
+    if (typeof updateQuickBubblePosition === "function") {
+        updateQuickBubblePosition();
+    }
 }
 
 // 4. 全图一键展开或折叠所有分支
