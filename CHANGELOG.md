@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.7.1] - 2026-11-05
+
+### 🎨 行内划词局部高保真字体颜色、多色荧光笔与多行卡片防截断引擎 (High-Fidelity Word-Level Typography, Color & Multi-Line Engine)
+- **🎯 划词局部标色全色系完美响应**：
+  - 彻底修复划词格式化分支缺少 `color-custom`、`highlight-color` 与各色别名导致的点击无响应缺陷；
+  - 6 色马卡龙色珠（红/橙/黄/绿/蓝/紫）精准作用于光标高亮选中的特定字词（如“最明显”），即点即染，所见即所得；
+- **🖍️ 多色清新荧光高亮笔**：
+  - 荧光笔模式下，精准为划词部分渲染对应色彩的半透明荧光底色，并在序列化中以 `<mark style="background-color:...">` 完美持久化；
+- **📐 多行卡片文本防截断**：
+  - 全面重构 `serializeCardLabelFromHTML` 与 `renderCardLabelHTML`，允许多行卡片以 `<br>` 连接，彻底杜绝原有截断逻辑导致的第二行文字丢失；
+- **🛡️ 表格与标题富文本严格隔离**：
+  - 卡片原地编辑时若包含表格，格式化仅提取与序列化标题行，杜绝表格 HTML 污染卡片标题；
+- **🔑 1 步直达 GitHub PAT 快速链接**：
+  - 在 GitHub 同步配置弹窗中直接提供一键新建带 gist 权限 Token 的直达链接，并在自动创建 Gist 时自动同步保存 PAT。
+
 ## 🚀 [v3.7.0] - 2026-11-04
 
 ### ⚡ 跨设备剪贴板沙盘联动与极速灵感快投套件 (Win-to-iPad Real-Time Live Clipboard Catch Suite)
