@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.7.1 loaded — High-Fidelity Word-Level Typography, Color & Highlight Engine");
+    console.log("[FlowNotes] v3.8.0 loaded — Zero-Config Cloudflare Cloud Sync & Multi-Device Sandbox Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -311,12 +311,19 @@ function initPwaAndLifecycleSync() {
             flushPendingSave();
         } else if (document.visibilityState === "visible") {
             autoCheckCloudGist(true);
+            autoCheckCloudSync(true);
         }
     });
-    window.addEventListener("focus", () => autoCheckCloudGist(true));
+    window.addEventListener("focus", () => {
+        autoCheckCloudGist(true);
+        autoCheckCloudSync(true);
+    });
 
-    // 启动后 900ms 自动检测云端是否有其他设备（手机/平板/家里电脑）推送的更新版本
-    setTimeout(() => autoCheckCloudGist(true), 900);
+    // 启动后 800ms 自动检测云端是否有其他设备（手机/平板/电脑）推送的更新版本
+    setTimeout(() => {
+        autoCheckCloudGist(true);
+        autoCheckCloudSync(true);
+    }, 800);
 }
 
 // --- OneNote 3级树状层级全局状态管理 (v3.5.0) ---
@@ -3779,36 +3786,42 @@ function initEvents() {
     document.getElementById("closeModalBtn").addEventListener("click", () => document.getElementById("exportModal").style.display = "none");
     document.getElementById("confirmExportBtn").addEventListener("click", () => document.getElementById("exportModal").style.display = "none");
 
-    // GitHub 同步弹窗
-    const openGhModal = () => document.getElementById("ghSyncModal").style.display = "flex";
+    // 跨设备云同步弹窗 (v3.8.0 统一双引擎：Cloudflare 极速免配 + GitHub Gist 归档)
+    const openGhModal = () => {
+        refreshCfSyncModalStatus();
+        document.getElementById("ghSyncModal").style.display = "flex";
+    };
     document.getElementById("ghSyncBtn").addEventListener("click", openGhModal);
     document.getElementById("btn-password").addEventListener("click", openGhModal);
     document.getElementById("closeGhModalBtn").addEventListener("click", () => document.getElementById("ghSyncModal").style.display = "none");
+    const closeGhModalBtn2 = document.getElementById("closeGhModalBtn2");
+    if (closeGhModalBtn2) closeGhModalBtn2.addEventListener("click", () => document.getElementById("ghSyncModal").style.display = "none");
+
+    // Cloudflare 零配置极速云同步按钮绑定
+    const btnCloudPush = document.getElementById("btnCloudPush");
+    if (btnCloudPush) btnCloudPush.addEventListener("click", () => pushToCloudSync(false));
+    const btnCloudPull = document.getElementById("btnCloudPull");
+    if (btnCloudPull) btnCloudPull.addEventListener("click", () => pullFromCloudSync(false));
+
     document.getElementById("saveGhSettingsBtn").addEventListener("click", saveGhSettings);
     document.getElementById("autoCreateGistBtn").addEventListener("click", autoCreateGhGist);
     document.getElementById("pushToGhBtn").addEventListener("click", () => pushToGhGist(false));
     document.getElementById("pullFromGhBtn").addEventListener("click", () => pullFromGhGist(false));
 
-    // 顶部唯一黄金云同步胶囊绑定 (v3.6.0 统一步骤)
+    // 顶部唯一黄金云同步胶囊绑定 (v3.8.0 统一步骤：点击呼出云同步中心，清晰呈现电脑推送/iPad拉取)
     const btnTopSync = document.getElementById("btnTopSync");
     if (btnTopSync) {
         btnTopSync.addEventListener("click", () => {
-            const pat = localStorage.getItem("flownotes_gh_pat");
-            const gistId = localStorage.getItem("flownotes_gh_gist_id");
-            if (!pat || !gistId) {
-                openGhModal();
-            } else {
-                pushToGhGist(false);
-            }
+            openGhModal();
         });
     }
 
     // 左下角快捷 IO 栏按钮绑定 (💾 同步、↙️ 拉取、⬆️ 导入 JSON)
     const btnQuickSync = document.getElementById("btn-sync");
-    if (btnQuickSync) btnQuickSync.addEventListener("click", () => pushToGhGist(false));
+    if (btnQuickSync) btnQuickSync.addEventListener("click", () => pushToCloudSync(false));
 
     const btnQuickPull = document.getElementById("btn-pull");
-    if (btnQuickPull) btnQuickPull.addEventListener("click", () => pullFromGhGist(false));
+    if (btnQuickPull) btnQuickPull.addEventListener("click", () => pullFromCloudSync(false));
 
     const btnImport = document.getElementById("btn-import");
     const fileInput = document.getElementById("file-input");
@@ -5194,9 +5207,9 @@ function updateSyncStatusUI(state, message, detailText = "") {
             btnTopSync.classList.remove("is-busy", "is-ok");
             syncPillText.textContent = "⚠️ 同步警告";
         } else {
-            const hasPat = !!localStorage.getItem("flownotes_gh_pat");
+            const hasCf = !!localStorage.getItem("flownotes_last_cf_sync_ts");
             btnTopSync.classList.remove("is-busy", "is-ok");
-            syncPillText.textContent = hasPat ? "☁️ 云同步" : "☁️ 配置云同步";
+            syncPillText.textContent = hasCf ? `🟢 云端已连接` : "☁️ 云同步";
         }
     }
 
@@ -5318,6 +5331,163 @@ async function autoCreateGhGist() {
         updateSyncStatusUI("error", "🔴 创建 Gist 失败", e.message || "网络或 Token 无效");
         showToast("❌ 创建失败");
     }
+}
+
+// ==========================================================================
+// v3.8.0 Cloudflare 原生零配置极速云同步套件 (Zero-Config Edge Sync Suite)
+// 纯 Cloudflare Pages Function + KV 驱动，彻底免除 GitHub PAT 繁琐配置
+// ==========================================================================
+
+function getFullBackupPayload() {
+    const allMapsData = {};
+    mapsManifest.forEach(m => {
+        if (allMapsMemoryCache[m.id]) {
+            allMapsData[m.id] = allMapsMemoryCache[m.id];
+        } else {
+            const raw = localStorage.getItem(`flownotes_map_data_${m.id}`);
+            if (raw) {
+                try { allMapsData[m.id] = JSON.parse(raw); } catch (e) {}
+            }
+        }
+    });
+    allMapsData[activeMapId] = {
+        nodes: nodes,
+        links: cleanLinks(),
+        flowStream: flowStream,
+        inkStrokes: inkStrokes,
+        pomoEvidenceLog: (window.pomoEvidenceLog && Array.isArray(window.pomoEvidenceLog)) ? window.pomoEvidenceLog : JSON.parse(localStorage.getItem("flownotes_pomo_evidence_log") || "[]"),
+        pomoSettings: (window.pomoSettings) ? window.pomoSettings : JSON.parse(localStorage.getItem("flownotes_pomo_settings") || "{}")
+    };
+    allMapsMemoryCache[activeMapId] = allMapsData[activeMapId];
+
+    const totalNodes = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0) || nodes.length;
+
+    return {
+        version: "FlowNotes-MultiMap-3.8.0",
+        updatedAtMs: Date.now(),
+        activeMapId: activeMapId,
+        notebooksManifest: notebooksManifest,
+        sectionsManifest: sectionsManifest,
+        mapsManifest: mapsManifest,
+        allMapsData: allMapsData,
+        nodes: nodes,
+        links: cleanLinks(),
+        flowStream: flowStream,
+        inkStrokes: inkStrokes,
+        pomoEvidenceLog: (window.pomoEvidenceLog && Array.isArray(window.pomoEvidenceLog)) ? window.pomoEvidenceLog : JSON.parse(localStorage.getItem("flownotes_pomo_evidence_log") || "[]"),
+        pomoSettings: (window.pomoSettings) ? window.pomoSettings : JSON.parse(localStorage.getItem("flownotes_pomo_settings") || "{}"),
+        clientSource: /iPad|iPhone|iPod/.test(navigator.userAgent) ? "ipad" : "pc"
+    };
+}
+
+let lastCloudflareSyncTimestamp = 0;
+
+async function pushToCloudSync(silent = false) {
+    const nowMs = Date.now();
+    // 防抖与冷却：自动静默推送时，若 5 秒内刚推送过则跳过
+    if (silent && (nowMs - lastCloudflareSyncTimestamp < 5000)) {
+        return;
+    }
+
+    const totalCards = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0) || nodes.length;
+    updateSyncStatusUI("busy", `🔄 正在推送到 Cloudflare 云端... (${totalCards}张卡片)`);
+
+    try {
+        const payload = getFullBackupPayload();
+        const res = await fetch("/api/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json();
+
+        lastCloudflareSyncTimestamp = nowMs;
+        const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        localStorage.setItem("flownotes_last_cf_sync_time", nowStr);
+        localStorage.setItem("flownotes_last_cf_sync_ts", String(payload.updatedAtMs));
+
+        updateSyncStatusUI("ok", `🟢 已同步云端 (${totalCards}卡片 | ${nowStr})`);
+        refreshCfSyncModalStatus();
+
+        if (!silent) {
+            showToast(`🚀 成功推送至云端！共 ${totalCards} 张卡片，iPad 现已可秒级拉取！`);
+        }
+
+        // 如果用户也配置了 GitHub，后台顺带备份至 Gist
+        if (localStorage.getItem("flownotes_gh_pat") && localStorage.getItem("flownotes_gh_gist_id")) {
+            pushToGhGist(true).catch(() => {});
+        }
+        return true;
+    } catch (err) {
+        updateSyncStatusUI("error", "🔴 云端推送失败", err.message);
+        if (!silent) showToast(`❌ 云端同步失败: ${err.message}`);
+        return false;
+    }
+}
+
+async function pullFromCloudSync(silent = false) {
+    updateSyncStatusUI("busy", "🔄 正在从 Cloudflare 云端拉取全量笔记...");
+
+    try {
+        const res = await fetch("/api/sync?ts=" + Date.now(), {
+            cache: "no-store",
+            headers: { "Accept": "application/json" }
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data || data.exists === false || (!data.mapsManifest && !data.nodes)) {
+            updateSyncStatusUI("warn", "⚠️ 云端暂无备份", "请先在电脑端点击【一键推送到云端】");
+            if (!silent) showToast("⚠️ 云端暂无备份数据，请先在电脑端点击【一键推送到云端】");
+            return false;
+        }
+
+        applyParsedBackupData(data);
+
+        const totalCards = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0) || nodes.length;
+        const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+        localStorage.setItem("flownotes_last_cf_sync_time", nowStr);
+        localStorage.setItem("flownotes_last_cf_sync_ts", String(data.updatedAtMs || Date.now()));
+
+        updateSyncStatusUI("ok", `🟢 已同步云端 (${totalCards}卡片 | ${nowStr})`);
+        refreshCfSyncModalStatus();
+
+        if (!silent) {
+            showToast(`📥 成功从云端恢复！共同步 ${totalCards} 张卡片、${mapsManifest.length} 个图谱`);
+        }
+        return true;
+    } catch (err) {
+        updateSyncStatusUI("error", "🔴 拉取失败", err.message);
+        if (!silent) showToast(`❌ 从云端拉取失败: ${err.message}`);
+        return false;
+    }
+}
+
+async function refreshCfSyncModalStatus() {
+    const statusTextEl = document.getElementById("cfCloudStatusText");
+    const timeTextEl = document.getElementById("cfCloudTimeText");
+    if (!statusTextEl) return;
+
+    try {
+        const res = await fetch("/api/sync?meta=1&ts=" + Date.now(), { cache: "no-store" });
+        if (res.ok) {
+            const meta = await res.json();
+            if (meta && meta.exists) {
+                const dateStr = meta.updatedAtMs ? new Date(meta.updatedAtMs).toLocaleTimeString('zh-CN', { hour12: false }) : "近期";
+                statusTextEl.innerHTML = `<span style="color:#10b981">🟢 云端已有备份</span> (共 <b>${meta.totalNodes || 0}</b> 张卡片 / <b>${meta.totalMaps || 1}</b> 个图谱)`;
+                if (timeTextEl) timeTextEl.textContent = `备份时间: ${dateStr}`;
+                return meta;
+            }
+        }
+        statusTextEl.innerHTML = `<span style="color:var(--text-muted)">⚪ 云端暂无备份</span> (等待电脑端首次推送)`;
+        if (timeTextEl) timeTextEl.textContent = "";
+    } catch (_) {
+        statusTextEl.innerHTML = `<span style="color:#ef4444">⚠️ 云端网络检测中</span>`;
+    }
+    return null;
 }
 
 let lastGhPatchTimestamp = 0;
@@ -5827,9 +5997,48 @@ async function autoCheckCloudGist(silent = true) {
     } catch (e) {}
 }
 
+let lastCloudflareCheckMs = 0;
+
+// v3.8.0 跨设备开机/切回窗口自动 Cloudflare 极速云端新版本检测（iPad 首次打开自动秒拉取电脑笔记）
+async function autoCheckCloudSync(silent = true) {
+    const now = Date.now();
+    if (now - lastCloudflareCheckMs < 12000) return; // 12秒冷却防频繁请求
+    lastCloudflareCheckMs = now;
+
+    try {
+        const metaRes = await fetch("/api/sync?meta=1&ts=" + now, { cache: "no-store" });
+        if (!metaRes.ok) return;
+        const meta = await metaRes.json();
+        if (!meta || !meta.exists || !meta.totalNodes) return;
+
+        const cloudStampMs = meta.updatedAtMs || 0;
+        const lastKnownCfMs = parseInt(localStorage.getItem("flownotes_last_cf_sync_ts") || "0", 10);
+        const localUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
+
+        const isDefaultInitialState = (mapsManifest.length <= 1 && nodes.length <= 4 && (!lastKnownCfMs || (nodes[0] && (nodes[0].id === "root_1" || nodes[0].label === "核心概念"))));
+
+        // 如果本设备是初始状态（例如 iPad 首次打开），或者云端有新更新且本地无冲突修改：
+        if (isDefaultInitialState || (cloudStampMs > lastKnownCfMs + 1000 && localUpdatedMs <= lastKnownCfMs + 1000)) {
+            console.log("[FlowNotes] 发现 Cloudflare 云端有更新备份，自动无感同步...");
+            const ok = await pullFromCloudSync(true);
+            if (ok) {
+                const totalCards = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0) || nodes.length;
+                showToast(`☁️ 已自动同步云端电脑笔记 (${totalCards} 张卡片)！`);
+            }
+        }
+    } catch (_) {}
+}
+
 function triggerAutoGhSync() {
     if (ghSyncTimer) clearTimeout(ghSyncTimer);
-    ghSyncTimer = setTimeout(() => pushToGhGist(true), 8000);
+    ghSyncTimer = setTimeout(() => {
+        // v3.8.0 自动极速同步至 Cloudflare KV 云端
+        pushToCloudSync(true).catch(() => {});
+        // 若配置了 GitHub 则顺便备份
+        if (localStorage.getItem("flownotes_gh_pat") && localStorage.getItem("flownotes_gh_gist_id")) {
+            pushToGhGist(true).catch(() => {});
+        }
+    }, 6000);
 }
 
 function handleExportObsidian() {

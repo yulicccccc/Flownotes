@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.7.1)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.0)
 
 ## Goal
-A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
+A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Zero-Config Cloudflare Cloud Sync & Multi-Device Workspace Hub (v3.8.0 Cloudflare 原生零配置极速云同步与跨端沙盘互通套件)**:
+  - **原生 Cloudflare Pages Function 云同步端点 (`/functions/api/sync.js`)**：基于 Cloudflare KV 永久持久化存储，彻底免除在 iPad 触屏键盘上繁琐配置 40 位 GitHub PAT 的门槛。电脑端一键推送到云端，iPad 端一键拉取或初次开机自动无感恢复；
+  - **跨设备开机自愈与初始状态智能探测 (`autoCheckCloudSync`)**：当 iPad 或新设备首次打开 FlowNotes 时，若本地处于初始默认 demo 状态，系统在启动 800ms 内自动检测云端备份并在毫秒内拉取电脑全量笔记，实现「打开即是电脑最新状态」；
+  - **全量资产无损打包 (`getFullBackupPayload`)**：完整打包 OneNote 三级笔记本目录 (`notebooksManifest`)、彩色分区 (`sectionsManifest`)、多思维图谱清单 (`mapsManifest`)、全量卡片图谱数据 (`allMapsData`)、双向链接、自由手写笔迹 (`inkStrokes`) 与番茄专注行动证据库 (`pomoEvidenceLog`)；
+  - **保存即自动云同步 (`triggerAutoGhSync`)**：在 PC 端每次修改或自动保存后 6 秒，后台静默自动推送最新增量至 Cloudflare 云端，无需反复手动点击；
+  - **统一双引擎云同步弹窗 (`#ghSyncModal`)**：将顶栏 `☁️ 云同步` 深度升级为双引擎控制中心：上层为「⚡ 1. Cloudflare 极速云同步（免配置 · 电脑 ↔ iPad 实时互通）」，包含状态徽章与推/拉一键按键；下层为「🐙 2. GitHub Gist 永久防误删归档（高级可选）」，满足双重备份需求。
 - **High-Fidelity Word-Level Typography, Color & Multi-Line Engine (v3.7.1 行内划词局部高保真字体颜色、多色荧光笔与多行卡片防截断引擎)**:
   - **划词标色全色系完美响应**：修复划词格式化分支缺少 `color-custom`、`highlight-color` 与各色别名导致的点击无响应缺陷，6 色马卡龙色珠（红/橙/黄/绿/蓝/紫）精准作用于光标高亮选中的特定字词；
   - **多色清新荧光高亮笔**：在开启 `🖍️` 荧光笔模式时，精准为划词部分渲染对应色彩的半透明荧光底色，并在序列化中以 `<mark style="background-color:...">` 完美持久化；

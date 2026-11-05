@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.7.1)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.7.1">
+    <link rel="stylesheet" href="index.css?v=3.8.0">
 </head>
 <body>
     <!-- 顶部导航栏 (v3.6.0 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
@@ -494,43 +494,74 @@
         </div>
     </div>
 
-    <!-- GitHub Gist 弹窗 -->
+    <!-- 云端全量双向同步中心 Modal (v3.8.0 跨设备免配置极速云同步套件) -->
     <div class="modal-overlay" id="ghSyncModal">
         <div class="modal-card modal-lg">
             <div class="modal-header">
-                <h3>☁️ GitHub Gist 双向同步与防误删防护</h3>
+                <h3>☁️ FlowNotes 跨设备云同步中心</h3>
                 <button class="btn-close-modal" id="closeGhModalBtn">×</button>
             </div>
             <div class="modal-body">
-                <p>将全部笔记与心流记录实时同步至你的 GitHub 私有 Gist。<b>每一次同步都会产生一条 Git Commit，哪怕在任何设备上误删，也能在 GitHub 历史记录中 100% 恢复！</b></p>
-                
-                <div class="form-group margin-top-md">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                        <label style="margin:0;"><b>1. GitHub Personal Access Token (PAT):</b></label>
-                        <a href="https://github.com/settings/tokens/new?scopes=gist&description=FlowNotes_Sync" target="_blank" rel="noopener noreferrer" style="font-size:12px; color:#38bdf8; text-decoration:underline;">🔑 1步快速生成 PAT Token</a>
+                <!-- 模块一：Cloudflare 零配置极速云同步 (推荐 · 跨设备秒连) -->
+                <div class="cloud-sync-card" style="background:rgba(56, 189, 248, 0.08); border:1px solid rgba(56, 189, 248, 0.28); border-radius:12px; padding:16px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <h4 style="margin:0; font-size:15px; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                            <span>⚡ 1. Cloudflare 极速云同步 (免配置 · 电脑 ↔ iPad 实时互通)</span>
+                        </h4>
+                        <span id="cloudflareSyncBadge" style="font-size:11px; background:#0284c7; color:#fff; padding:2px 8px; border-radius:10px; font-weight:600;">已就绪</span>
                     </div>
-                    <input type="password" id="ghPatInput" class="input-field" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                    <p style="font-size:13px; color:var(--text-secondary); line-height:1.5; margin:0 0 12px 0;">
+                        基于 Cloudflare 全球边缘通道，<b>完全免输入 GitHub Token</b>。电脑上一键推送，iPad 上一键拉取，瞬间互通全部图谱、笔记本、番茄证据与卡片！
+                    </p>
+                    <div id="cloudflareSyncStatus" style="font-size:12.5px; background:rgba(0,0,0,0.22); padding:10px 14px; border-radius:8px; margin-bottom:14px; border:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+                        <span>云端状态：<b id="cfCloudStatusText">检测中...</b></span>
+                        <small id="cfCloudTimeText" style="color:var(--text-muted);"></small>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" id="btnCloudPush" style="flex:1; min-width:180px; padding:10px 14px; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <span>🚀 电脑端：一键推送到云端</span>
+                        </button>
+                        <button class="btn btn-success" id="btnCloudPull" style="flex:1; min-width:180px; padding:10px 14px; font-weight:600; background:#10b981; border-color:#059669; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <span>📥 iPad端：一键从云端拉取</span>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="form-group margin-top-sm">
-                    <label><b>2. Gist ID:</b></label>
-                    <div class="input-with-button">
-                        <input type="text" id="ghGistIdInput" class="input-field" placeholder="Gist ID">
-                        <button class="btn btn-secondary" id="autoCreateGistBtn">🚀 自动创建 Gist</button>
+                <!-- 模块二：GitHub Gist 永久防误删归档 (可选高级备份) -->
+                <details style="border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px;">
+                    <summary style="font-size:13px; font-weight:600; color:var(--text-secondary); cursor:pointer;">
+                        <span>🐙 2. GitHub Gist 永久版本回溯与 Git 备份 (高级可选)</span>
+                    </summary>
+                    <p style="font-size:12px; color:var(--text-muted); margin:8px 0 10px 0;">
+                        可将全量笔记同步至 GitHub 私有 Gist，每次同步产生 Commit 记录，适合需要 Git 历史版本的用户。
+                    </p>
+                    <div class="form-group margin-top-sm">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                            <label style="margin:0; font-size:12px;"><b>GitHub PAT:</b></label>
+                            <a href="https://github.com/settings/tokens/new?scopes=gist&description=FlowNotes_Sync" target="_blank" rel="noopener noreferrer" style="font-size:11px; color:#38bdf8; text-decoration:underline;">🔑 生成 PAT</a>
+                        </div>
+                        <input type="password" id="ghPatInput" class="input-field" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
                     </div>
-                </div>
-
-                <div class="sync-status-box margin-top-md" id="ghSyncStatusBox">
-                    <div class="status-indicator" id="ghStatusIndicator">⚪ 状态读取中...</div>
-                    <div class="status-details" id="ghStatusDetails">已绑定你的 GitHub 私有 Gist。</div>
-                </div>
+                    <div class="form-group margin-top-sm">
+                        <label style="font-size:12px;"><b>Gist ID:</b></label>
+                        <div class="input-with-button">
+                            <input type="text" id="ghGistIdInput" class="input-field" placeholder="Gist ID">
+                            <button class="btn btn-secondary" id="autoCreateGistBtn">🚀 自动创建 Gist</button>
+                        </div>
+                    </div>
+                    <div class="sync-status-box margin-top-sm" id="ghSyncStatusBox">
+                        <div class="status-indicator" id="ghStatusIndicator">⚪ 状态读取中...</div>
+                        <div class="status-details" id="ghStatusDetails">未配置或已绑定私有 Gist。</div>
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                        <button class="btn btn-danger btn-sm" id="pullFromGhBtn">⬇️ 从 GitHub 强制覆盖</button>
+                        <button class="btn btn-secondary btn-sm" id="saveGhSettingsBtn">💾 保存 GitHub 配置</button>
+                        <button class="btn btn-primary btn-sm" id="pushToGhBtn">⬆️ 推送至 GitHub</button>
+                    </div>
+                </details>
             </div>
-            <div class="modal-footer modal-actions-between">
-                <button class="btn btn-danger" id="pullFromGhBtn">⬇️ 从 GitHub 强制覆盖本地</button>
-                <div>
-                    <button class="btn btn-secondary" id="saveGhSettingsBtn">💾 保存配置</button>
-                    <button class="btn btn-primary" id="pushToGhBtn">⬆️ 立即推送备份至 GitHub</button>
-                </div>
+            <div class="modal-footer" style="justify-content:flex-end;">
+                <button class="btn btn-secondary" id="closeGhModalBtn2">完成并关闭</button>
             </div>
         </div>
     </div>
@@ -735,6 +766,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.7.1"></script>
+    <script src="app.js?v=3.8.0"></script>
 </body>
 </html>
