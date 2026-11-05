@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.3)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.4)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.8.3">
+    <link rel="stylesheet" href="index.css?v=3.8.4">
 </head>
 <body>
     <!-- 顶部导航栏 (v3.6.0 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
@@ -87,6 +87,14 @@
                         <span class="dropdown-item-icon">📦</span>
                         <span class="dropdown-item-text">导出为 Obsidian (JSON/MD)</span>
                     </button>
+                    <button class="navbar-dropdown-item" id="btnMenuExportJson" title="导出完整 FlowNotes JSON 备份">
+                        <span class="dropdown-item-icon">⬇️</span>
+                        <span class="dropdown-item-text">导出备份 (JSON)</span>
+                    </button>
+                    <button class="navbar-dropdown-item" id="btnMenuImportFile" title="导入 Excalidraw (.excalidraw) 或 FlowNotes 备份 (.json)">
+                        <span class="dropdown-item-icon">⬆️</span>
+                        <span class="dropdown-item-text">导入备份 / Excalidraw</span>
+                    </button>
                     <div class="navbar-dropdown-divider"></div>
                     <button class="navbar-dropdown-item text-danger" id="btnLogout" title="退出登录">
                         <span class="dropdown-item-icon">🚪</span>
@@ -148,7 +156,7 @@
                         </div>
                     </div>
 
-                    <div id="io-controls">
+                    <div id="io-controls" style="display: none !important;">
                         <button class="io-btn" id="btn-export" title="导出 JSON 备份">⬇️ 导出</button>
                         <button class="io-btn" id="btn-import" title="导入 Excalidraw (.excalidraw) 或 FlowNotes 备份 (.json)">⬆️ 导入</button>
                         <button class="io-btn" id="btn-pull" title="从 GitHub 私有 Gist 拉取">↙️ 拉取</button>
@@ -743,29 +751,44 @@
         </div>
     </div>
 
-    <!-- Win-to-iPad 实时快投抓取胶囊 (v3.7.0 跨设备剪贴板沙盘联动套件) -->
-    <div id="liveCatchPill" class="live-catch-pill" style="display: none;">
-        <div class="live-catch-header">
-            <span class="live-catch-badge">⚡ 来自电脑剪贴板</span>
-            <span class="live-catch-time" id="liveCatchTime">刚刚</span>
-            <button class="live-catch-btn-close" id="btnLiveCatchDismiss" title="收起忽略">✕</button>
+    <!-- Win-to-iPad 实时跨端剪贴板悬浮胶囊套件 (v3.8.4 右下角可展开缩小智能胶囊) -->
+    <div id="liveCatchPill" class="live-catch-pill is-collapsed" title="⚡ 跨端剪贴板 (点击展开)">
+        <!-- 缩小状态：迷你胶囊条 (Mini Capsule Bar) -->
+        <div class="live-catch-mini-bar" id="liveCatchMiniBar" title="点击展开来自电脑的剪贴板">
+            <span class="live-catch-pulse-dot" id="liveCatchPulseDot"></span>
+            <span class="live-catch-mini-title">⚡ 跨端剪贴板</span>
+            <span class="live-catch-mini-snippet" id="liveCatchMiniSnippet">就绪 · 等待复制</span>
+            <span class="live-catch-mini-badge" id="liveCatchMiniTime">刚刚</span>
+            <button class="live-catch-mini-btn-expand" id="btnLiveCatchExpand" title="展开详情">▲</button>
         </div>
-        <div class="live-catch-preview" id="liveCatchPreview"></div>
-        <div class="live-catch-actions">
-            <button class="live-catch-btn btn-catch-make" id="btnLiveCatchMakeNode" title="一键生成新卡片落入思维导图">
-                <span>➕ 生成卡片</span>
-            </button>
-            <button class="live-catch-btn btn-catch-insert" id="btnLiveCatchInsert" title="插入当前编辑中的卡片">
-                <span>✍️ 插入卡片</span>
-            </button>
-            <button class="live-catch-btn btn-catch-copy" id="btnLiveCatchCopy" title="写进 iPad 系统剪贴板">
-                <span>📑 复制到 iPad</span>
-            </button>
+
+        <!-- 展开状态：完整操作面板 (Expanded Panel) -->
+        <div class="live-catch-expanded-body" id="liveCatchExpandedBody">
+            <div class="live-catch-header">
+                <span class="live-catch-badge">⚡ 来自电脑剪贴板</span>
+                <span class="live-catch-time" id="liveCatchTime">刚刚</span>
+                <div class="live-catch-header-tools">
+                    <button class="live-catch-btn-tool btn-tool-minimize" id="btnLiveCatchMinimize" title="收起为迷你胶囊">➖</button>
+                    <button class="live-catch-btn-tool btn-tool-close" id="btnLiveCatchDismiss" title="清空并收起">✕</button>
+                </div>
+            </div>
+            <div class="live-catch-preview" id="liveCatchPreview">暂无最新剪贴板内容，请在电脑上复制任意文字即可自动快投到此处。</div>
+            <div class="live-catch-actions">
+                <button class="live-catch-btn btn-catch-make" id="btnLiveCatchMakeNode" title="一键生成新卡片落入思维导图">
+                    <span>➕ 生成卡片</span>
+                </button>
+                <button class="live-catch-btn btn-catch-insert" id="btnLiveCatchInsert" title="插入当前编辑中的卡片">
+                    <span>✍️ 插入卡片</span>
+                </button>
+                <button class="live-catch-btn btn-catch-copy" id="btnLiveCatchCopy" title="写进 iPad 系统剪贴板">
+                    <span>📑 复制到 iPad</span>
+                </button>
+            </div>
         </div>
     </div>
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.8.3"></script>
+    <script src="app.js?v=3.8.4"></script>
 </body>
 </html>

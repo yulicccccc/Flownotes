@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.3 loaded — Full-Perimeter Card Borders & Zero-Clip ForeignObject Engine");
+    console.log("[FlowNotes] v3.8.4 loaded — Expandable/Collapsible Clipboard Floating Pill & Bottom UI Cleanliness Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -3814,9 +3814,28 @@ function initEvents() {
         mdColorInput.addEventListener("mousedown", (e) => e.preventDefault());
     }
 
-    // 导出 Obsidian
-    document.getElementById("exportObsidianBtn").addEventListener("click", handleExportObsidian);
-    document.getElementById("btn-export").addEventListener("click", handleExportObsidian);
+    // 导出与导入（顶栏下拉菜单与历史保留按钮双向绑定）
+    const btnExpObsidian = document.getElementById("exportObsidianBtn");
+    if (btnExpObsidian) btnExpObsidian.addEventListener("click", handleExportObsidian);
+    const btnExport = document.getElementById("btn-export");
+    if (btnExport) btnExport.addEventListener("click", handleExportObsidian);
+    const btnMenuExportJson = document.getElementById("btnMenuExportJson");
+    if (btnMenuExportJson) {
+        btnMenuExportJson.addEventListener("click", () => {
+            const dd = document.getElementById("navbarMoreDropdown");
+            if (dd) dd.style.display = "none";
+            handleExportObsidian();
+        });
+    }
+    const btnMenuImportFile = document.getElementById("btnMenuImportFile");
+    if (btnMenuImportFile) {
+        btnMenuImportFile.addEventListener("click", () => {
+            const dd = document.getElementById("navbarMoreDropdown");
+            if (dd) dd.style.display = "none";
+            const fi = document.getElementById("file-input");
+            if (fi) fi.click();
+        });
+    }
     document.getElementById("closeModalBtn").addEventListener("click", () => document.getElementById("exportModal").style.display = "none");
     document.getElementById("confirmExportBtn").addEventListener("click", () => document.getElementById("exportModal").style.display = "none");
 
@@ -10231,57 +10250,107 @@ let liveCatchPollTimer = null;
 
 function initLiveClipboardCatch() {
     const pill = document.getElementById("liveCatchPill");
+    const miniBar = document.getElementById("liveCatchMiniBar");
+    const miniSnippet = document.getElementById("liveCatchMiniSnippet");
+    const miniTime = document.getElementById("liveCatchMiniTime");
+    const btnExpand = document.getElementById("btnLiveCatchExpand");
+    const btnMinimize = document.getElementById("btnLiveCatchMinimize");
+    const btnDismiss = document.getElementById("btnLiveCatchDismiss");
     const previewEl = document.getElementById("liveCatchPreview");
     const timeEl = document.getElementById("liveCatchTime");
     const btnMake = document.getElementById("btnLiveCatchMakeNode");
     const btnInsert = document.getElementById("btnLiveCatchInsert");
     const btnCopy = document.getElementById("btnLiveCatchCopy");
-    const btnDismiss = document.getElementById("btnLiveCatchDismiss");
 
     if (!pill || !previewEl) return;
 
-    // 从 localStorage 读取上次处理过的剪贴板时间戳，防止刷新页面时重复弹窗
+    // 默认恢复折叠状态
+    const isInitiallyCollapsed = localStorage.getItem("flownotes_live_catch_collapsed") !== "false";
+    if (isInitiallyCollapsed) {
+        pill.classList.add("is-collapsed");
+    } else {
+        pill.classList.remove("is-collapsed");
+    }
+
+    // 从 localStorage 读取历史剪贴板缓存，初始显示在胶囊中
     const storedLastTs = parseInt(localStorage.getItem("flownotes_last_clipboard_ts") || "0", 10);
     lastLiveCatchTimestamp = storedLastTs || Date.now();
+    const storedSnippet = localStorage.getItem("flownotes_last_clipboard_snippet") || "";
+    if (storedSnippet) {
+        currentLiveCatchSnippet = { text: storedSnippet, timestamp: lastLiveCatchTimestamp };
+        if (miniSnippet) miniSnippet.textContent = storedSnippet.length > 18 ? storedSnippet.substring(0, 18) + "..." : storedSnippet;
+        previewEl.textContent = storedSnippet;
+    }
+
+    function expandLiveCatch() {
+        pill.classList.remove("is-collapsed");
+        localStorage.setItem("flownotes_live_catch_collapsed", "false");
+    }
+
+    function collapseLiveCatch() {
+        pill.classList.add("is-collapsed");
+        localStorage.setItem("flownotes_live_catch_collapsed", "true");
+        if (liveCatchDismissTimer) {
+            clearTimeout(liveCatchDismissTimer);
+            liveCatchDismissTimer = null;
+        }
+    }
+
+    if (miniBar) {
+        miniBar.addEventListener("click", () => expandLiveCatch());
+    }
+    if (btnExpand) {
+        btnExpand.addEventListener("click", (e) => {
+            e.stopPropagation();
+            expandLiveCatch();
+        });
+    }
+    if (btnMinimize) {
+        btnMinimize.addEventListener("click", (e) => {
+            e.stopPropagation();
+            collapseLiveCatch();
+        });
+    }
+    if (btnDismiss) {
+        btnDismiss.addEventListener("click", (e) => {
+            e.stopPropagation();
+            collapseLiveCatch();
+        });
+    }
 
     function showLiveCatch(payload) {
         currentLiveCatchSnippet = payload;
+        window.currentLiveCatchSnippet = payload;
         const text = (payload.text || "").trim();
         if (!text) return;
 
-        // 截取前 120 字符优雅展示
-        previewEl.textContent = text.length > 120 ? text.substring(0, 120) + "..." : text;
-        if (timeEl) {
-            const date = new Date(payload.timestamp || Date.now());
-            const hours = String(date.getHours()).padStart(2, "0");
-            const mins = String(date.getMinutes()).padStart(2, "0");
-            const secs = String(date.getSeconds()).padStart(2, "0");
-            timeEl.textContent = `${hours}:${mins}:${secs}`;
+        localStorage.setItem("flownotes_last_clipboard_snippet", text);
+        previewEl.textContent = text;
+        if (miniSnippet) {
+            miniSnippet.textContent = text.length > 18 ? text.substring(0, 18) + "..." : text;
         }
 
-        pill.style.display = "flex";
+        const date = new Date(payload.timestamp || Date.now());
+        const timeStr = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}:${String(date.getSeconds()).padStart(2, "0")}`;
+        if (timeEl) timeEl.textContent = timeStr;
+        if (miniTime) miniTime.textContent = timeStr;
 
-        // 自动隐藏倒计时（35秒后自动淡化收起，不打扰阅读）
+        // 收到新剪贴板：自动平滑展开并展示新内容
+        expandLiveCatch();
+
+        // 25 秒后若无操作自动优雅收回为迷你胶囊，绝不阻挡画布
         if (liveCatchDismissTimer) clearTimeout(liveCatchDismissTimer);
         liveCatchDismissTimer = setTimeout(() => {
-            pill.style.display = "none";
-        }, 35000);
-    }
-
-    function dismissLiveCatch() {
-        pill.style.display = "none";
-        if (liveCatchDismissTimer) clearTimeout(liveCatchDismissTimer);
-    }
-
-    if (btnDismiss) {
-        btnDismiss.addEventListener("click", dismissLiveCatch);
+            collapseLiveCatch();
+        }, 25000);
     }
 
     // 1. ➕ 一键生成新卡片落入思维导图
     if (btnMake) {
         btnMake.addEventListener("click", () => {
-            if (!currentLiveCatchSnippet || !currentLiveCatchSnippet.text) return;
-            const text = currentLiveCatchSnippet.text.trim();
+            const snippet = currentLiveCatchSnippet || window.currentLiveCatchSnippet;
+            if (!snippet || !snippet.text) return;
+            const text = snippet.text.trim();
             const nowTs = Date.now();
             const newId = `node_${nowTs}`;
 
@@ -10345,15 +10414,16 @@ function initLiveClipboardCatch() {
             renderEditor();
 
             showToast("✨ 来自 PC 剪贴板的内容已生成新卡片！");
-            dismissLiveCatch();
+            collapseLiveCatch();
         });
     }
 
     // 2. ✍️ 插入当前卡片
     if (btnInsert) {
         btnInsert.addEventListener("click", () => {
-            if (!currentLiveCatchSnippet || !currentLiveCatchSnippet.text) return;
-            const text = currentLiveCatchSnippet.text.trim();
+            const snippet = currentLiveCatchSnippet || window.currentLiveCatchSnippet;
+            if (!snippet || !snippet.text) return;
+            const text = snippet.text.trim();
             if (selectedNode) {
                 selectedNode.content = selectedNode.content ? (selectedNode.content + "\n\n" + text) : text;
                 scheduleSaveGraph(true);
@@ -10364,21 +10434,22 @@ function initLiveClipboardCatch() {
                 // 没有选中卡片则退化为生成新卡片
                 if (btnMake) btnMake.click();
             }
-            dismissLiveCatch();
+            collapseLiveCatch();
         });
     }
 
     // 3. 📑 复制到 iPad 剪贴板
     if (btnCopy) {
         btnCopy.addEventListener("click", async () => {
-            if (!currentLiveCatchSnippet || !currentLiveCatchSnippet.text) return;
+            const snippet = currentLiveCatchSnippet || window.currentLiveCatchSnippet;
+            if (!snippet || !snippet.text) return;
             try {
-                await navigator.clipboard.writeText(currentLiveCatchSnippet.text);
+                await navigator.clipboard.writeText(snippet.text);
                 showToast("📋 已成功写入 iPad 系统剪贴板！");
             } catch (err) {
                 showToast("📋 已同步，可长按粘贴");
             }
-            dismissLiveCatch();
+            collapseLiveCatch();
         });
     }
 

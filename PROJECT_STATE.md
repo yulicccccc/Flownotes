@@ -1,8 +1,14 @@
-# Project State: FlowNotes (v3.8.3)
+# Project State: FlowNotes (v3.8.4)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.3`
+- **Current Version**: `v3.8.4`
 - **Latest Releases**:
+  - `v3.8.4`:
+    - **Expandable & Collapsible Clipboard Floating Pill & Bottom UI Cleanliness Suite (v3.8.4 右下角极简跨端剪贴板智能悬浮胶囊与底部纯净工作台套件)**:
+      - **彻底清除右下角重复冗余工具栏 (`#io-controls`)**：移除/隐藏右下角与顶栏「☁️ 云同步」完全重复的冗余按钮条（`[⬇️ 导出]`、`[⬆️ 导入]`、`[↙️ 拉取]`、`[🔐 密钥]` 与 `[🟣 未配置 GitHub...]`），消除视觉噪音与空间遮挡；同时将数据备份与导入功能完整收纳至顶栏右上角「⋯」更多操作菜单（`⬇️ 导出 FlowNotes 备份 (JSON)` 与 `⬆️ 导入备份或 Excalidraw`）；
+      - **右下角常驻 iPad 无边记风格「可展开/可收缩」跨端剪贴板悬浮胶囊 (`#liveCatchPill`)**：平时以圆润精巧的毛玻璃悬浮胶囊优雅停靠在右下角（`⚡ 跨端剪贴板 · 就绪 ▲`），带柔和呼吸脉冲小圆点与最新文字摘要，点按任意位置丝滑展开；展开后呈现剪贴板完整预览与三大黄金动作（`➕ 生成卡片`、`✍️ 插入当前卡片`、`📑 复制到 iPad`），右上角提供 `➖` 一键收缩回迷你胶囊与 `✕` 清空忽略；
+      - **跨端智能感知与自愈收起**：当电脑端通过后台脚本复制新内容时，胶囊自动点亮展开并呈现最新文字；25 秒无交互或点击生成卡片后自动平滑收缩回胶囊，既不错过灵感，又绝不遮挡画布与阅读心流；
+      - **状态与内容记忆持久化**：胶囊折叠状态与最后一条快投文本通过 `localStorage` 自动持久化记忆，刷新无感恢复。
   - `v3.8.3`:
     - **Full-Perimeter Card Borders, Zero-Clip ForeignObject & Scroll-Proof Typography Engine (v3.8.3 完整外周高保真边框、SVG ForeignObject 零剪裁与光标零位移防截断引擎)**:
       - **根治卡片左侧边框与左圆角凭空消失的切边 Bug**：彻底恢复 `.node-card-fo` 为 `overflow: visible;`，允许卡片的外周发光阴影 (`box-shadow 2px`)、4px 左侧彩色强调条与边缘 8 向拉动手柄自然溢出渲染，严禁 SVG 容器在 `(0, 0)` 处暴力裁切；

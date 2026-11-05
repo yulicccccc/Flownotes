@@ -728,16 +728,7 @@ html[data-theme="light"] .dock-zoom-group {
 }
 
 #io-controls {
-    position: absolute;
-    bottom: 16px;
-    right: 16px;
-    z-index: 20;
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 8px;
-    pointer-events: none;
+    display: none !important;
 }
 
 .io-btn {
@@ -3856,42 +3847,171 @@ mark,
 }
 
 /* ==========================================================================
-   v3.7.0 Win-to-iPad 实时快投抓取胶囊 (Live Catch Capsule Suite)
+   v3.8.4 右下角极简跨端剪贴板智能悬浮胶囊套件 (Expandable & Collapsible Clipboard Suite)
    ========================================================================== */
+
 .live-catch-pill {
     position: fixed;
-    bottom: 24px;
-    right: 24px;
-    z-index: 9999;
-    width: 360px;
-    max-width: calc(100vw - 36px);
-    background: rgba(15, 23, 42, 0.88);
+    bottom: 18px;
+    right: 18px;
+    z-index: 999;
+    background: rgba(15, 23, 42, 0.92);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: 16px;
-    padding: 12px 14px;
-    box-shadow: 0 20px 48px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.5), 0 0 16px rgba(56, 189, 248, 0.15);
     color: #f8fafc;
     font-family: inherit;
-    animation: liveCatchSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    user-select: none;
+    transition: all 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+    box-sizing: border-box;
 }
 
 [data-theme="light"] .live-catch-pill {
-    background: rgba(255, 255, 255, 0.92);
-    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(2, 132, 199, 0.32);
     color: #0f172a;
-    box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 10px 28px -4px rgba(15, 23, 42, 0.15), 0 0 14px rgba(2, 132, 199, 0.12);
 }
 
-@keyframes liveCatchSlideUp {
+/* 1. 缩小形态：迷你胶囊条 (Mini Pill) */
+.live-catch-pill.is-collapsed {
+    width: auto;
+    max-width: 320px;
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+}
+
+.live-catch-pill.is-collapsed:hover {
+    transform: translateY(-2px) scale(1.03);
+    border-color: rgba(56, 189, 248, 0.65);
+    box-shadow: 0 14px 36px -4px rgba(0, 0, 0, 0.6), 0 0 20px rgba(56, 189, 248, 0.28);
+}
+
+[data-theme="light"] .live-catch-pill.is-collapsed:hover {
+    border-color: rgba(2, 132, 199, 0.55);
+    box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.2), 0 0 18px rgba(2, 132, 199, 0.2);
+}
+
+.live-catch-pill.is-collapsed .live-catch-expanded-body {
+    display: none !important;
+}
+
+.live-catch-mini-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+}
+
+.live-catch-pulse-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 8px #10b981;
+    flex-shrink: 0;
+    animation: liveCatchPulse 2s infinite ease-in-out;
+}
+
+@keyframes liveCatchPulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 0.9;
+    }
+    50% {
+        transform: scale(1.35);
+        opacity: 1;
+        box-shadow: 0 0 12px #10b981;
+    }
+}
+
+.live-catch-mini-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #38bdf8;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+}
+
+[data-theme="light"] .live-catch-mini-title {
+    color: #0284c7;
+}
+
+.live-catch-mini-snippet {
+    font-size: 11.5px;
+    color: #94a3b8;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+[data-theme="light"] .live-catch-mini-snippet {
+    color: #64748b;
+}
+
+.live-catch-mini-badge {
+    font-size: 10px;
+    color: #64748b;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    white-space: nowrap;
+}
+
+[data-theme="light"] .live-catch-mini-badge {
+    background: rgba(0, 0, 0, 0.05);
+    color: #64748b;
+}
+
+.live-catch-mini-btn-expand {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 10px;
+    padding: 0 2px;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform 0.2s ease, color 0.15s ease;
+    margin-left: auto;
+}
+
+.live-catch-pill.is-collapsed:hover .live-catch-mini-btn-expand {
+    transform: translateY(-1px);
+    color: #38bdf8;
+}
+
+/* 2. 展开形态：完整面板 (Expanded Card Panel) */
+.live-catch-pill:not(.is-collapsed) {
+    width: 350px;
+    max-width: calc(100vw - 36px);
+    border-radius: 16px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: liveCatchExpand 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.live-catch-pill:not(.is-collapsed) .live-catch-mini-bar {
+    display: none !important;
+}
+
+.live-catch-expanded-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+@keyframes liveCatchExpand {
     from {
-        opacity: 0;
-        transform: translateY(24px) scale(0.96);
+        opacity: 0.85;
+        transform: translateY(12px) scale(0.96);
     }
     to {
         opacity: 1;
@@ -3904,6 +4024,35 @@ mark,
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+}
+
+.live-catch-header-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.live-catch-btn-tool {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 3px 6px;
+    border-radius: 6px;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.live-catch-btn-tool:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #f1f5f9;
+    transform: scale(1.1);
+}
+
+[data-theme="light"] .live-catch-btn-tool:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #0f172a;
 }
 
 .live-catch-badge {
@@ -3933,28 +4082,6 @@ mark,
     margin-left: auto;
 }
 
-.live-catch-btn-close {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    font-size: 13px;
-    cursor: pointer;
-    padding: 2px 6px;
-    border-radius: 6px;
-    line-height: 1;
-    transition: background 0.15s, color 0.15s;
-}
-
-.live-catch-btn-close:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #f1f5f9;
-}
-
-[data-theme="light"] .live-catch-btn-close:hover {
-    background: rgba(0, 0, 0, 0.06);
-    color: #0f172a;
-}
-
 .live-catch-preview {
     font-size: 12.5px;
     line-height: 1.45;
@@ -3962,20 +4089,17 @@ mark,
     background: rgba(0, 0, 0, 0.25);
     padding: 6px 10px;
     border-radius: 8px;
-    max-height: 58px;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    text-overflow: ellipsis;
+    max-height: 64px;
+    overflow-y: auto;
     border: 1px solid rgba(255, 255, 255, 0.06);
     word-break: break-word;
+    user-select: text;
 }
 
 [data-theme="light"] .live-catch-preview {
-    background: rgba(241, 245, 249, 0.7);
+    background: rgba(241, 245, 249, 0.75);
     color: #334155;
-    border-color: rgba(0, 0, 0, 0.05);
+    border-color: rgba(0, 0, 0, 0.06);
 }
 
 .live-catch-actions {
