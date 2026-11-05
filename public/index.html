@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.4)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.5)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.8.4">
+    <link rel="stylesheet" href="index.css?v=3.8.5">
 </head>
 <body>
     <!-- 顶部导航栏 (v3.6.0 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
@@ -125,23 +125,97 @@
                     <svg id="graph-svg"></svg>
                     <input type="text" id="edit-input" autocomplete="off" spellcheck="false">
 
-                    <!-- 画布左上角极简单行操作栏 (v3.5.1 单行防碰撞极简布局) -->
+                    <!-- 画布左上角极简单行操作栏 (v3.8.5 净化精简 + 箭头分类面板) -->
                     <div id="nav-controls" class="canvas-action-pill-bar">
-                        <button class="nav-btn" id="btn-add-child" title="衍生子卡片 (Tab 键)">+子</button>
-                        <button class="nav-btn" id="btn-add-sibling" title="新增同级卡片 (Enter 键)">+同</button>
-                        <button class="nav-btn" id="btn-relation" title="连接有向箭头 (L 键)">➔</button>
+                        <button class="nav-btn nav-btn-dropdown" id="btn-relation" title="箭头分类与风格选择 (快捷键 L)"><span id="btn-relation-icon">➔</span><span class="nav-btn-caret">▾</span></button>
                         <button class="nav-btn" id="btn-ink-draw" title="OneNote 自由手绘/荧光笔圈注 (按 P 切换)">🖍️</button>
-                        <button class="nav-btn" id="btn-marquee" title="切换手势：✋ 0ms丝滑抓手 / 🔳 左键框选">✋</button>
-                        <button class="nav-btn" id="btn-undo" title="撤销 (Ctrl + Z)">↩️</button>
-                        <button class="nav-btn" id="btn-redo" title="重做 (Ctrl + Y)">↪️</button>
                         <button class="nav-btn" id="btn-outline" title="节点目录大纲">☰</button>
                         <button class="nav-btn" id="btn-toggle-editor" title="展开/收起右侧详细笔记 (Alt+E)">📖</button>
                         <button class="nav-btn" id="btn-hint" title="显示/隐藏快捷键提示面板">💡</button>
-                        <!-- 隐藏保留兼容性 -->
+                        <!-- 隐藏保留 DOM 与快捷键兼容性 (用户标记精简) -->
+                        <button class="nav-btn" id="btn-add-child" title="衍生子卡片 (Tab 键)" style="display:none;"></button>
+                        <button class="nav-btn" id="btn-add-sibling" title="新增同级卡片 (Enter 键)" style="display:none;"></button>
+                        <button class="nav-btn" id="btn-marquee" title="切换手势" style="display:none;"></button>
+                        <button class="nav-btn" id="btn-undo" title="撤销 (Ctrl + Z)" style="display:none;"></button>
+                        <button class="nav-btn" id="btn-redo" title="重做 (Ctrl + Y)" style="display:none;"></button>
                         <button id="btn-organizer" style="display:none;"></button>
                         <button id="btn-articles" style="display:none;"></button>
                         <button id="btn-search" style="display:none;"></button>
                         <button id="btn-multi-select" style="display:none;"></button>
+                    </div>
+
+                    <!-- 箭头分类与风格选择面板 (v3.8.5) -->
+                    <div id="arrow-style-popover" class="arrow-style-popover" style="display: none;">
+                        <div class="popover-arrow-header">
+                            <span class="popover-arrow-title">🏹 箭头分类与风格</span>
+                            <span class="popover-arrow-hint">点击即设默认，连线或按 L 立即生效</span>
+                        </div>
+                        <div class="popover-arrow-list">
+                            <div class="arrow-style-item active" data-style="solid">
+                                <div class="arrow-preview-pill">
+                                    <svg viewBox="0 0 64 16" class="arrow-preview-svg">
+                                        <line x1="4" y1="8" x2="52" y2="8" stroke="currentColor" stroke-width="2.2" marker-end="url(#arrow-preview-marker)"/>
+                                    </svg>
+                                </div>
+                                <div class="arrow-style-meta">
+                                    <div class="arrow-style-label">实线箭头 <span class="arrow-style-badge">默认</span></div>
+                                    <div class="arrow-style-desc">标准层级与直接因果</div>
+                                </div>
+                                <span class="arrow-style-check">✓</span>
+                            </div>
+
+                            <div class="arrow-style-item" data-style="dashed">
+                                <div class="arrow-preview-pill">
+                                    <svg viewBox="0 0 64 16" class="arrow-preview-svg">
+                                        <line x1="4" y1="8" x2="52" y2="8" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrow-preview-marker)"/>
+                                    </svg>
+                                </div>
+                                <div class="arrow-style-meta">
+                                    <div class="arrow-style-label">虚线箭头</div>
+                                    <div class="arrow-style-desc">弱关联 / 推测 / 补充参考</div>
+                                </div>
+                                <span class="arrow-style-check">✓</span>
+                            </div>
+
+                            <div class="arrow-style-item" data-style="dotted">
+                                <div class="arrow-preview-pill">
+                                    <svg viewBox="0 0 64 16" class="arrow-preview-svg">
+                                        <line x1="4" y1="8" x2="52" y2="8" stroke="currentColor" stroke-width="2.2" stroke-dasharray="2.5 4" marker-end="url(#arrow-preview-marker)"/>
+                                    </svg>
+                                </div>
+                                <div class="arrow-style-meta">
+                                    <div class="arrow-style-label">点状箭头</div>
+                                    <div class="arrow-style-desc">待验证 / 存疑 / 临时想法</div>
+                                </div>
+                                <span class="arrow-style-check">✓</span>
+                            </div>
+
+                            <div class="arrow-style-item" data-style="bidirectional">
+                                <div class="arrow-preview-pill">
+                                    <svg viewBox="0 0 64 16" class="arrow-preview-svg">
+                                        <line x1="12" y1="8" x2="52" y2="8" stroke="currentColor" stroke-width="2.2" marker-start="url(#arrow-preview-marker-start)" marker-end="url(#arrow-preview-marker)"/>
+                                    </svg>
+                                </div>
+                                <div class="arrow-style-meta">
+                                    <div class="arrow-style-label">双向箭头</div>
+                                    <div class="arrow-style-desc">双向因果 / 互相影响 / 协同</div>
+                                </div>
+                                <span class="arrow-style-check">✓</span>
+                            </div>
+
+                            <div class="arrow-style-item" data-style="bold">
+                                <div class="arrow-preview-pill">
+                                    <svg viewBox="0 0 64 16" class="arrow-preview-svg">
+                                        <line x1="4" y1="8" x2="50" y2="8" stroke="currentColor" stroke-width="3.8" marker-end="url(#arrow-preview-marker-bold)"/>
+                                    </svg>
+                                </div>
+                                <div class="arrow-style-meta">
+                                    <div class="arrow-style-label">粗体主线</div>
+                                    <div class="arrow-style-desc">核心脉络 / 关键结论</div>
+                                </div>
+                                <span class="arrow-style-check">✓</span>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- 画布左下角视口与缩放 Dock (v3.5.1 Miro/Figma 黄金左下角) -->
@@ -789,6 +863,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.8.4"></script>
+    <script src="app.js?v=3.8.5"></script>
 </body>
 </html>

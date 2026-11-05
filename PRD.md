@@ -1,9 +1,20 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.4)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.5)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Simplified Canvas Toolbar & Multi-Style Arrow Category Suite (v3.8.5 画布左上角极简单行工具栏精炼与多分类箭头体系套件)**:
+  - **彻底精简左上角操作栏 (`#nav-controls`)**：根据用户视觉标记要求，果断剔除 5 个冗余或重复按钮（`+子`、`+同`、`✋ 抓手`、`↩️ 撤销`、`↪️ 重做`），将 DOM 优雅隐藏保持快捷键（`Tab`、`Enter`、`Ctrl+Z`、`Ctrl+Y`、`Space`）100% 完整可用，操作栏仅纯净保留 5 个核心功能按钮：`➔ ▾ (箭头连线与分类)`、`🖍️ (手绘圈注)`、`☰ (大纲目录)`、`📖 (详细笔记)`、`💡 (快捷键提示)`；
+  - **多分类箭头体系 (`Multi-Style Arrow Categories`)**：全新设计并引入 5 大标准箭头分类与线型体系：
+    1. **实线箭头 (Solid Line)**：标准有向箭头，用于确定性父子层级与直接因果关系；
+    2. **虚线箭头 (Dashed Line)**：经典虚线箭头，用于弱关联、假设推测与补充参考；
+    3. **点状箭头 (Dotted Line)**：细密点线箭头，用于待验证假说、存疑与临时发散灵感；
+    4. **双向箭头 (Bidirectional Arrow)**：双向两端箭头 (`⇠──➔`)，用于双向协同、互为因果与相互影响机制；
+    5. **粗体主线 (Bold Line)**：加粗 3.8px 厚实箭头 (`━━➔`)，用于核心论点主干与关键结论脉络；
+  - **左上角下拉分类选择面板 (`#arrow-style-popover`)**：点击 `➔ ▾` 按钮即时呼出磨砂玻璃悬浮面板，可视化呈现 5 种箭头的 SVG 动态预览、中文分类名称、应用场景说明与激活对勾；点击任意风格即可设为全局默认，或秒级作用于当前选中的箭头；
+  - **箭头连线悬浮操作栏风格切换器 (`#link-action-bar`)**：在画布上点击任意箭头时，浮动工具栏内置集成 5 色风格切换按键（`──➔ 实线`、`- - ➔ 虚线`、`···➔ 点线`、`⇠──➔ 双向`、`━━➔ 粗体`），实现单次点击就地无缝转换箭头分类与线型；
+  - **全链路高保真渲染与无损数据存储**：在 D3 SVG 图谱渲染器中针对每种线型适配专属 `marker-start`、`marker-end`、`stroke-dasharray` 与卡片边缘防倒刺交点算法；树状连线持久化于 `childNode.arrowStyle`，关系连线持久化于 `link.arrowStyle`，并自动无缝同步至云端与 GitHub Gist。
 - **Expandable & Collapsible Clipboard Floating Pill & Bottom UI Cleanliness Suite (v3.8.4 右下角极简跨端剪贴板智能悬浮胶囊与底部纯净工作台套件)**:
   - **彻底清除右下角重复冗余工具栏 (`#io-controls`)**：移除/隐藏右下角与顶栏「☁️ 云同步」完全重复的冗余按钮条（`[⬇️ 导出]`、`[⬆️ 导入]`、`[↙️ 拉取]`、`[🔐 密钥]` 与 `[🟣 未配置 GitHub...]`），消除视觉噪音与空间遮挡；同时将数据备份与导入功能完整收纳至顶栏右上角「⋯」更多操作菜单（`⬇️ 导出 FlowNotes 备份 (JSON)` 与 `⬆️ 导入备份或 Excalidraw`）；
   - **右下角常驻 iPad 无边记风格「可展开/可收缩」跨端剪贴板悬浮胶囊 (`#liveCatchPill`)**：平时以圆润精巧的毛玻璃悬浮胶囊优雅停靠在右下角（`⚡ 跨端剪贴板 · 就绪 ▲`），带柔和呼吸脉冲小圆点与最新文字摘要，点按任意位置丝滑展开；展开后呈现剪贴板完整预览与三大黄金动作（`➕ 生成卡片`、`✍️ 插入当前卡片`、`📑 复制到 iPad`），右上角提供 `➖` 一键收缩回迷你胶囊与 `✕` 清空忽略；

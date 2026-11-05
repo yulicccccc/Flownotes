@@ -52,6 +52,31 @@ let isTouchMultiSelectMode = false;
 let isSpacePressed = false;
 let spacePanMoved = false;
 let selectedLink = null;
+let activeArrowStyle = localStorage.getItem("flownotes_active_arrow_style") || "solid";
+
+function getArrowStyleName(style) {
+    const map = {
+        solid: "实线箭头",
+        dashed: "虚线箭头",
+        dotted: "点状箭头",
+        bidirectional: "双向箭头",
+        bold: "粗体主线"
+    };
+    return map[style] || "实线箭头";
+}
+
+function updateArrowToolbarIcon(style = activeArrowStyle) {
+    const iconEl = document.getElementById("btn-relation-icon");
+    if (!iconEl) return;
+    const iconMap = {
+        solid: "➔",
+        dashed: "⇢",
+        dotted: "┈➔",
+        bidirectional: "⇄",
+        bold: "➜"
+    };
+    iconEl.textContent = iconMap[style] || "➔";
+}
 let copiedNodesBuffer = [];
 let lastCanvasMouseCoords = { x: 450, y: 320 };
 let allMapsMemoryCache = {};
@@ -261,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.4 loaded — Expandable/Collapsible Clipboard Floating Pill & Bottom UI Cleanliness Suite");
+    console.log("[FlowNotes] v3.8.5 loaded — Simplified Canvas Toolbar & Multi-Style Arrow Category Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -269,6 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initIntuitiveActionBarsAndContextMenu();
     initClipboardPaste();
     initLiveClipboardCatch(); // v3.7.0 Win-to-iPad 实时快投抓取引擎
+    initArrowStyleSuite(); // v3.8.5 箭头分类与风格选择套件
     initV31Enhancements();
     initV32XMindOneNoteSuite();
     initPomodoroSuite();
@@ -589,25 +615,27 @@ function cleanLinks() {
     const treeLinks = [];
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
 
-    // 1. 唯一真理来源：根据每个节点的 parentId 精确生成树状连线（并保留箭头上的关系词 edgeLabel）
+    // 1. 唯一真理来源：根据每个节点的 parentId 精确生成树状连线（并保留箭头上的关系词 edgeLabel 与 arrowStyle）
     nodes.forEach(n => {
         if (n.parentId && nodeMap.has(n.parentId)) {
             treeLinks.push({
                 source: cleanNodeId(n.parentId),
                 target: cleanNodeId(n.id),
-                label: n.edgeLabel || ""
+                label: n.edgeLabel || "",
+                arrowStyle: n.arrowStyle || "solid"
             });
         }
     });
 
-    // 2. 包含保留用户自定义的 relation 关系虚线（及关系词 label）
+    // 2. 包含保留用户自定义的 relation 关系虚线（及关系词 label 与 arrowStyle）
     const relationLinks = (links || [])
         .filter(l => l && l.type === "relation")
         .map(l => ({
             source: cleanNodeId(l.source),
             target: cleanNodeId(l.target),
             type: "relation",
-            label: l.label || ""
+            label: l.label || "",
+            arrowStyle: l.arrowStyle || "dashed"
         }));
 
     return [...treeLinks, ...relationLinks];
@@ -788,6 +816,7 @@ function initD3Mindmap() {
     }
     defs.selectAll(".flow-arrow-marker").remove();
 
+    // 1. 标准结束箭头 (树状实线/虚线/点线 ➔)
     defs.append("marker")
         .attr("class", "flow-arrow-marker")
         .attr("id", "arrow-marker")
@@ -801,6 +830,7 @@ function initD3Mindmap() {
         .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
         .attr("fill", "rgba(129, 140, 248, 0.95)");
 
+    // 2. 关系连线结束箭头 (青色 ➔)
     defs.append("marker")
         .attr("class", "flow-arrow-marker")
         .attr("id", "arrow-marker-relation")
@@ -813,6 +843,102 @@ function initD3Mindmap() {
         .append("path")
         .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
         .attr("fill", "rgba(56, 189, 248, 0.95)");
+
+    // 3. 双向起点反向箭头 (树状连线 ⇠)
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-marker-start")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 1)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M 8 1.5 L 0 5 L 8 8.5 z")
+        .attr("fill", "rgba(129, 140, 248, 0.95)");
+
+    // 4. 双向起点反向箭头 (关系连线 ⇠)
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-marker-relation-start")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 1)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M 8 1.5 L 0 5 L 8 8.5 z")
+        .attr("fill", "rgba(56, 189, 248, 0.95)");
+
+    // 5. 粗体主线结束箭头 (粗体实线 ➜)
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-marker-bold")
+        .attr("viewBox", "0 0 12 12")
+        .attr("refX", 8)
+        .attr("refY", 6)
+        .attr("markerWidth", 7.5)
+        .attr("markerHeight", 7.5)
+        .attr("orient", "auto-start-reverse")
+        .append("path")
+        .attr("d", "M 0 1.5 L 10 6 L 0 10.5 z")
+        .attr("fill", "rgba(129, 140, 248, 0.95)");
+
+    // 6. 粗体关系连线结束箭头 (粗体关系线 ➜)
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-marker-relation-bold")
+        .attr("viewBox", "0 0 12 12")
+        .attr("refX", 8)
+        .attr("refY", 6)
+        .attr("markerWidth", 7.5)
+        .attr("markerHeight", 7.5)
+        .attr("orient", "auto-start-reverse")
+        .append("path")
+        .attr("d", "M 0 1.5 L 10 6 L 0 10.5 z")
+        .attr("fill", "rgba(56, 189, 248, 0.95)");
+
+    // 7. 预览浮动面板内置 markers
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-preview-marker")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 7)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M 0 1.5 L 8 5 L 0 8.5 z")
+        .attr("fill", "currentColor");
+
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-preview-marker-start")
+        .attr("viewBox", "0 0 10 10")
+        .attr("refX", 1)
+        .attr("refY", 5)
+        .attr("markerWidth", 6)
+        .attr("markerHeight", 6)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M 8 1.5 L 0 5 L 8 8.5 z")
+        .attr("fill", "currentColor");
+
+    defs.append("marker")
+        .attr("class", "flow-arrow-marker")
+        .attr("id", "arrow-preview-marker-bold")
+        .attr("viewBox", "0 0 12 12")
+        .attr("refX", 8)
+        .attr("refY", 6)
+        .attr("markerWidth", 7.5)
+        .attr("markerHeight", 7.5)
+        .attr("orient", "auto")
+        .append("path")
+        .attr("d", "M 0 1.5 L 10 6 L 0 10.5 z")
+        .attr("fill", "currentColor");
 
     // 链接层与箭头关系词层在节点层下面（z-order 正确），OneNote 手绘圈注层在最上层 (默认 pointer-events: none 不遮挡卡片点击)
     linkElements = zoomContainer.append("g").attr("class", "link-layer").selectAll("line");
@@ -1393,8 +1519,9 @@ function getLinkCoords(d) {
         return { sx: sxCenter, sy: syCenter, tx: txCenter, ty: tyCenter };
     }
 
-    const sHalfW = ((d.source && d.source._cardW) ? d.source._cardW : 120) / 2 + 2;
-    const sHalfH = ((d.source && d.source._cardH) ? d.source._cardH : 40) / 2 + 2;
+    const isBidi = d.arrowStyle === "bidirectional";
+    const sHalfW = ((d.source && d.source._cardW) ? d.source._cardW : 120) / 2 + (isBidi ? 7 : 2);
+    const sHalfH = ((d.source && d.source._cardH) ? d.source._cardH : 40) / 2 + (isBidi ? 7 : 2);
     const tHalfW = ((d.target && d.target._cardW) ? d.target._cardW : 120) / 2 + 7;
     const tHalfH = ((d.target && d.target._cardH) ? d.target._cardH : 40) / 2 + 7;
 
@@ -2241,8 +2368,9 @@ function endPortConnectDrag(event, d) {
 }
 
 // 连接两个节点并支持折叠展开（explicitDirection=false 时严格遵循“默认先 make 的是父”）
-function connectNodesWithParentRule(nodeA, nodeB, explicitDirection = false) {
+function connectNodesWithParentRule(nodeA, nodeB, explicitDirection = false, forcedStyle = null) {
     if (!nodeA || !nodeB || nodeA.id === nodeB.id) return;
+    const useStyle = forcedStyle || activeArrowStyle || "solid";
 
     let parentNode = nodeA;
     let childNode = nodeB;
@@ -2259,8 +2387,18 @@ function connectNodesWithParentRule(nodeA, nodeB, explicitDirection = false) {
         }
     }
 
-    // 如果已经存在父子连线，再次触发则断开父子连线
+    // 如果已经存在父子连线
     if (childNode.parentId === parentNode.id) {
+        // 若传入了 forcedStyle 且与当前样式不同，则直接更新其样式而不是断开
+        if (forcedStyle && childNode.arrowStyle !== forcedStyle) {
+            childNode.arrowStyle = forcedStyle;
+            sanitizeGraph();
+            updateD3Graph();
+            renderPositions();
+            scheduleSaveGraph(true);
+            showToast(`🏹 已切换箭头样式为【${getArrowStyleName(forcedStyle)}】`);
+            return;
+        }
         childNode.parentId = null;
         sanitizeGraph();
         updateD3Graph();
@@ -2276,12 +2414,13 @@ function connectNodesWithParentRule(nodeA, nodeB, explicitDirection = false) {
     }
 
     childNode.parentId = parentNode.id;
+    childNode.arrowStyle = useStyle;
     parentNode.collapsed = false;
     sanitizeGraph();
     updateD3Graph();
     renderPositions();
     scheduleSaveGraph(true);
-    showToast(`🔗 已连接箭头：【${parentNode.label}】(父) ➔ 【${childNode.label}】(子，可折叠收起)`);
+    showToast(`🔗 已连接【${getArrowStyleName(useStyle)}】：【${parentNode.label}】(父) ➔ 【${childNode.label}】(子，可折叠收起)`);
 }
 
 function updateD3Graph() {
@@ -2302,11 +2441,37 @@ function updateD3Graph() {
     linkElements = linkElements.data(visibleLinks, linkDataKey).join("line")
         .attr("class", d => {
             const isSel = selectedLink && linkDataKey(selectedLink) === linkDataKey(d);
-            return (d.type === "relation" ? "link relation-link" : "link") + (isSel ? " link-selected" : "");
+            const st = d.arrowStyle || (d.type === "relation" ? "dashed" : "solid");
+            return (d.type === "relation" ? "link relation-link" : "link") + ` arrow-style-${st}` + (isSel ? " link-selected" : "");
         })
-        .attr("marker-end", d => d.type === "relation" ? "url(#arrow-marker-relation)" : "url(#arrow-marker)")
+        .attr("marker-end", d => {
+            const st = d.arrowStyle || (d.type === "relation" ? "dashed" : "solid");
+            if (st === "bold") {
+                return d.type === "relation" ? "url(#arrow-marker-relation-bold)" : "url(#arrow-marker-bold)";
+            }
+            return d.type === "relation" ? "url(#arrow-marker-relation)" : "url(#arrow-marker)";
+        })
+        .attr("marker-start", d => {
+            const st = d.arrowStyle || (d.type === "relation" ? "dashed" : "solid");
+            if (st === "bidirectional") {
+                return d.type === "relation" ? "url(#arrow-marker-relation-start)" : "url(#arrow-marker-start)";
+            }
+            return null;
+        })
+        .style("stroke-dasharray", d => {
+            const st = d.arrowStyle || (d.type === "relation" ? "dashed" : "solid");
+            if (st === "dashed") return "6 5";
+            if (st === "dotted") return "2.5 4";
+            if (st === "solid" || st === "bidirectional" || st === "bold") return "none";
+            return null;
+        })
+        .style("stroke-width", d => {
+            const st = d.arrowStyle || (d.type === "relation" ? "dashed" : "solid");
+            if (st === "bold") return "3.8px";
+            return "2.2px";
+        })
         .style("stroke", d => (selectedLink && linkDataKey(selectedLink) === linkDataKey(d)) ? "#38bdf8" : getLinkColor(d))
-        .style("opacity", d => d.type === "relation" ? 0.8 : 0.92)
+        .style("opacity", d => d.type === "relation" ? 0.85 : 0.92)
         .style("cursor", "pointer")
         .on("click", (event, d) => {
             event.stopPropagation();
@@ -3370,9 +3535,18 @@ function moveSiblingOrder(delta) {
     showToast(delta < 0 ? "⬆️ 已向上调整节点顺序" : "⬇️ 已向下调整节点顺序");
 }
 
-function toggleRelationLink() {
+function toggleRelationLink(forcedStyle = null) {
+    const useStyle = forcedStyle || activeArrowStyle || "solid";
     if (selectedNodeIds.size < 2) {
-        showToast("💡 请先按住 Shift 点击（或框选）2 个以上卡片，再按 L 键即可按“先 make 的是父”连上可折叠箭头！");
+        const pop = document.getElementById("arrow-style-popover");
+        if (pop) {
+            const isShown = pop.style.display !== "none";
+            pop.style.display = isShown ? "none" : "block";
+            const btnRel = document.getElementById("btn-relation");
+            if (btnRel) btnRel.classList.toggle("is-open", !isShown);
+            return;
+        }
+        showToast("💡 请先按住 Shift 点击（或框选）2 个以上卡片，再点 ➔ 或按 L 连线！");
         return;
     }
     const selectedList = nodes.filter(n => selectedNodeIds.has(n.id));
@@ -3385,7 +3559,7 @@ function toggleRelationLink() {
 
     // 若只有两个节点，直接调用带切换开关的父子箭头连接
     if (childNodes.length === 1) {
-        connectNodesWithParentRule(parentNode, childNodes[0], false);
+        connectNodesWithParentRule(parentNode, childNodes[0], false, useStyle);
         return;
     }
 
@@ -3394,6 +3568,7 @@ function toggleRelationLink() {
     childNodes.forEach(child => {
         if (!isNodeDescendantOf(parentNode.id, child.id)) {
             child.parentId = parentNode.id;
+            child.arrowStyle = useStyle;
             connectedCount++;
         }
     });
@@ -3402,7 +3577,7 @@ function toggleRelationLink() {
     updateD3Graph();
     renderPositions();
     scheduleSaveGraph(true);
-    showToast(`🔗 已将最先创建的【${parentNode.label}】设为父节点，连向 ${connectedCount} 个子卡片（支持折叠展开）！`);
+    showToast(`🔗 已将最先创建的【${parentNode.label}】设为父节点，以【${getArrowStyleName(useStyle)}】连向 ${connectedCount} 个子卡片！`);
 }
 
 function renderOutlineTree(filterQuery = "") {
@@ -3650,7 +3825,7 @@ function initEvents() {
         });
     }
     document.getElementById("btn-fit").addEventListener("click", () => fitCanvasToAllNodes());
-    document.getElementById("btn-relation").addEventListener("click", toggleRelationLink);
+    // btn-relation 连线与分类面板由 initArrowStyleSuite 统一接管
     const btnInkDraw = document.getElementById("btn-ink-draw");
     if (btnInkDraw) {
         btnInkDraw.addEventListener("click", () => toggleInkDrawMode());
@@ -7243,6 +7418,14 @@ function initIntuitiveActionBarsAndContextMenu() {
         lbar.style.display = "none";
         lbar.innerHTML = `
             <span class="floating-bar-badge">🏹 已选中箭头</span>
+            <div class="floating-bar-style-group" id="link-style-switcher">
+                <button class="floating-bar-style-btn" data-arrow-style="solid" title="实线箭头">──➔ 实线</button>
+                <button class="floating-bar-style-btn" data-arrow-style="dashed" title="虚线箭头">- - ➔ 虚线</button>
+                <button class="floating-bar-style-btn" data-arrow-style="dotted" title="点状箭头">···➔ 点线</button>
+                <button class="floating-bar-style-btn" data-arrow-style="bidirectional" title="双向箭头">⇠──➔ 双向</button>
+                <button class="floating-bar-style-btn" data-arrow-style="bold" title="粗体主线">━━➔ 粗体</button>
+            </div>
+            <div class="floating-bar-divider" style="width: 1px; height: 18px; background: rgba(148, 163, 184, 0.25); margin: 0 4px;"></div>
             <button class="floating-bar-btn primary" data-lact="label" title="在箭头中央添加或修改关系词说明（如：导致、抑制、混杂变量；也可直接双击箭头）">✏️ 写关系词</button>
             <button class="floating-bar-btn" data-lact="insert-mid" title="在这条箭头正中间插入一张过渡卡片 (A ➔ 新卡片 ➔ B)">➕ 中间插卡片</button>
             <button class="floating-bar-btn" data-lact="reverse" title="调换这条箭头的父子指向（让另一端作为可折叠的父节点）">⇄ 反转父子方向</button>
@@ -7251,6 +7434,14 @@ function initIntuitiveActionBarsAndContextMenu() {
         document.body.appendChild(lbar);
 
         lbar.addEventListener("mousedown", (e) => e.stopPropagation());
+        lbar.querySelectorAll(".floating-bar-style-btn").forEach(sbtn => {
+            sbtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (selectedLink) {
+                    setLinkArrowStyle(selectedLink, sbtn.dataset.arrowStyle);
+                }
+            });
+        });
         lbar.querySelectorAll(".floating-bar-btn").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
@@ -7342,7 +7533,11 @@ function updateFloatingActionBarsPosition() {
                 const screenY = svgRect.top + transform.applyY(midY) - 42;
 
                 linkBar.style.display = "flex";
-                const barW = linkBar.offsetWidth || 280;
+                const currentStyle = selectedLink.arrowStyle || (selectedLink.type === "relation" ? "dashed" : "solid");
+                linkBar.querySelectorAll(".floating-bar-style-btn").forEach(sb => {
+                    sb.classList.toggle("active", sb.dataset.arrowStyle === currentStyle);
+                });
+                const barW = linkBar.offsetWidth || 520;
                 linkBar.style.left = `${Math.max(12, Math.min(window.innerWidth - barW - 12, screenX - barW / 2))}px`;
                 linkBar.style.top = `${Math.max(64, Math.min(window.innerHeight - 60, screenY))}px`;
             } else {
@@ -10491,6 +10686,106 @@ function initLiveClipboardCatch() {
     // 窗口聚焦时立即检测一次
     window.addEventListener("focus", () => checkCloudClipboard());
 }
+
+// --- v3.8.5 箭头分类与风格选择套件 ---
+function initArrowStyleSuite() {
+    const btnRelation = document.getElementById("btn-relation");
+    const popover = document.getElementById("arrow-style-popover");
+    if (!btnRelation || !popover) return;
+
+    updateArrowToolbarIcon();
+
+    function toggleArrowPopover(show) {
+        const isCurrentlyOpen = popover.style.display !== "none";
+        const willOpen = (typeof show === "boolean") ? show : !isCurrentlyOpen;
+        if (willOpen) {
+            const targetStyle = selectedLink
+                ? (selectedLink.arrowStyle || (selectedLink.type === "relation" ? "dashed" : "solid"))
+                : activeArrowStyle;
+            popover.querySelectorAll(".arrow-style-item").forEach(item => {
+                item.classList.toggle("active", item.dataset.style === targetStyle);
+            });
+            popover.style.display = "block";
+            btnRelation.classList.add("is-open");
+        } else {
+            popover.style.display = "none";
+            btnRelation.classList.remove("is-open");
+        }
+    }
+
+    btnRelation.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleArrowPopover();
+    });
+
+    popover.addEventListener("mousedown", (e) => e.stopPropagation());
+    popover.addEventListener("click", (e) => {
+        const item = e.target.closest(".arrow-style-item");
+        if (!item) return;
+        const newStyle = item.dataset.style || "solid";
+        applyArrowStyle(newStyle);
+        toggleArrowPopover(false);
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!popover.contains(e.target) && !btnRelation.contains(e.target)) {
+            toggleArrowPopover(false);
+        }
+    });
+
+    window.toggleArrowPopover = toggleArrowPopover;
+}
+
+function applyArrowStyle(newStyle) {
+    activeArrowStyle = newStyle;
+    safeLocalStorageSet("flownotes_active_arrow_style", newStyle);
+    updateArrowToolbarIcon(newStyle);
+
+    // 情况 A: 当前正选中一条箭头连线
+    if (selectedLink) {
+        setLinkArrowStyle(selectedLink, newStyle);
+        return;
+    }
+
+    // 情况 B: 当前选中了 2 个及以上卡片
+    if (selectedNodeIds.size >= 2) {
+        toggleRelationLink(newStyle);
+        return;
+    }
+
+    // 情况 C: 仅设定默认绘制风格
+    showToast(`🏹 默认箭头已切换为【${getArrowStyleName(newStyle)}】，拉线或按 L 即可创建！`);
+}
+
+function setLinkArrowStyle(link, style) {
+    if (!link) return;
+    const sId = cleanNodeId(link.source);
+    const tId = cleanNodeId(link.target);
+
+    if (link.type === "relation") {
+        const found = (links || []).find(l => l && l.type === "relation" &&
+            ((cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId) ||
+             (cleanNodeId(l.source) === tId && cleanNodeId(l.target) === sId))
+        );
+        if (found) {
+            found.arrowStyle = style;
+        }
+        link.arrowStyle = style;
+    } else {
+        const child = nodes.find(n => n.id === tId);
+        if (child) {
+            child.arrowStyle = style;
+        }
+        link.arrowStyle = style;
+    }
+    sanitizeGraph();
+    updateD3Graph();
+    renderPositions();
+    updateFloatingActionBarsPosition();
+    scheduleSaveGraph(true);
+    showToast(`🏹 箭头样式已切换为【${getArrowStyleName(style)}】`);
+}
+
 
 
 

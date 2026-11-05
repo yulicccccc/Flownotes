@@ -1,8 +1,15 @@
-# Project State: FlowNotes (v3.8.4)
+# Project State: FlowNotes (v3.8.5)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.4`
+- **Current Version**: `v3.8.5`
 - **Latest Releases**:
+  - `v3.8.5`:
+    - **Simplified Canvas Toolbar & Multi-Style Arrow Category Suite (v3.8.5 画布左上角极简单行工具栏精炼与多分类箭头体系套件)**:
+      - **彻底精简左上角操作栏 (`#nav-controls`)**：根据用户视觉标记要求，果断剔除 5 个冗余或重复按钮（`+子`、`+同`、`✋ 抓手`、`↩️ 撤销`、`↪️ 重做`），将 DOM 优雅隐藏保持快捷键（`Tab`、`Enter`、`Ctrl+Z`、`Ctrl+Y`、`Space`）100% 完整可用，操作栏仅纯净保留 5 个核心功能按钮：`➔ ▾ (箭头连线与分类)`、`🖍️ (手绘圈注)`、`☰ (大纲目录)`、`📖 (详细笔记)`、`💡 (快捷键提示)`；
+      - **多分类箭头体系 (`Multi-Style Arrow Categories`)**：全新设计并引入 5 大标准箭头分类与线型体系（实线、虚线、点状、双向、粗体）；
+      - **左上角下拉分类选择面板 (`#arrow-style-popover`)**：点击 `➔ ▾` 按钮即时呼出磨砂玻璃悬浮面板，可视化呈现 5 种箭头的 SVG 动态预览、中文分类名称、应用场景说明与激活对勾；
+      - **箭头连线悬浮操作栏风格切换器 (`#link-action-bar`)**：在画布上点击任意箭头时，浮动工具栏内置集成 5 色风格切换按键，实现单次点击就地无缝转换箭头分类与线型；
+      - **全链路高保真渲染与无损数据存储**：D3 SVG 专属 markers 与交点算法支持，跨端多图谱与 GitHub Gist / Cloudflare 同步持久化。
   - `v3.8.4`:
     - **Expandable & Collapsible Clipboard Floating Pill & Bottom UI Cleanliness Suite (v3.8.4 右下角极简跨端剪贴板智能悬浮胶囊与底部纯净工作台套件)**:
       - **彻底清除右下角重复冗余工具栏 (`#io-controls`)**：移除/隐藏右下角与顶栏「☁️ 云同步」完全重复的冗余按钮条（`[⬇️ 导出]`、`[⬆️ 导入]`、`[↙️ 拉取]`、`[🔐 密钥]` 与 `[🟣 未配置 GitHub...]`），消除视觉噪音与空间遮挡；同时将数据备份与导入功能完整收纳至顶栏右上角「⋯」更多操作菜单（`⬇️ 导出 FlowNotes 备份 (JSON)` 与 `⬆️ 导入备份或 Excalidraw`）；
