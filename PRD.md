@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.6.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.7.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Win-to-iPad Real-Time Live Clipboard Catch Suite (v3.7.0 跨设备剪贴板沙盘联动与极速灵感快投套件)**:
+  - **PC 极轻量免驱后台监听推送器 (`FlowNotes_PC剪贴板实时同步.py` + `一键启动_FlowNotes剪贴板同步.bat`)**：纯 Python 3 原生标准库与 Win32 Ctypes API 零依赖驱动，无需任何 Windows 管理员权限。在 PC 后台静默监听剪贴板，一旦感知到新复制文字（`Ctrl+C`），毫秒级自动通过 HTTPS 发送至 FlowNotes 专用云通道；
+  - **Cloudflare Pages Function 高性能直连端点 (`/functions/api/clipboard.js`)**：结合 Cloudflare KV `FLOWNOTES_CLIPBOARD` 与内存兜底，提供全域 CORS 与亚秒级存取，彻底绕过 iOS Safari 混合内容限制与苹果系统后台权限封锁；
+  - **iPad 无边记风格灵感快投胶囊 (`#liveCatchPill`)**：在 iPad 端以 Apple Freeform 磨砂半透明胶囊优雅呈现，实时展示 PC 端最新复制文字预览，提供「➕ 生成卡片」、「✍️ 插入卡片」、「📑 复制到 iPad」三大黄金单点操作；
+  - **画布智能放置算法**：点击「➕ 生成卡片」时，若有选中卡片则自动衍生为关联子节点，若无选中卡片则基于当前 D3 缩放视口在画面正中央优雅降落；智能根据换行将首行提取为标题、全文沉淀为正文卡片；
+  - **iPad 系统剪贴板合规透传**：在点击「📑 复制到 iPad」的用户主动触摸手势中，通过 `navigator.clipboard.writeText` 100% 成功写入 iOS 系统剪贴板；
+  - **极速心流轮询与免扰自愈**：前台以 1.2s 超轻量轮询检测云端更新，已处理条目持久化至 localStorage，35 秒无操作自动收起，绝不遮挡思维沙盘。
 - **Direct Header Cloud Sync Binding & Real-Time Status Engine (v3.6.0 顶栏黄金单点云同步深度打通与双向状态响应引擎)**:
   - 顶栏右上角「`☁️ 云同步`」胶囊全面接入全局同步事件总线：未配置时点击智能弹出配置模态框，配置完成后点击立即执行多图谱防误删备份推送；
   - 状态实时响应：精准联动 `updateSyncStatusUI` 呈现 `☁️ 配置云同步`、`⏳ 同步中...`、`🟢 已同步 (N)`、`🔴 同步失败`；

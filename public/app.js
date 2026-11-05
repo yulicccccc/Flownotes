@@ -261,13 +261,14 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.6.0 loaded — iPad Freeform 6-Macaron Palette, Ultra-Compact Formatting Suite & Unified Cloud Sync");
+    console.log("[FlowNotes] v3.7.1 loaded — High-Fidelity Word-Level Typography, Color & Highlight Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
     initSelectionQuickBubble();
     initIntuitiveActionBarsAndContextMenu();
     initClipboardPaste();
+    initLiveClipboardCatch(); // v3.7.0 Win-to-iPad 实时快投抓取引擎
     initV31Enhancements();
     initV32XMindOneNoteSuite();
     initPomodoroSuite();
@@ -1453,7 +1454,7 @@ function rgbToHex(color) {
     return color;
 }
 
-// v3.5.4 卡片标题富文本序列化器：将编辑区 DOM 节点精确序列化为支持行内颜色、高亮、加粗、手写体的轻量 Markdown/HTML 标记
+// v3.6.1 卡片标题高保真富文本序列化器：将编辑区 DOM 节点精确序列化为行内颜色、荧光高亮、加粗、手写体标记，并完整保留多行文本
 function serializeCardLabelFromHTML(html) {
     if (!html) return "未命名";
     const temp = document.createElement("div");
@@ -1473,14 +1474,21 @@ function serializeCardLabelFromHTML(html) {
             if (tag === "u") return `<u>${inner}</u>`;
             if (tag === "s" || tag === "del" || tag === "strike") return `~~${inner}~~`;
             if (tag === "code") return `\`${inner}\``;
-            if (tag === "mark") return `==${inner}==`;
 
-            // 背景荧光高亮 (hiliteColor / backColor)
+            // 背景荧光高亮 (hiliteColor / backColor / mark)
             if (node.style && node.style.backgroundColor) {
                 const bg = node.style.backgroundColor.toLowerCase();
                 if (bg && bg !== "transparent" && bg !== "inherit" && !bg.includes("rgba(0, 0, 0, 0)")) {
-                    return `==${inner}==`;
+                    const bgHex = rgbToHex(bg);
+                    return `<mark style="background-color:${bgHex}">${inner}</mark>`;
                 }
+            }
+            if (tag === "mark") {
+                if (node.style && node.style.backgroundColor) {
+                    const bgHex = rgbToHex(node.style.backgroundColor);
+                    return `<mark style="background-color:${bgHex}">${inner}</mark>`;
+                }
+                return `==${inner}==`;
             }
 
             // 字体标色
@@ -1500,22 +1508,30 @@ function serializeCardLabelFromHTML(html) {
                 return `<span class="font-handwriting">${inner}</span>`;
             }
 
+            if (tag === "div" || tag === "p") {
+                return "\n" + inner;
+            }
+
             return inner;
         }
         return "";
     }
 
-    const lines = Array.from(temp.childNodes).map(serializeInline).join("").split("\n").map(s => s.trim()).filter(Boolean);
-    const firstLine = lines[0] || "未命名";
-    return firstLine.replace(/^\[[ xX]\]\s*/, "") || "未命名";
+    const raw = Array.from(temp.childNodes).map(serializeInline).join("");
+    const lines = raw.split("\n").map(s => s.trim()).filter(Boolean);
+    const joined = lines.length > 0 ? lines.join("<br>") : (raw.trim() || "未命名");
+    return joined.replace(/^\[[ xX]\]\s*/, "") || "未命名";
 }
 
-// v3.5.1 卡片标题专用富文本渲染器：仅渲染行内加粗、斜体、手写体、颜色与复选框，绝不自动转为 <ol> 列表，保证 1.、2.、4. 等数字序号原汁原味！
+// v3.6.1 卡片标题专用富文本渲染器：仅渲染行内加粗、斜体、手写体、颜色、多色荧光高亮与换行，绝不破坏序号！
 function renderCardLabelHTML(text) {
     if (!text) return "";
     let cleaned = cleanHTMLSpill(text);
 
     let protectedText = cleaned
+        .replace(/<mark style=["']background-color:\s*([^"'>]+)["']?>/gi, '___MARK_START_$1___')
+        .replace(/<mark>/gi, '___MARK_DEFAULT___')
+        .replace(/<\/mark>/gi, '___MARK_END___')
         .replace(/<span class=["']font-handwriting["']>/gi, '___HANDWRITING_START___')
         .replace(/<span style=["']color:\s*([^"'>]+)["']?>/gi, '___SPAN_START_$1___')
         .replace(/<\/span>/gi, '___SPAN_END___')
@@ -1532,11 +1548,15 @@ function renderCardLabelHTML(text) {
     }
 
     html = html
+        .replace(/___MARK_START_(.*?)___/g, '<mark style="background-color:$1">')
+        .replace(/___MARK_DEFAULT___/g, '<mark>')
+        .replace(/___MARK_END___/g, '</mark>')
         .replace(/___HANDWRITING_START___/g, '<span class="font-handwriting">')
         .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
         .replace(/___SPAN_END___/g, '</span>')
         .replace(/___U_START___/g, '<u>')
-        .replace(/___U_END___/g, '</u>');
+        .replace(/___U_END___/g, '</u>')
+        .replace(/\n/g, '<br>');
 
     html = html
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -4435,7 +4455,7 @@ function applyFormatting(format, customVal = "") {
         }
     }
 
-    // 分支 1：划词局部格式化 —— 仅改变被选中的具体字词
+    // 分支 1：划词局部格式化 —— 仅改变被选中的具体字词 (v3.6.1 支持全部 6 色字体颜色与多色荧光高亮笔)
     if (isInlineWordFormatting) {
         switch (format) {
             case "handwriting":
@@ -4474,16 +4494,33 @@ function applyFormatting(format, customVal = "") {
                     document.execCommand("backColor", false, "#fef08a");
                 }
                 break;
-            case "color":
-                const color = document.getElementById("md-color").value || "#ff6b6b";
+            case "highlight-color": {
+                const customHl = customVal || "#fef08a";
+                try {
+                    if (!document.execCommand("hiliteColor", false, customHl)) {
+                        document.execCommand("backColor", false, customHl);
+                    }
+                } catch (e) {
+                    document.execCommand("backColor", false, customHl);
+                }
+                break;
+            }
+            case "color": {
+                const color = document.getElementById("md-color")?.value || "#ff6b6b";
                 document.execCommand("foreColor", false, color);
                 break;
-            case "color-red":
-                document.execCommand("foreColor", false, "#ef4444");
+            }
+            case "color-custom": {
+                const customCol = customVal || "#ef4444";
+                document.execCommand("foreColor", false, customCol);
                 break;
-            case "color-green":
-                document.execCommand("foreColor", false, "#10b981");
-                break;
+            }
+            case "color-red": document.execCommand("foreColor", false, "#ef4444"); break;
+            case "color-orange": document.execCommand("foreColor", false, "#f97316"); break;
+            case "color-yellow": document.execCommand("foreColor", false, "#f59e0b"); break;
+            case "color-green": document.execCommand("foreColor", false, "#10b981"); break;
+            case "color-blue": document.execCommand("foreColor", false, "#0ea5e9"); break;
+            case "color-purple": document.execCommand("foreColor", false, "#8b5cf6"); break;
             case "code":
                 const cRange = sel.getRangeAt(0);
                 const codeEl = document.createElement("code");
@@ -4504,13 +4541,32 @@ function applyFormatting(format, customVal = "") {
             default: return;
         }
 
-        // 划词修改后立即同步到底层数据 (v3.5.4 精确保留卡片标题行内高亮与颜色)
+        // 划词修改后立即同步到底层数据 (v3.6.1 保持卡片行内高保真色彩与富文本)
+        if (!selectedNode && activeInlineBody) {
+            const grp = activeInlineBody.closest(".node-group");
+            if (grp) {
+                const d = d3.select(grp).datum();
+                if (d) selectedNode = d;
+            }
+        }
         if (selectedNode) {
             if (activeInlineBody) {
-                selectedNode.label = serializeCardLabelFromHTML(activeInlineBody.innerHTML);
+                let titleSourceHtml = activeInlineBody.innerHTML;
+                const tableWrap = activeInlineBody.querySelector(".canvas-card-table-wrap, table.canvas-card-table");
+                if (tableWrap) {
+                    const titleRow = activeInlineBody.querySelector(".canvas-card-title-row span");
+                    if (titleRow) {
+                        titleSourceHtml = titleRow.innerHTML;
+                    } else {
+                        const clone = activeInlineBody.cloneNode(true);
+                        clone.querySelectorAll(".canvas-card-table-wrap, table.canvas-card-table").forEach(el => el.remove());
+                        titleSourceHtml = clone.innerHTML;
+                    }
+                }
+                selectedNode.label = serializeCardLabelFromHTML(titleSourceHtml);
                 const isContentEmpty = !selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...");
                 if (isContentEmpty) {
-                    selectedNode.content = `# ${selectedNode.label}\n\n`;
+                    selectedNode.content = `# ${stripFormattingToPlainText(selectedNode.label)}\n\n`;
                 }
                 if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
             } else if (richEditor) {
@@ -5249,6 +5305,7 @@ async function autoCreateGhGist() {
         });
         const data = await res.json();
         document.getElementById("ghGistIdInput").value = data.id;
+        localStorage.setItem("flownotes_gh_pat", pat);
         localStorage.setItem("flownotes_gh_gist_id", data.id);
 
         const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
@@ -9920,6 +9977,207 @@ function initPomodoroSuite() {
     updateUI();
     renderEvidenceDashboard();
 }
+
+// ==========================================================================
+// v3.7.0 Win-to-iPad 实时快投抓取引擎 (Live Catch Capsule Engine)
+// ==========================================================================
+let lastLiveCatchTimestamp = 0;
+let currentLiveCatchSnippet = null;
+let liveCatchDismissTimer = null;
+let liveCatchPollTimer = null;
+
+function initLiveClipboardCatch() {
+    const pill = document.getElementById("liveCatchPill");
+    const previewEl = document.getElementById("liveCatchPreview");
+    const timeEl = document.getElementById("liveCatchTime");
+    const btnMake = document.getElementById("btnLiveCatchMakeNode");
+    const btnInsert = document.getElementById("btnLiveCatchInsert");
+    const btnCopy = document.getElementById("btnLiveCatchCopy");
+    const btnDismiss = document.getElementById("btnLiveCatchDismiss");
+
+    if (!pill || !previewEl) return;
+
+    // 从 localStorage 读取上次处理过的剪贴板时间戳，防止刷新页面时重复弹窗
+    const storedLastTs = parseInt(localStorage.getItem("flownotes_last_clipboard_ts") || "0", 10);
+    lastLiveCatchTimestamp = storedLastTs || Date.now();
+
+    function showLiveCatch(payload) {
+        currentLiveCatchSnippet = payload;
+        const text = (payload.text || "").trim();
+        if (!text) return;
+
+        // 截取前 120 字符优雅展示
+        previewEl.textContent = text.length > 120 ? text.substring(0, 120) + "..." : text;
+        if (timeEl) {
+            const date = new Date(payload.timestamp || Date.now());
+            const hours = String(date.getHours()).padStart(2, "0");
+            const mins = String(date.getMinutes()).padStart(2, "0");
+            const secs = String(date.getSeconds()).padStart(2, "0");
+            timeEl.textContent = `${hours}:${mins}:${secs}`;
+        }
+
+        pill.style.display = "flex";
+
+        // 自动隐藏倒计时（35秒后自动淡化收起，不打扰阅读）
+        if (liveCatchDismissTimer) clearTimeout(liveCatchDismissTimer);
+        liveCatchDismissTimer = setTimeout(() => {
+            pill.style.display = "none";
+        }, 35000);
+    }
+
+    function dismissLiveCatch() {
+        pill.style.display = "none";
+        if (liveCatchDismissTimer) clearTimeout(liveCatchDismissTimer);
+    }
+
+    if (btnDismiss) {
+        btnDismiss.addEventListener("click", dismissLiveCatch);
+    }
+
+    // 1. ➕ 一键生成新卡片落入思维导图
+    if (btnMake) {
+        btnMake.addEventListener("click", () => {
+            if (!currentLiveCatchSnippet || !currentLiveCatchSnippet.text) return;
+            const text = currentLiveCatchSnippet.text.trim();
+            const nowTs = Date.now();
+            const newId = `node_${nowTs}`;
+
+            // 确定放置坐标：如果有选中卡片，作为子卡片或在右侧展开；否则放在当前视野中央
+            let targetX = 450;
+            let targetY = 320;
+            let parentId = null;
+
+            if (selectedNode && Number.isFinite(selectedNode.x)) {
+                const existingChildren = nodes.filter(n => n.parentId === selectedNode.id);
+                const parentW = selectedNode._cardW || 160;
+                targetX = selectedNode.x + Math.max(240, parentW + 80);
+                targetY = selectedNode.y + (existingChildren.length * 70);
+                parentId = selectedNode.id;
+                selectedNode.collapsed = false;
+            } else {
+                // 计算当前 D3 视图中央
+                try {
+                    if (typeof d3 !== "undefined" && svg && svg.node()) {
+                        const t = d3.zoomTransform(svg.node());
+                        const [cx, cy] = t.invert([window.innerWidth / 2, window.innerHeight / 2]);
+                        if (Number.isFinite(cx) && Number.isFinite(cy)) {
+                            targetX = cx + (Math.random() * 40 - 20);
+                            targetY = cy + (Math.random() * 40 - 20);
+                        }
+                    }
+                } catch (_) {}
+            }
+
+            // 标题智能提取：如果有多行，首行作为标题，其余作为详细正文；单行如果太长截取前 36 字符作为标题
+            const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+            let title = lines[0] || "新笔记";
+            let content = text;
+            if (lines.length > 1) {
+                title = lines[0].length > 40 ? lines[0].substring(0, 40) + "..." : lines[0];
+            } else if (text.length > 40) {
+                title = text.substring(0, 38) + "...";
+            }
+
+            const newNode = {
+                id: newId,
+                label: title,
+                parentId: parentId,
+                content: content,
+                createdAt: nowTs,
+                x: targetX,
+                y: targetY,
+                fx: targetX,
+                fy: targetY,
+                order: nodes.length
+            };
+
+            nodes.push(newNode);
+            selectedNode = newNode;
+            selectedNodeIds = new Set([newId]);
+
+            scheduleSaveGraph(true);
+            if (layoutMode === "tree") tidyLayout();
+            else updateD3Graph();
+            renderPositions();
+            renderEditor();
+
+            showToast("✨ 来自 PC 剪贴板的内容已生成新卡片！");
+            dismissLiveCatch();
+        });
+    }
+
+    // 2. ✍️ 插入当前卡片
+    if (btnInsert) {
+        btnInsert.addEventListener("click", () => {
+            if (!currentLiveCatchSnippet || !currentLiveCatchSnippet.text) return;
+            const text = currentLiveCatchSnippet.text.trim();
+            if (selectedNode) {
+                selectedNode.content = selectedNode.content ? (selectedNode.content + "\n\n" + text) : text;
+                scheduleSaveGraph(true);
+                refreshNodeStyles();
+                renderEditor();
+                showToast("✍️ 已成功追加至当前卡片正文！");
+            } else {
+                // 没有选中卡片则退化为生成新卡片
+                if (btnMake) btnMake.click();
+            }
+            dismissLiveCatch();
+        });
+    }
+
+    // 3. 📑 复制到 iPad 剪贴板
+    if (btnCopy) {
+        btnCopy.addEventListener("click", async () => {
+            if (!currentLiveCatchSnippet || !currentLiveCatchSnippet.text) return;
+            try {
+                await navigator.clipboard.writeText(currentLiveCatchSnippet.text);
+                showToast("📋 已成功写入 iPad 系统剪贴板！");
+            } catch (err) {
+                showToast("📋 已同步，可长按粘贴");
+            }
+            dismissLiveCatch();
+        });
+    }
+
+    // 4. 定时轮询 Cloudflare Pages API (/api/clipboard)
+    async function checkCloudClipboard() {
+        try {
+            const res = await fetch("/api/clipboard?ts=" + Date.now(), {
+                cache: "no-store",
+                headers: { "Accept": "application/json" }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.text && data.timestamp > lastLiveCatchTimestamp) {
+                    lastLiveCatchTimestamp = data.timestamp;
+                    localStorage.setItem("flownotes_last_clipboard_ts", String(data.timestamp));
+                    showLiveCatch(data);
+                }
+            }
+        } catch (_) {
+            // 忽略网络断开
+        }
+    }
+
+    // 页面处于前台时每 1.2 秒轮询一次，极其轻量快速
+    function scheduleNextPoll() {
+        const interval = document.visibilityState === "visible" ? 1200 : 3500;
+        liveCatchPollTimer = setTimeout(async () => {
+            await checkCloudClipboard();
+            scheduleNextPoll();
+        }, interval);
+    }
+
+    // 初始启动延迟 1 秒后开始监听
+    setTimeout(() => {
+        checkCloudClipboard();
+        scheduleNextPoll();
+    }, 1000);
+
+    // 窗口聚焦时立即检测一次
+    window.addEventListener("focus", () => checkCloudClipboard());
+}
+
 
 
 

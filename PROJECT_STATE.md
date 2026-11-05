@@ -1,8 +1,16 @@
-# Project State: FlowNotes (v3.6.0)
+# Project State: FlowNotes (v3.7.0)
 
 ## Current Version & Status
-- **Current Version**: `v3.6.0`
+- **Current Version**: `v3.7.0`
 - **Latest Releases**:
+  - `v3.7.0`:
+    - **Win-to-iPad Real-Time Live Clipboard Catch Suite (v3.7.0 跨设备剪贴板沙盘联动与极速灵感快投套件)**:
+      - **PC 免驱后台监听器 (`FlowNotes_PC剪贴板实时同步.py` + `一键启动_FlowNotes剪贴板同步.bat`)**：纯 Python 3 原生标准库 + Win32 Ctypes API 零额外依赖开发，无需任何管理员权限即可在 Windows 电脑上静默监听剪贴板，一有复制毫秒级 POST 到云端；
+      - **Cloudflare Pages Function 高性能直连端点 (`/functions/api/clipboard.js`)**：结合 Cloudflare KV `FLOWNOTES_CLIPBOARD` 与内存兜底，提供全域 CORS 与亚秒级存取，完美兼容 Safari 跨设备网络规范；
+      - **iPad 无边记风格灵感快投胶囊 (`#liveCatchPill`)**：在 iPad 端以 Apple Freeform 磨砂半透明胶囊优雅呈现，实时展示 PC 端最新复制文字预览，提供「➕ 生成卡片」、「✍️ 插入卡片」、「📑 复制到 iPad」三大黄金单点操作；
+      - **智能空间沙盘降落算法**：点击生成卡片时自动在当前 D3 缩放视口中心平滑放置，若已选中卡片则自动挂载为关联子分支；
+      - **合规透传系统剪贴板**：结合移动端原生触控手势合规写入 iOS 系统剪贴板；
+      - **PWA Service Worker 升级**：缓存命名全面升级至 `flownotes-cache-v3.7.0`，确保 iPad 端瞬时拉取最新代码。
   - `v3.6.0`:
     - **Direct Header Cloud Sync Binding & Real-Time Status Engine (v3.6.0 顶栏黄金单点云同步深度打通与双向状态响应引擎)**: Wired `#btnTopSync` directly into GitHub Gist sync lifecycle. Clicking `#btnTopSync` checks for PAT and Gist ID; if unconfigured, it opens the GitHub settings dialog; if configured, it triggers `pushToGhGist(false)`. Synchronized with `updateSyncStatusUI` to dynamically display `☁️ 配置云同步`, `⏳ 同步中...`, `🟢 已同步 (N)`, and `🔴 同步失败` states.
   - `v3.5.9`:

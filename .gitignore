@@ -2,3 +2,7 @@ node/
 *.log
 .DS_Store
 scratch/
+
+__pycache__/
+*.pyc
+

@@ -1,9 +1,9 @@
-const CACHE_NAME = "flownotes-cache-v3.6.0";
+const CACHE_NAME = "flownotes-cache-v3.7.1";
 const CORE_ASSETS = [
   "/",
   "/index.html",
-  "/index.css?v=3.6.0",
-  "/app.js?v=3.6.0",
+  "/index.css?v=3.7.1",
+  "/app.js?v=3.7.1",
   "/manifest.json",
   "/1.excalidraw",
   "/fonts/TsangerXuanSanM-W03.ttf",
@@ -34,7 +34,7 @@ self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
-  if (url.hostname === "api.github.com") return; // GitHub Gist API 永远走实时网络
+  if (url.hostname === "api.github.com" || url.pathname.startsWith("/api/")) return; // GitHub Gist 与剪贴板快投 API 永远走实时网络
 
   event.respondWith(
     fetch(req)

@@ -2,6 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.7.0] - 2026-11-04
+
+### ⚡ 跨设备剪贴板沙盘联动与极速灵感快投套件 (Win-to-iPad Real-Time Live Clipboard Catch Suite)
+- **💻 Windows 免驱后台推送器 (`FlowNotes_PC剪贴板实时同步.py` + `一键启动_FlowNotes剪贴板同步.bat`)**：
+  - 采用 Python 3 原生标准库结合 Win32 Ctypes API，零外部依赖，无需管理员权限；
+  - 自动静默监听 PC 剪贴板变化，毫秒级通过安全 HTTPS POST 将内容推送到 Cloudflare 云端通道；
+- **☁️ Cloudflare Pages Function 专用快投通道 (`/functions/api/clipboard.js`)**：
+  - 支持全域 CORS 与 Cloudflare KV 缓存绑定，彻底解决 Safari 移动端跨域与苹果系统后台权限限制；
+- **📱 iPad 无边记风格灵感快投胶囊 (`#liveCatchPill`)**：
+  - 在 iPad 端以 Apple Freeform 质感呈现毛玻璃悬浮胶囊，实时显示 PC 刚复制的文字预览；
+  - 提供三大黄金操作：**「➕ 生成卡片」**（落入脑图视口中心或挂载为子节点）、**「✍️ 插入卡片」**（追加至当前正在编辑的卡片）、**「📑 复制到 iPad」**（合规写入 iOS 系统剪贴板）；
+  - 35 秒静默自愈隐藏，不遮挡沉浸式阅读与脑图绘制心流。
+
 ## 🚀 [v3.6.0] - 2026-11-04
 
 ### ☁️ 顶栏黄金单点云同步深度打通与双向状态响应引擎 (Direct Header Cloud Sync Binding & Real-Time Status Engine)
