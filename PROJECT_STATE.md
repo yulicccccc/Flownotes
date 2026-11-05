@@ -1,13 +1,17 @@
-# Project State: FlowNotes (v3.8.1)
+# Project State: FlowNotes (v3.8.2)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.1`
+- **Current Version**: `v3.8.2`
 - **Latest Releases**:
+  - `v3.8.2`:
+    - **Pure Single-Card OneNote Aesthetics Recovery & Zero-Offset Alignment Engine (v3.8.2 纯粹单层 OneNote 高保真卡片美学复原与零偏移严丝合缝对齐引擎)**:
+      - **彻底移除冗余 SVG `<rect class="node-card-bg">` 错位底盘**：由于 v3.8.1 已通过 `position: static` 与 `overflow: hidden` 根治 WebKit Bug #23113，HTML 卡片已可在 iPad Safari 上 100% 稳定呈现；果断移除导致卡片右下角出现多余重叠彩色阴影边框的 SVG 背景底盘，复原 FlowNotes 标志性的纯粹极简单层卡片设计；
+      - **恢复 OneNote 招牌纯净单卡盒美感**：浅色模式下呈现温润透白的单层白卡 (`rgba(255, 255, 255, 0.97)`) 与优雅的柔和投影，深色模式下呈现经典深灰卡片，子节点仅在左侧保留 4px 分支彩色强调条 (`border-left: 4px solid var(--card-accent)`)，彻底告别重叠双重彩色框；
+      - **SVG `<foreignObject>` 零偏移严丝合缝契合 (`Zero-Offset Alignment`)**：将 `fo` 宽高严格对齐 `measuredW x measuredH`，坐标严格定位于 `(-measuredW / 2, -measuredH / 2)`，使卡片物理边界与几何中心绝对重合，动态跟随连线箭头与折叠 Badge 精准贴合卡片边缘，像素级消除任何错位与倒刺。
   - `v3.8.1`:
-    - **iPad Safari & WebKit SVG Native Rect Card & Anti-Detachment Engine (v3.8.1 iPad Safari/WebKit 原生 SVG 双重保真卡片容器与图谱卡片隐形根治引擎)**:
+    - **iPad Safari & WebKit Anti-Detachment Engine (v3.8.1 iPad Safari/WebKit 卡片隐形与脱离画布根治引擎)**:
       - **根除 WebKit Bug #23113 导致卡片脱离画布甩至 (0,0) 的恶性缺陷**：移除 `.canvas-note-card` 的 `position: relative`，在 Safari WebKit 环境下采用 `position: static` 正常流渲染，彻底消除 WebKit RenderLayer 坐标错乱 Bug；
       - **修复 SVG `<foreignObject>` 的 `overflow: visible` 渲染丢弃 Bug**：严格将 `.node-card-fo` 的 `overflow` 约束为 `hidden` 并精准赋予计算宽高，杜绝 Safari 遇到 visible 溢出时因剪裁盒失效而直接丢弃 HTML 内容渲染的致命问题；
-      - **原生 SVG `<rect class="node-card-bg">` 双重保真底盘**：在每个 `<g class="node-group">` 的 `foreignObject` 底部增加纯原生 SVG `<rect>` 卡片背景框，支持全主题色、选中发光与圆角，100% 由 GPU 硬件加速绘制，永不丢失；
       - **跨设备无损尺寸记忆与 Safari 零测量兜底**：解决 Safari 下 `offsetWidth/offsetHeight` 对 SVG 内部 XHTML 返回 0 导致的尺寸归零问题，优先读取并沿用云端同步的 `d._cardW` 与 `d._cardH` 真实尺寸，实现 iPad 与 PC 画布排版像素级一致。
   - `v3.8.0`:
     - **Zero-Config Cloudflare Cloud Sync & Multi-Device Workspace Hub (v3.8.0 Cloudflare 原生零配置极速云同步与跨端沙盘互通套件)**:

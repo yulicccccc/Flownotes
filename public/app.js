@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.1 loaded — Safari WebKit SVG Rect & High-Reliability Multi-Device Workspace Engine");
+    console.log("[FlowNotes] v3.8.2 loaded — Pure Single-Card OneNote Aesthetics Recovery & Zero-Offset Alignment Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1708,28 +1708,6 @@ function getCardDisplayHTML(d) {
     return `${titleHTML}${noteBadge}`;
 }
 
-// v3.8.1 适配各主题及背景色的卡片颜色提取器 (支持原生 SVG Rect 与 HTML)
-function getCardBgColorHex(bgName, isLight = false) {
-    const darkMap = {
-        rose: "rgba(136, 19, 55, 0.92)",
-        emerald: "rgba(6, 95, 70, 0.92)",
-        amber: "rgba(146, 64, 14, 0.92)",
-        orange: "rgba(154, 52, 18, 0.92)",
-        sky: "rgba(7, 89, 133, 0.92)",
-        violet: "rgba(91, 33, 182, 0.92)"
-    };
-    const lightMap = {
-        rose: "#ffe4e6",
-        emerald: "#d1fae5",
-        amber: "#fef3c7",
-        orange: "#ffedd5",
-        sky: "#e0f2fe",
-        violet: "#ede9fe"
-    };
-    if (isLight) return lightMap[bgName] || "rgba(255, 255, 255, 0.97)";
-    return darkMap[bgName] || "rgba(15, 23, 42, 0.94)";
-}
-
 // 轻量级：刷新画布富文本卡片样式、自适应尺寸测量、折叠徽章与选中发光状态
 function refreshNodeStyles() {
     if (!nodeElements) return;
@@ -1821,26 +1799,11 @@ function refreshNodeStyles() {
             d._cardW = measuredW;
             d._cardH = measuredH;
 
-            // 1. 同步刷新原生 SVG 背景框 (100% 免疫 WebKit 丢弃 Bug)
-            const bgRect = group.select(".node-card-bg");
-            if (!bgRect.empty()) {
-                const isLight = document.documentElement.getAttribute("data-theme") === "light";
-                bgRect.attr("width", measuredW)
-                      .attr("height", measuredH)
-                      .attr("x", -measuredW / 2)
-                      .attr("y", -measuredH / 2)
-                      .style("fill", d.cardBgColor ? getCardBgColorHex(d.cardBgColor, isLight) : (isLight ? "rgba(255, 255, 255, 0.97)" : "rgba(15, 23, 42, 0.94)"))
-                      .style("stroke", isSelected ? "#38bdf8" : (isFocus ? "#fbbf24" : borderColor))
-                      .style("stroke-width", isSelected ? "2.5px" : "1.5px");
-            }
-
-            // 2. foreignObject 尺寸精准契合卡片，配合 overflow: hidden 根除 Safari 塌陷
-            const foW = measuredW + 8;
-            const foH = measuredH + 8;
-            fo.attr("width", foW)
-              .attr("height", foH)
-              .attr("x", -foW / 2)
-              .attr("y", -foH / 2);
+            // foreignObject 尺寸与坐标 100% 严丝合缝契合卡片，消除任何偏移与双重边框
+            fo.attr("width", measuredW)
+              .attr("height", measuredH)
+              .attr("x", -measuredW / 2)
+              .attr("y", -measuredH / 2);
         }
 
         const halfW = (d._cardW || 120) / 2;
@@ -2025,13 +1988,11 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             foSel.attr("width", hasCW ? Math.max(120, d.customWidth + 32) : 980).attr("height", 920);
             d._cardW = Math.max(36, Math.min(980, cardEl.offsetWidth || 130));
             d._cardH = Math.max(24, Math.min(860, cardEl.offsetHeight || 34));
-            const foW = d._cardW + 20;
-            const foH = d._cardH + 20;
             foSel
-                .attr("width", foW)
-                .attr("height", foH)
-                .attr("x", -foW / 2)
-                .attr("y", -foH / 2);
+                .attr("width", d._cardW)
+                .attr("height", d._cardH)
+                .attr("x", -d._cardW / 2)
+                .attr("y", -d._cardH / 2);
             applyOneNoteResizeNudge(d, "e");
             renderPositions();
         }
@@ -2473,13 +2434,6 @@ function updateD3Graph() {
                     }
                     showCanvasContextMenu(event.clientX, event.clientY, d, event.target);
                 });
-
-            // v3.8.1 原生 SVG 双重保真卡片容器 (Native SVG Rect + Safe ForeignObject)
-            // 解决 iOS Safari WebKit Bug #23113 导致 HTML 卡片被误甩至 (0,0) 或丢失渲染的缺陷
-            const bgRect = g.append("rect")
-                .attr("class", "node-card-bg")
-                .attr("rx", 9)
-                .attr("ry", 9);
 
             // 画布富文本与图片直接渲染卡片容器 (<foreignObject>)
             const fo = g.append("foreignObject")

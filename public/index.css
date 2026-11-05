@@ -2067,19 +2067,6 @@ html[data-theme="light"] .canvas-card-table tr:hover td {
     pointer-events: auto;
 }
 
-.node-card-bg {
-    rx: 9px;
-    ry: 9px;
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
-    transition: stroke 0.16s ease, stroke-width 0.16s ease;
-    cursor: grab;
-    pointer-events: auto;
-}
-
-html[data-theme="light"] .node-card-bg {
-    filter: drop-shadow(0 4px 12px rgba(15, 23, 42, 0.1));
-}
-
 .canvas-note-card {
     --card-accent: #6366f1;
     display: inline-block;
