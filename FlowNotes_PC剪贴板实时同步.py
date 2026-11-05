@@ -9,12 +9,19 @@ iPad 上的 FlowNotes 瞬间弹出灵感快投胶囊，一键落入思维沙盘�
 """
 
 import sys
+import io
 import time
 import json
 import ctypes
 import urllib.request
 import urllib.error
 from datetime import datetime
+
+# 强制将标准输出/错误编码设置为 UTF-8，防止 Windows 默认 cp1252/cp936 编码下打印 emoji 崩溃
+if sys.stdout and hasattr(sys.stdout, 'buffer'):
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+if sys.stderr and hasattr(sys.stderr, 'buffer'):
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 # 目标 FlowNotes 接收端 API
 TARGET_API = "https://flownotes-eze.pages.dev/api/clipboard"

@@ -1,7 +1,8 @@
 @echo off
 chcp 65001 >nul
+set PYTHONIOENCODING=utf-8
 title FlowNotes 剪贴板实时同步助手 (Win -> iPad)
-cd /d "%~dp0"
+cd /d "C:\Users\qchen\OneDrive - Professional Compounding Centers of America, Inc\Documents\Flownotes"
 
 echo ==========================================================
 echo   FlowNotes v3.7.0 — Win-to-iPad 剪贴板实时快投助手
