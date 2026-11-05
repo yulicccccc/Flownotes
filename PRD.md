@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.2)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.3)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Full-Perimeter Card Borders, Zero-Clip ForeignObject & Scroll-Proof Typography Engine (v3.8.3 完整外周高保真边框、SVG ForeignObject 零剪裁与光标零位移防截断引擎)**:
+  - **根治卡片左侧边框与左圆角凭空消失的切边 Bug**：彻底恢复 `.node-card-fo` 为 `overflow: visible;`，允许卡片的外周发光阴影 (`box-shadow 2px`)、4px 左侧彩色强调条与边缘 8 向拉动手柄自然溢出渲染，严禁 SVG 容器在 `(0, 0)` 处暴力裁切；
+  - **消除浏览器 ContentEditable 光标聚焦滚动伪位移 (`scrollLeft: 0`)**：在 `refreshNodeStyles()`、`syncFromInlineCard()` 与输入失焦时强制重置 `<foreignObject>`、卡片与内容容器的 `scrollLeft = 0` 和 `scrollTop = 0`，杜绝长文本聚焦或光标移动至末尾时浏览器原生滚动画布卡片导致左侧 7~14px 移出视野被切边；
+  - **恢复 `.canvas-note-card` 的 `position: relative` 锚定上下文**：确保全向 8 个尺寸拉动手柄 (`.card-resize-handle`) 精确锚定在卡片 4 边与 4 角，绝不脱离或错位。
 - **Pure Single-Card OneNote Aesthetics Recovery & Zero-Offset Alignment Engine (v3.8.2 纯粹单层 OneNote 高保真卡片美学复原与零偏移严丝合缝对齐引擎)**:
   - **彻底移除冗余 SVG `<rect class="node-card-bg">` 错位底盘**：由于 v3.8.1 已通过 `position: static` 与 `overflow: hidden` 根治 WebKit Bug #23113，HTML 卡片已可在 iPad Safari 上 100% 稳定呈现；果断移除导致卡片右下角出现多余重叠彩色阴影边框的 SVG 背景底盘，复原 FlowNotes 标志性的纯粹极简单层卡片设计；
   - **恢复 OneNote 招牌纯净单卡盒美感**：浅色模式下呈现温润透白的单层白卡 (`rgba(255, 255, 255, 0.97)`) 与优雅的柔和投影，深色模式下呈现经典深灰卡片，子节点仅在左侧保留 4px 分支彩色强调条 (`border-left: 4px solid var(--card-accent)`)，彻底告别重叠双重彩色框；

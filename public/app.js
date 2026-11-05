@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.2 loaded — Pure Single-Card OneNote Aesthetics Recovery & Zero-Offset Alignment Engine");
+    console.log("[FlowNotes] v3.8.3 loaded — Full-Perimeter Card Borders & Zero-Clip ForeignObject Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1804,6 +1804,17 @@ function refreshNodeStyles() {
               .attr("height", measuredH)
               .attr("x", -measuredW / 2)
               .attr("y", -measuredH / 2);
+
+            // v3.8.3 强力重置 foreignObject 与内部容器滚动位置，彻底杜绝输入光标右移引起的 scrollLeft 伪位移截断左边框！
+            const foNode = fo.node();
+            if (foNode) {
+                foNode.scrollLeft = 0;
+                foNode.scrollTop = 0;
+            }
+            if (cardEl) {
+                cardEl.scrollLeft = 0;
+                cardEl.scrollTop = 0;
+            }
         }
 
         const halfW = (d._cardW || 120) / 2;
@@ -1993,6 +2004,15 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 .attr("height", d._cardH)
                 .attr("x", -d._cardW / 2)
                 .attr("y", -d._cardH / 2);
+            const foNode = foSel.node();
+            if (foNode) {
+                foNode.scrollLeft = 0;
+                foNode.scrollTop = 0;
+            }
+            if (cardEl) {
+                cardEl.scrollLeft = 0;
+                cardEl.scrollTop = 0;
+            }
             applyOneNoteResizeNudge(d, "e");
             renderPositions();
         }
@@ -2160,6 +2180,8 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         bodyEl.removeEventListener("blur", onBlur);
         bodyEl.setAttribute("contenteditable", "false");
         cardDiv.classed("is-editing", false);
+        bodyEl.scrollLeft = 0;
+        bodyEl.scrollTop = 0;
         syncFromInlineCard();
         refreshNodeStyles();
     };

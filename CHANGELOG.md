@@ -2,6 +2,26 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.8.3] - 2026-11-05
+
+### 🛡️ 完整外周高保真边框、SVG ForeignObject 零剪裁与光标零位移防截断引擎 (Full-Perimeter Card Borders & Zero-Clip ForeignObject Engine)
+- **🎯 根治卡片左侧边框与左圆角凭空消失的切边 Bug**：
+  - 彻底恢复 `.node-card-fo` 为 `overflow: visible;`，允许卡片的外周发光阴影 (`box-shadow 2px`)、4px 左侧彩色强调条与边缘 8 向拉动手柄自然溢出渲染，严禁 SVG 容器在 `(0, 0)` 处暴力裁切；
+- **🔒 消除浏览器 ContentEditable 光标聚焦滚动伪位移 (`scrollLeft: 0`)**：
+  - 在 `refreshNodeStyles()`、`syncFromInlineCard()` 与输入失焦时强制重置 `<foreignObject>`、卡片与内容容器的 `scrollLeft = 0` 和 `scrollTop = 0`，杜绝长文本聚焦或光标移动至末尾时浏览器原生滚动画布卡片导致左侧 7~14px 移出视野被切边；
+- **📐 恢复 `.canvas-note-card` 的 `position: relative` 锚定上下文**：
+  - 确保全向 8 个尺寸拉动手柄 (`.card-resize-handle`) 精确锚定在卡片 4 边与 4 角，绝不脱离或错位。
+
+## 🚀 [v3.8.2] - 2026-11-05
+
+### 💎 纯粹单层 OneNote 高保真卡片美学复原与零偏移严丝合缝对齐引擎 (Pure Single-Card OneNote Aesthetics Recovery & Zero-Offset Alignment Engine)
+- **🎯 彻底移除冗余 SVG `<rect class="node-card-bg">` 错位底盘**：
+  - 移除导致卡片右下角出现多余重叠彩色阴影边框的 SVG 背景底盘，复原 FlowNotes 标志性的纯粹极简单层卡片设计；
+- **⬜ 恢复 OneNote 招牌纯净单卡盒美感**：
+  - 浅色模式下呈现温润透白的单层白卡 (`rgba(255, 255, 255, 0.97)`) 与优雅的柔和投影，深色模式下呈现经典深灰卡片，子节点仅在左侧保留 4px 分支彩色强调条，彻底告别重叠双重彩色框；
+- **📐 SVG `<foreignObject>` 零偏移严丝合缝契合 (`Zero-Offset Alignment`)**：
+  - 将 `fo` 宽高严格对齐 `measuredW x measuredH`，坐标严格定位于 `(-measuredW / 2, -measuredH / 2)`，使卡片物理边界与几何中心绝对重合，像素级消除任何错位与倒刺。
+
 ## 🚀 [v3.7.1] - 2026-11-05
 
 ### 🎨 行内划词局部高保真字体颜色、多色荧光笔与多行卡片防截断引擎 (High-Fidelity Word-Level Typography, Color & Multi-Line Engine)

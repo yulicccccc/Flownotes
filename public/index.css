@@ -2063,12 +2063,14 @@ html[data-theme="light"] .canvas-card-table tr:hover td {
    ========================================================================== */
 
 .node-card-fo {
-    overflow: hidden;
+    overflow: visible;
     pointer-events: auto;
 }
 
 .canvas-note-card {
     --card-accent: #6366f1;
+    position: relative;
+    overflow: visible;
     display: inline-block;
     min-width: 36px;
     max-width: 520px;
@@ -2458,7 +2460,7 @@ html[data-theme="light"] .ctx-item {
    ========================================================================== */
 
 .canvas-note-card {
-    position: static;
+    position: relative;
 }
 
 @media (pointer: coarse) {
