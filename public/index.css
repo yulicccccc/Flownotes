@@ -2063,8 +2063,21 @@ html[data-theme="light"] .canvas-card-table tr:hover td {
    ========================================================================== */
 
 .node-card-fo {
-    overflow: visible;
+    overflow: hidden;
     pointer-events: auto;
+}
+
+.node-card-bg {
+    rx: 9px;
+    ry: 9px;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+    transition: stroke 0.16s ease, stroke-width 0.16s ease;
+    cursor: grab;
+    pointer-events: auto;
+}
+
+html[data-theme="light"] .node-card-bg {
+    filter: drop-shadow(0 4px 12px rgba(15, 23, 42, 0.1));
 }
 
 .canvas-note-card {
@@ -2458,7 +2471,13 @@ html[data-theme="light"] .ctx-item {
    ========================================================================== */
 
 .canvas-note-card {
-    position: relative;
+    position: static;
+}
+
+@media (pointer: coarse) {
+    .card-resize-handle {
+        display: none !important;
+    }
 }
 
 /* v3.4.2 智能分向调整卡片尺寸与对角线等比缩放字号手柄 (.card-resize-handle) */

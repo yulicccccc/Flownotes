@@ -261,7 +261,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.0 loaded — Zero-Config Cloudflare Cloud Sync & Multi-Device Sandbox Engine");
+    console.log("[FlowNotes] v3.8.1 loaded — Safari WebKit SVG Rect & High-Reliability Multi-Device Workspace Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1708,6 +1708,28 @@ function getCardDisplayHTML(d) {
     return `${titleHTML}${noteBadge}`;
 }
 
+// v3.8.1 适配各主题及背景色的卡片颜色提取器 (支持原生 SVG Rect 与 HTML)
+function getCardBgColorHex(bgName, isLight = false) {
+    const darkMap = {
+        rose: "rgba(136, 19, 55, 0.92)",
+        emerald: "rgba(6, 95, 70, 0.92)",
+        amber: "rgba(146, 64, 14, 0.92)",
+        orange: "rgba(154, 52, 18, 0.92)",
+        sky: "rgba(7, 89, 133, 0.92)",
+        violet: "rgba(91, 33, 182, 0.92)"
+    };
+    const lightMap = {
+        rose: "#ffe4e6",
+        emerald: "#d1fae5",
+        amber: "#fef3c7",
+        orange: "#ffedd5",
+        sky: "#e0f2fe",
+        violet: "#ede9fe"
+    };
+    if (isLight) return lightMap[bgName] || "rgba(255, 255, 255, 0.97)";
+    return darkMap[bgName] || "rgba(15, 23, 42, 0.94)";
+}
+
 // 轻量级：刷新画布富文本卡片样式、自适应尺寸测量、折叠徽章与选中发光状态
 function refreshNodeStyles() {
     if (!nodeElements) return;
@@ -1778,15 +1800,43 @@ function refreshNodeStyles() {
                 .style("min-height", hasCustomH ? `${d.customHeight}px` : null)
                 .style("--card-accent", borderColor);
 
-            // 测量卡片实际宽高，缓存到 d._cardW / d._cardH 供矩形边缘箭头交点算法与碰撞避让使用
+            // 测量卡片实际宽高，结合 iPad Safari/WebKit 缩放测量兜底与节点云端保存的真实尺寸
             const cardEl = cardDiv.node();
-            const measuredW = Math.max(36, Math.min(980, (cardEl ? cardEl.offsetWidth : 130) || 130));
-            const measuredH = Math.max(24, Math.min(860, (cardEl ? cardEl.offsetHeight : 34) || 34));
+            let rawW = 0;
+            let rawH = 0;
+            if (cardEl) {
+                rawW = cardEl.offsetWidth || cardEl.scrollWidth || 0;
+                rawH = cardEl.offsetHeight || cardEl.scrollHeight || 0;
+                if (!rawW || !rawH) {
+                    try {
+                        const bRect = cardEl.getBoundingClientRect();
+                        const zoomK = (svg && d3.zoomTransform(svg.node()) && d3.zoomTransform(svg.node()).k) || 1;
+                        if (bRect && bRect.width > 0) rawW = Math.round(bRect.width / zoomK);
+                        if (bRect && bRect.height > 0) rawH = Math.round(bRect.height / zoomK);
+                    } catch (_) {}
+                }
+            }
+            const measuredW = Math.max(36, Math.min(980, rawW || (hasCustomW ? d.customWidth : null) || d._cardW || 130));
+            const measuredH = Math.max(24, Math.min(860, rawH || (hasCustomH ? d.customHeight : null) || d._cardH || 34));
             d._cardW = measuredW;
             d._cardH = measuredH;
 
-            const foW = measuredW + 20;
-            const foH = measuredH + 20;
+            // 1. 同步刷新原生 SVG 背景框 (100% 免疫 WebKit 丢弃 Bug)
+            const bgRect = group.select(".node-card-bg");
+            if (!bgRect.empty()) {
+                const isLight = document.documentElement.getAttribute("data-theme") === "light";
+                bgRect.attr("width", measuredW)
+                      .attr("height", measuredH)
+                      .attr("x", -measuredW / 2)
+                      .attr("y", -measuredH / 2)
+                      .style("fill", d.cardBgColor ? getCardBgColorHex(d.cardBgColor, isLight) : (isLight ? "rgba(255, 255, 255, 0.97)" : "rgba(15, 23, 42, 0.94)"))
+                      .style("stroke", isSelected ? "#38bdf8" : (isFocus ? "#fbbf24" : borderColor))
+                      .style("stroke-width", isSelected ? "2.5px" : "1.5px");
+            }
+
+            // 2. foreignObject 尺寸精准契合卡片，配合 overflow: hidden 根除 Safari 塌陷
+            const foW = measuredW + 8;
+            const foH = measuredH + 8;
             fo.attr("width", foW)
               .attr("height", foH)
               .attr("x", -foW / 2)
@@ -2424,6 +2474,13 @@ function updateD3Graph() {
                     showCanvasContextMenu(event.clientX, event.clientY, d, event.target);
                 });
 
+            // v3.8.1 原生 SVG 双重保真卡片容器 (Native SVG Rect + Safe ForeignObject)
+            // 解决 iOS Safari WebKit Bug #23113 导致 HTML 卡片被误甩至 (0,0) 或丢失渲染的缺陷
+            const bgRect = g.append("rect")
+                .attr("class", "node-card-bg")
+                .attr("rx", 9)
+                .attr("ry", 9);
+
             // 画布富文本与图片直接渲染卡片容器 (<foreignObject>)
             const fo = g.append("foreignObject")
                 .attr("class", "node-card-fo")
@@ -2433,6 +2490,7 @@ function updateD3Graph() {
                 .attr("y", -27);
 
             const cardDiv = fo.append("xhtml:div")
+                .attr("xmlns", "http://www.w3.org/1999/xhtml")
                 .attr("class", "canvas-note-card")
                 .on("click.todoToggle", function(event, d) {
                     const cb = event.target && event.target.closest ? event.target.closest(".canvas-todo-checkbox") : null;

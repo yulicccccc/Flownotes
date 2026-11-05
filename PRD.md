@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.1)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **iPad Safari & WebKit SVG Native Rect Card & Anti-Detachment Engine (v3.8.1 iPad Safari/WebKit 原生 SVG 双重保真卡片容器与图谱卡片隐形根治引擎)**:
+  - **根除 WebKit Bug #23113 导致卡片脱离画布甩至 (0,0) 的恶性缺陷**：移除 `.canvas-note-card` 的 `position: relative`，在 Safari WebKit 环境下采用 `position: static` 正常流渲染，彻底消除 WebKit RenderLayer 坐标错乱 Bug；
+  - **修复 SVG `<foreignObject>` 的 `overflow: visible` 渲染丢弃 Bug**：严格将 `.node-card-fo` 的 `overflow` 约束为 `hidden` 并精准赋予计算宽高，杜绝 Safari 遇到 visible 溢出时因剪裁盒失效而直接丢弃 HTML 内容渲染的致命问题；
+  - **原生 SVG `<rect class="node-card-bg">` 双重保真底盘**：在每个 `<g class="node-group">` 的 `foreignObject` 底部增加纯原生 SVG `<rect>` 卡片背景框，支持全主题色、选中发光与圆角，100% 由 GPU 硬件加速绘制，永不丢失；
+  - **跨设备无损尺寸记忆与 Safari 零测量兜底**：解决 Safari 下 `offsetWidth/offsetHeight` 对 SVG 内部 XHTML 返回 0 导致的尺寸归零问题，优先读取并沿用云端同步的 `d._cardW` 与 `d._cardH` 真实尺寸，实现 iPad 与 PC 画布排版像素级一致。
 - **Zero-Config Cloudflare Cloud Sync & Multi-Device Workspace Hub (v3.8.0 Cloudflare 原生零配置极速云同步与跨端沙盘互通套件)**:
   - **原生 Cloudflare Pages Function 云同步端点 (`/functions/api/sync.js`)**：基于 Cloudflare KV 永久持久化存储，彻底免除在 iPad 触屏键盘上繁琐配置 40 位 GitHub PAT 的门槛。电脑端一键推送到云端，iPad 端一键拉取或初次开机自动无感恢复；
   - **跨设备开机自愈与初始状态智能探测 (`autoCheckCloudSync`)**：当 iPad 或新设备首次打开 FlowNotes 时，若本地处于初始默认 demo 状态，系统在启动 800ms 内自动检测云端备份并在毫秒内拉取电脑全量笔记，实现「打开即是电脑最新状态」；
