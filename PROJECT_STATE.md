@@ -1,8 +1,14 @@
-# Project State: FlowNotes (v3.8.5)
+# Project State: FlowNotes (v3.8.6)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.5`
+- **Current Version**: `v3.8.6`
 - **Latest Releases**:
+  - `v3.8.6`:
+    - **Zero-Loss Copy-Paste Text & Word-Level Formatting Two-Way Engine (v3.8.6 跨端复制文字零截断与行内划词标色/修改双向强同步保真引擎)**:
+      - **彻底移除长句复制 25/38 字符强制截断与人工 "..." 后缀**：修复 `btnLiveCatchMakeNode` 与 `initClipboardPaste` 在创建新卡片时对单段完整句子的生硬裁剪，使长文本粘贴和快投生成新卡片时 100% 完整保留所有文字，卡片自动根据文本长度换行自适应撑开；
+      - **杜绝 `sanitizeGraph` 与 `getCardDisplayHTML` 纯文本冲掉富文本标色**：修复旧版仅根据 `plainFirst.length > plainRaw.length` 判定就强行将 `content` 覆盖 `label` 的致命缺陷，增设 `labelHasStyle`（包含 `<span style="color:...`、`<mark>`、`**`）防线，绝对禁止用未格式化的纯文本覆盖已划词标红或修改后的富文本标题；
+      - **双向强同步架构 (Two-Way Synchronization)**：在画布卡片失焦（`syncFromInlineCard`）、右侧面板标题输入（`titleInput`）以及悬浮格式气泡标色（`applyFormatting`）时，实时将修改后的标题完整同步更新至 `node.content`（单段卡片内容即标题，多段卡片同步更新首行标题），彻底消灭因 `content` 残留旧文字导致保存或重绘时被覆盖还原的 Bug；
+      - **划词标色原生 Range 包裹与双击编辑完整复原**：重构 `applyFormatting` 的颜色涂抹逻辑，对画布任意卡片选区通过原生 DOM `Range.surroundContents(span)` / `extractContents()` 精准注入行内颜色样式并即时触发 `refreshNodeStyles()`，同时在双击编辑时自动检测并恢复被旧版截断的完整首行，杜绝编辑时光标截断。
   - `v3.8.5`:
     - **Simplified Canvas Toolbar & Multi-Style Arrow Category Suite (v3.8.5 画布左上角极简单行工具栏精炼与多分类箭头体系套件)**:
       - **彻底精简左上角操作栏 (`#nav-controls`)**：根据用户视觉标记要求，果断剔除 5 个冗余或重复按钮（`+子`、`+同`、`✋ 抓手`、`↩️ 撤销`、`↪️ 重做`），将 DOM 优雅隐藏保持快捷键（`Tab`、`Enter`、`Ctrl+Z`、`Ctrl+Y`、`Space`）100% 完整可用，操作栏仅纯净保留 5 个核心功能按钮：`➔ ▾ (箭头连线与分类)`、`🖍️ (手绘圈注)`、`☰ (大纲目录)`、`📖 (详细笔记)`、`💡 (快捷键提示)`；

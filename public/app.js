@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.5 loaded — Simplified Canvas Toolbar & Multi-Style Arrow Category Suite");
+    console.log("[FlowNotes] v3.8.6 loaded — Zero-Loss Copy-Paste Text & Word-Level Formatting Two-Way Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -686,12 +686,14 @@ function sanitizeGraph() {
             delete n.customHeight;
         }
 
-        // v3.5.8 自动无损修复旧版被截断的标题（如「还有一个容易忽略的细节...」）：若 content 首行更完整，恢复完整首行为 label
+        // v3.8.6 自动无损修复旧版被截断的标题：仅当 label 没有任何行内富文本样式且未被用户单独修改时才从 content 恢复更长标题，绝对杜绝用无格式 content 冲掉 label 的行内标色与划词格式
         if (n.content && typeof n.content === "string") {
             const fullFirstLine = n.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
-            const plainLabel = stripFormattingToPlainText(n.label || "");
+            const rawLabel = n.label || "";
+            const labelHasStyle = rawLabel.includes("<span") || rawLabel.includes("<font") || rawLabel.includes("<mark") || rawLabel.includes("==") || rawLabel.includes("**");
+            const plainLabel = stripFormattingToPlainText(rawLabel);
             const plainFirst = stripFormattingToPlainText(fullFirstLine);
-            if (plainLabel && plainFirst.startsWith(plainLabel) && plainFirst.length > plainLabel.length) {
+            if (!labelHasStyle && plainLabel && plainFirst.startsWith(plainLabel) && plainFirst.length > plainLabel.length) {
                 n.label = fullFirstLine;
             }
         }
@@ -1810,8 +1812,8 @@ function getCardDisplayHTML(d) {
         const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
         if (!labelHasStyle && firstLineHasStyle) {
             rawTitle = firstLine;
-        } else {
-            // v3.5.8 若 d.label 被截断而 d.content 首行更完整，自动取更完整的首行作为卡片标题
+        } else if (!labelHasStyle) {
+            // v3.8.6 仅当 label 没有任何格式时，才检查是否需要从 content 恢复更长标题，绝对杜绝用无格式 content 冲掉 label 的行内标色与划词格式
             const plainRaw = stripFormattingToPlainText(rawTitle);
             const plainFirst = stripFormattingToPlainText(firstLine);
             if (plainFirst.startsWith(plainRaw) && plainFirst.length > plainRaw.length) {
@@ -2036,6 +2038,16 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
 
     // 载入可编辑内容 (v3.5.5: 若卡片包含表格，在画布上同步呈现表格与标题，供双向交互编辑)
     let raw = (d.label || "").trim() || "未命名";
+    // v3.8.6 若 label 历史被截断过（例如末尾带 ... 且 content 首行更长完整），自动以更完整的首行载入，防止双击编辑丢失文字
+    if (d.content && typeof d.content === "string") {
+        const fullFirst = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
+        const pRaw = stripFormattingToPlainText(raw);
+        const pFirst = stripFormattingToPlainText(fullFirst);
+        if (pRaw && pFirst && (pRaw.endsWith("...") || (pFirst.startsWith(pRaw) && pFirst.length > pRaw.length))) {
+            raw = fullFirst;
+            d.label = raw;
+        }
+    }
     if (initialAppendChar) {
         const isDefaultPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(raw.trim());
         raw = isDefaultPlaceholder ? initialAppendChar : (raw + initialAppendChar);
@@ -2103,6 +2115,14 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 d.content.trim() === `# ${d.label.trim()}`;
             if (isContentEmpty) {
                 d.content = "";
+            } else if (d.content.includes("\n")) {
+                // v3.8.6 若包含多行长篇笔记，仅同步更新首行标题行，保留后续详细段落
+                const cLines = d.content.split("\n");
+                cLines[0] = d.label;
+                d.content = cLines.join("\n");
+            } else {
+                // v3.8.6 单段卡片：标题即内容，双向严格同步，彻底消灭 content 残留旧纯文本导致覆写还原的问题
+                d.content = d.label;
             }
         }
 
@@ -3868,6 +3888,15 @@ function initEvents() {
     titleInput.addEventListener("input", (e) => {
         if (!selectedNode) return;
         selectedNode.label = titleInput.value.trim() || "未命名";
+        if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
+            selectedNode.content = selectedNode.label;
+        } else if (selectedNode.content.includes("\n")) {
+            const cLines = selectedNode.content.split("\n");
+            cLines[0] = selectedNode.label;
+            selectedNode.content = cLines.join("\n");
+        } else {
+            selectedNode.content = selectedNode.label;
+        }
         refreshNodeStyles();
         if (!e.isComposing && !isImeComposing) {
             scheduleSaveGraph(true);
@@ -4622,7 +4651,7 @@ function applyFormatting(format, customVal = "") {
     // 支持在画布卡片原地编辑区 (.canvas-note-card-body) 或右侧富文本编辑器 (#rich-editor) 直接划词标红/标绿/高亮/加粗/斜体
     const sel = window.getSelection();
     const activeInlineBody = (sel && sel.rangeCount > 0 && sel.anchorNode)
-        ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body[contenteditable='true']")
+        ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body")
         : null;
     const inRichEditor = !!(richEditor && (previewMode === "live") && sel && sel.anchorNode && richEditor.contains(sel.anchorNode));
 
@@ -4722,46 +4751,99 @@ function applyFormatting(format, customVal = "") {
                     }
                 }
                 break;
-            case "bold": document.execCommand("bold"); break;
-            case "italic": document.execCommand("italic"); break;
-            case "underline": document.execCommand("underline"); break;
+            case "bold": {
+                const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+                if (range && activeInlineBody && activeInlineBody.getAttribute("contenteditable") !== "true") {
+                    const strong = document.createElement("strong");
+                    try { range.surroundContents(strong); } catch (e) { const f = range.extractContents(); strong.appendChild(f); range.insertNode(strong); }
+                } else {
+                    document.execCommand("bold");
+                }
+                break;
+            }
+            case "italic": {
+                const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+                if (range && activeInlineBody && activeInlineBody.getAttribute("contenteditable") !== "true") {
+                    const em = document.createElement("em");
+                    try { range.surroundContents(em); } catch (e) { const f = range.extractContents(); em.appendChild(f); range.insertNode(em); }
+                } else {
+                    document.execCommand("italic");
+                }
+                break;
+            }
+            case "underline": {
+                const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+                if (range && activeInlineBody && activeInlineBody.getAttribute("contenteditable") !== "true") {
+                    const u = document.createElement("u");
+                    try { range.surroundContents(u); } catch (e) { const f = range.extractContents(); u.appendChild(f); range.insertNode(u); }
+                } else {
+                    document.execCommand("underline");
+                }
+                break;
+            }
             case "strike": document.execCommand("strikeThrough"); break;
             case "highlight":
-                try {
-                    if (!document.execCommand("hiliteColor", false, "#fef08a")) {
-                        document.execCommand("backColor", false, "#fef08a");
-                    }
-                } catch (e) {
-                    document.execCommand("backColor", false, "#fef08a");
-                }
-                break;
             case "highlight-color": {
                 const customHl = customVal || "#fef08a";
-                try {
-                    if (!document.execCommand("hiliteColor", false, customHl)) {
+                const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+                if (range && activeInlineBody) {
+                    const mark = document.createElement("mark");
+                    mark.style.backgroundColor = customHl;
+                    try {
+                        range.surroundContents(mark);
+                    } catch (e) {
+                        const frag = range.extractContents();
+                        mark.appendChild(frag);
+                        range.insertNode(mark);
+                    }
+                } else {
+                    try {
+                        if (!document.execCommand("hiliteColor", false, customHl)) {
+                            document.execCommand("backColor", false, customHl);
+                        }
+                    } catch (e) {
                         document.execCommand("backColor", false, customHl);
                     }
-                } catch (e) {
-                    document.execCommand("backColor", false, customHl);
                 }
                 break;
             }
-            case "color": {
-                const color = document.getElementById("md-color")?.value || "#ff6b6b";
-                document.execCommand("foreColor", false, color);
+            case "color":
+            case "color-custom":
+            case "color-red":
+            case "color-orange":
+            case "color-yellow":
+            case "color-green":
+            case "color-blue":
+            case "color-purple": {
+                let targetColor = customVal;
+                if (!targetColor) {
+                    const colorMap = {
+                        "color-red": "#ef4444",
+                        "color-orange": "#f97316",
+                        "color-yellow": "#f59e0b",
+                        "color-green": "#10b981",
+                        "color-blue": "#0ea5e9",
+                        "color-purple": "#8b5cf6",
+                        "color": document.getElementById("md-color")?.value || "#ef4444"
+                    };
+                    targetColor = colorMap[format] || "#ef4444";
+                }
+                const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
+                if (range && activeInlineBody) {
+                    const span = document.createElement("span");
+                    span.style.color = targetColor;
+                    try {
+                        range.surroundContents(span);
+                    } catch (e) {
+                        const frag = range.extractContents();
+                        span.appendChild(frag);
+                        range.insertNode(span);
+                    }
+                } else {
+                    document.execCommand("foreColor", false, targetColor);
+                }
                 break;
             }
-            case "color-custom": {
-                const customCol = customVal || "#ef4444";
-                document.execCommand("foreColor", false, customCol);
-                break;
-            }
-            case "color-red": document.execCommand("foreColor", false, "#ef4444"); break;
-            case "color-orange": document.execCommand("foreColor", false, "#f97316"); break;
-            case "color-yellow": document.execCommand("foreColor", false, "#f59e0b"); break;
-            case "color-green": document.execCommand("foreColor", false, "#10b981"); break;
-            case "color-blue": document.execCommand("foreColor", false, "#0ea5e9"); break;
-            case "color-purple": document.execCommand("foreColor", false, "#8b5cf6"); break;
             case "code":
                 const cRange = sel.getRangeAt(0);
                 const codeEl = document.createElement("code");
@@ -4782,7 +4864,7 @@ function applyFormatting(format, customVal = "") {
             default: return;
         }
 
-        // 划词修改后立即同步到底层数据 (v3.6.1 保持卡片行内高保真色彩与富文本)
+        // 划词修改后立即同步到底层数据 (v3.8.6 保持卡片行内高保真色彩并双向强同步 content)
         if (!selectedNode && activeInlineBody) {
             const grp = activeInlineBody.closest(".node-group");
             if (grp) {
@@ -4805,11 +4887,17 @@ function applyFormatting(format, customVal = "") {
                     }
                 }
                 selectedNode.label = serializeCardLabelFromHTML(titleSourceHtml);
-                const isContentEmpty = !selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...");
-                if (isContentEmpty) {
-                    selectedNode.content = `# ${stripFormattingToPlainText(selectedNode.label)}\n\n`;
+                if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
+                    selectedNode.content = selectedNode.label;
+                } else if (selectedNode.content.includes("\n")) {
+                    const cLines = selectedNode.content.split("\n");
+                    cLines[0] = selectedNode.label;
+                    selectedNode.content = cLines.join("\n");
+                } else {
+                    selectedNode.content = selectedNode.label;
                 }
                 if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
+                refreshNodeStyles();
             } else if (richEditor) {
                 selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
             }
@@ -7268,7 +7356,8 @@ function initClipboardPaste() {
                 e.preventDefault();
                 const newId = `card_${Date.now()}`;
                 const trimmed = text.trim();
-                const firstLine = trimmed.split("\n")[0].slice(0, 25) || `笔记 ${nodes.length + 1}`;
+                const lines = trimmed.split("\n").map(l => l.trim()).filter(Boolean);
+                const firstLine = (lines[0] || trimmed.split("\n")[0] || `笔记 ${nodes.length + 1}`).trim();
                 const targetX = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.x)) ? lastCanvasMouseCoords.x : 450;
                 const targetY = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.y)) ? lastCanvasMouseCoords.y : 320;
 
@@ -10575,15 +10664,10 @@ function initLiveClipboardCatch() {
                 } catch (_) {}
             }
 
-            // 标题智能提取：如果有多行，首行作为标题，其余作为详细正文；单行如果太长截取前 36 字符作为标题
+            // v3.8.6 智能提取完整标题与正文：绝不强行截断文字和添加 "..."，保持文字百分之百无损完整
             const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
-            let title = lines[0] || "新笔记";
-            let content = text;
-            if (lines.length > 1) {
-                title = lines[0].length > 40 ? lines[0].substring(0, 40) + "..." : lines[0];
-            } else if (text.length > 40) {
-                title = text.substring(0, 38) + "...";
-            }
+            const title = (lines[0] || text.trim() || "新笔记").trim();
+            const content = text.trim();
 
             const newNode = {
                 id: newId,
