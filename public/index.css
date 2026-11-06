@@ -2677,19 +2677,37 @@ html[data-theme="light"] .ctx-item {
     gap: 6px;
 }
 
+.canvas-todo-item {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 7px;
+    width: 100%;
+    margin: 2px 0;
+    line-height: 1.45;
+}
+
+.canvas-todo-item .task-item-text {
+    flex: 1;
+    word-break: break-word;
+    user-select: text;
+}
+
 .canvas-todo-checkbox {
     appearance: auto;
-    width: 14px;
-    height: 14px;
-    margin-top: 3px;
+    width: 15px;
+    height: 15px;
+    margin-top: 2.5px;
     cursor: pointer;
     accent-color: #10b981;
     flex-shrink: 0;
+    pointer-events: auto !important;
 }
 
+.canvas-todo-item.task-done .task-item-text,
 .task-list-item.task-done .task-item-text {
     text-decoration: line-through;
-    opacity: 0.62;
+    opacity: 0.55;
+    color: var(--text-tertiary, #94a3b8);
 }
 
 /* XMind / Miro 风格：箭头中央关系词胶囊标签 (.link-label-group) */

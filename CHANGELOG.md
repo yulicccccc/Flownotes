@@ -2,6 +2,30 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.8.7] - 2026-11-06
+
+### ☑️ 画布卡片多行待办复选框与交互勾选引擎 (Multi-Line To-Do Checklist & Interactive Card Task Engine)
+- **☑️ 多行待办复选框精准切换与渲染 (`toggleTodoOnNode` & `renderCardLabelHTML`)**：
+  - 彻底修复当卡片包含多行内容（无论换行符是 `<br>` 还是 `\n`）时点击待办复选框按钮无效的严重 Bug；
+  - 支持多行文本逐行解析并独立渲染为标准 `.canvas-todo-item`，为每一个复选框赋予精确的 `data-task-index` 任务索引；
+- **👆 画布卡片直接交互打勾 (`toggleNthTaskCheckboxInNode`)**：
+  - 在画布卡片上直接点击任意复选框时，即时切换对应行的 `[ ]` 与 `[x]` 状态，且同步更新 `node.label` 与 `node.content`；
+  - 勾选后任务文字自动呈现 `.task-done` 删除线与柔和置灰效果，彻底消灭过去点击后被旧 `label` 瞬间还原的恶性缺陷；
+- **🔄 双向强同步与数据自愈 (`getCardDisplayHTML` & `syncFromInlineCard`)**：
+  - 在 `serializeCardLabelFromHTML` 中全面支持 `<input type="checkbox">` 的还原，彻底移除针对待办开头的强制清洗；
+  - 在 `getCardDisplayHTML` 中注入自动自愈机制，当 `content` 包含待办复选框而 `label` 缺失时自动补齐同步；
+- **📝 右侧富文本与批量卡片待办联动**：
+  - 在右侧详细笔记 `richEditor` 中点击待办复选框时同样触发卡片与双向数据更新；
+  - 快捷格式栏与 `Ctrl+1` 完美支持单卡片与多选卡片批量添加/移除待办。
+
+## 🚀 [v3.8.6] - 2026-11-06
+
+### 📝 零损剪贴板超长文本捕获与字词级格式双向引擎 (Zero-Loss Copy-Paste Text & Word-Level Formatting Two-Way Engine)
+- **✂️ 彻底移除长句复制 25/38 字符强制截断与人工 "..." 后缀**：使长文本粘贴和快投生成新卡片时 100% 完整保留所有文字；
+- **🛡️ 杜绝 `sanitizeGraph` 与 `getCardDisplayHTML` 纯文本冲掉富文本标色**：增设 `labelHasStyle` 防线，绝对禁止用未格式化的纯文本覆盖已划词标红或修改后的富文本标题；
+- **🔄 双向强同步架构 (Two-Way Synchronization)**：在画布卡片失焦、右侧面板标题输入以及悬浮格式气泡标色时实时同步；
+- **🎨 划词标色原生 Range 包裹与双击编辑完整复原**：重构 `applyFormatting` 颜色涂抹逻辑，对画布任意卡片选区通过原生 DOM `Range.surroundContents(span)` 精准注入。
+
 ## 🚀 [v3.8.5] - 2026-11-05
 
 ### 🏹 画布左上角极简单行工具栏精炼与多分类箭头体系套件 (Simplified Canvas Toolbar & Multi-Style Arrow Category Suite)

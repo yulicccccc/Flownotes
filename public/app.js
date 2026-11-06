@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.6 loaded — Zero-Loss Copy-Paste Text & Word-Level Formatting Two-Way Engine");
+    console.log("[FlowNotes] v3.8.7 loaded — Multi-Line To-Do Checklist & Interactive Card Task Engine");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1603,6 +1603,9 @@ function serializeCardLabelFromHTML(html) {
         if (node.nodeType === 1) {
             const tag = node.tagName.toLowerCase();
             if (tag === "br") return "\n";
+            if (tag === "input" && node.type === "checkbox") {
+                return node.checked ? "- [x] " : "- [ ] ";
+            }
             const inner = Array.from(node.childNodes).map(serializeInline).join("");
 
             if (tag === "b" || tag === "strong") return `**${inner}**`;
@@ -1656,10 +1659,10 @@ function serializeCardLabelFromHTML(html) {
     const raw = Array.from(temp.childNodes).map(serializeInline).join("");
     const lines = raw.split("\n").map(s => s.trim()).filter(Boolean);
     const joined = lines.length > 0 ? lines.join("<br>") : (raw.trim() || "未命名");
-    return joined.replace(/^\[[ xX]\]\s*/, "") || "未命名";
+    return joined || "未命名";
 }
 
-// v3.6.1 卡片标题专用富文本渲染器：仅渲染行内加粗、斜体、手写体、颜色、多色荧光高亮与换行，绝不破坏序号！
+// v3.8.7 卡片标题专用富文本渲染器：支持多行 To-Do 待办复选框、行内加粗、斜体、手写体、颜色、多色荧光高亮与换行，绝不破坏序号！
 function renderCardLabelHTML(text) {
     if (!text) return "";
     let cleaned = cleanHTMLSpill(text);
@@ -1674,14 +1677,21 @@ function renderCardLabelHTML(text) {
         .replace(/<u>/gi, '___U_START___')
         .replace(/<\/u>/gi, '___U_END___');
 
-    let html = escapeHTML(protectedText);
+    // 拆分为每一行分别渲染，精确识别每一行是否为 To-Do 待办复选框
+    let taskCounter = 0;
+    const rawLines = protectedText.split(/\r?\n|<br\s*\/?>/gi);
+    const renderedLines = rawLines.map(line => {
+        let escapedLine = escapeHTML(line);
+        const taskMatch = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(escapedLine);
+        if (taskMatch) {
+            const checked = taskMatch[1].toLowerCase() === "x";
+            const tIdx = taskCounter++;
+            return `<span class="canvas-todo-item ${checked ? "task-done" : ""}"><input type="checkbox" class="canvas-todo-checkbox" data-task-index="${tIdx}" ${checked ? "checked" : ""}><span class="task-item-text">${taskMatch[2]}</span></span>`;
+        }
+        return escapedLine;
+    });
 
-    // 检查 To-Do 复选框 - [ ] / - [x] / [ ] / [x]
-    const taskMatch = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(html);
-    if (taskMatch) {
-        const checked = taskMatch[1].toLowerCase() === "x";
-        html = `<input type="checkbox" class="canvas-todo-checkbox" data-task-index="0" ${checked ? "checked" : ""}><span class="task-item-text">${taskMatch[2]}</span>`;
-    }
+    let html = renderedLines.join("<br>");
 
     html = html
         .replace(/___MARK_START_(.*?)___/g, '<mark style="background-color:$1">')
@@ -1691,8 +1701,7 @@ function renderCardLabelHTML(text) {
         .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
         .replace(/___SPAN_END___/g, '</span>')
         .replace(/___U_START___/g, '<u>')
-        .replace(/___U_END___/g, '</u>')
-        .replace(/\n/g, '<br>');
+        .replace(/___U_END___/g, '</u>');
 
     html = html
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -1803,21 +1812,28 @@ function getCardDisplayHTML(d) {
         return `<img class="canvas-card-img" src="${d.imageUrl}" alt="截图" draggable="false" />${caption}`;
     }
 
-    // v3.5.6 高保真标题提取：优先保留 d.label 中的格式；若 d.label 是纯文本而 d.content 首行包含格式化颜色或强调，智能恢复首行色彩
+    // v3.8.7 高保真标题提取与待办自愈：优先保留 d.label 中的格式与待办；若 content 有待办而 label 缺失，自动自愈同步
     let rawTitle = (d.label || "").trim();
-    const labelHasStyle = rawTitle.includes("<span") || rawTitle.includes("<font") || rawTitle.includes("<mark") || rawTitle.includes("==") || rawTitle.includes("**");
+    const labelHasStyle = rawTitle.includes("<span") || rawTitle.includes("<font") || rawTitle.includes("<mark") || rawTitle.includes("==") || rawTitle.includes("**") || rawTitle.includes("[ ]") || rawTitle.includes("[x]");
     
     if (d.content && typeof d.content === "string") {
-        const firstLine = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
-        const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
-        if (!labelHasStyle && firstLineHasStyle) {
-            rawTitle = firstLine;
-        } else if (!labelHasStyle) {
-            // v3.8.6 仅当 label 没有任何格式时，才检查是否需要从 content 恢复更长标题，绝对杜绝用无格式 content 冲掉 label 的行内标色与划词格式
-            const plainRaw = stripFormattingToPlainText(rawTitle);
-            const plainFirst = stripFormattingToPlainText(firstLine);
-            if (plainFirst.startsWith(plainRaw) && plainFirst.length > plainRaw.length) {
+        const contentHasTask = /\[([ xX])\]/.test(d.content);
+        const labelHasTask = /\[([ xX])\]/.test(rawTitle);
+        if (!labelHasTask && contentHasTask) {
+            rawTitle = d.content.replace(/\r?\n/g, "<br>");
+            d.label = rawTitle;
+        } else {
+            const firstLine = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
+            const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
+            if (!labelHasStyle && firstLineHasStyle) {
                 rawTitle = firstLine;
+            } else if (!labelHasStyle) {
+                // 仅当 label 没有任何格式时，才检查是否需要从 content 恢复更长标题
+                const plainRaw = stripFormattingToPlainText(rawTitle);
+                const plainFirst = stripFormattingToPlainText(firstLine);
+                if (plainFirst.startsWith(plainRaw) && plainFirst.length > plainRaw.length) {
+                    rawTitle = firstLine;
+                }
             }
         }
     }
@@ -2114,15 +2130,17 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 d.content.trim() === d.label.trim() ||
                 d.content.trim() === `# ${d.label.trim()}`;
             if (isContentEmpty) {
-                d.content = "";
-            } else if (d.content.includes("\n")) {
-                // v3.8.6 若包含多行长篇笔记，仅同步更新首行标题行，保留后续详细段落
+                if (/\[([ xX])\]/.test(d.label) || d.label.includes("<br>")) {
+                    d.content = d.label.replace(/<br\s*\/?>/gi, "\n");
+                } else {
+                    d.content = "";
+                }
+            } else if (d.content.includes("\n") && !d.label.includes("<br>")) {
                 const cLines = d.content.split("\n");
                 cLines[0] = d.label;
                 d.content = cLines.join("\n");
             } else {
-                // v3.8.6 单段卡片：标题即内容，双向严格同步，彻底消灭 content 残留旧纯文本导致覆写还原的问题
-                d.content = d.label;
+                d.content = d.label.replace(/<br\s*\/?>/gi, "\n");
             }
         }
 
@@ -2654,6 +2672,13 @@ function updateD3Graph() {
                 .attr("xmlns", "http://www.w3.org/1999/xhtml")
                 .attr("class", "canvas-note-card")
                 .on("click.todoToggle", function(event, d) {
+                    const cb = event.target && event.target.closest ? event.target.closest(".canvas-todo-checkbox") : null;
+                    if (!cb) return;
+                    event.stopPropagation();
+                    const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
+                    toggleNthTaskCheckboxInNode(d, idx, cb.checked);
+                })
+                .on("change.todoToggle", function(event, d) {
                     const cb = event.target && event.target.closest ? event.target.closest(".canvas-todo-checkbox") : null;
                     if (!cb) return;
                     event.stopPropagation();
@@ -3932,6 +3957,13 @@ function initEvents() {
         scheduleSaveGraph(true);
     });
 
+    richEditor.addEventListener("click", (e) => {
+        const cb = e.target && e.target.closest ? e.target.closest(".canvas-todo-checkbox") : null;
+        if (!cb || !selectedNode) return;
+        const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
+        toggleNthTaskCheckboxInNode(selectedNode, idx, cb.checked);
+    });
+
     // v3.5.5 OneNote 招牌表格体验：在详细笔记 richEditor 中支持 Tab/Shift+Tab 换格与末尾自动加行
     richEditor.addEventListener("keydown", (e) => {
         const activeSel = window.getSelection();
@@ -4927,6 +4959,20 @@ function applyFormatting(format, customVal = "") {
     if (targetNodes.length === 0) return;
 
     switch (format) {
+        case "todo": {
+            const willAdd = !targetNodes.some(n => {
+                const text = (n.label || n.content || "");
+                return /\[([ xX])\]/.test(text);
+            });
+            targetNodes.forEach(n => {
+                toggleTodoOnNode(n, willAdd);
+            });
+            refreshNodeStyles();
+            renderEditor();
+            scheduleSaveGraph(true);
+            showToast(willAdd ? "☑ 已添加待办复选框 (可直接点击画布卡片上的方框打勾！)" : "🧹 已移除待办复选框");
+            return;
+        }
         case "bold": {
             const willBold = !targetNodes.every(n => n.isBold);
             targetNodes.forEach(n => { n.isBold = willBold; });
@@ -7257,9 +7303,7 @@ function initSelectionQuickBubble() {
             else if (action === "bold") applyFormatting("bold");
             else if (action === "italic") applyFormatting("italic");
             else if (action === "underline") applyFormatting("underline");
-            else if (action === "todo") {
-                if (selectedNode) toggleTodoOnSelectedCard(selectedNode);
-            }
+            else if (action === "todo") applyFormatting("todo");
             else if (action === "table") applyFormatting("table");
             else if (action === "clear") {
                 if (selectedNode) {
@@ -8453,57 +8497,138 @@ function startCardResize(event, rawD, handleEl, mode = "e") {
     window.addEventListener("touchcancel", onUp);
 }
 
-// 3. OneNote 风格：Ctrl + 1（或点气泡/右键菜单 ☑）一键为当前卡片切换 To-Do 待办复选框
-function toggleTodoOnSelectedCard(targetNode = selectedNode) {
+// 3. OneNote 风格：为单个卡片切换 To-Do 待办复选框（支持添加与移除）
+function toggleTodoOnNode(targetNode, forceAdd = null) {
     if (!targetNode) return;
-    let raw = (targetNode.content || targetNode.label || "").trim();
-    if (!raw) raw = targetNode.label || "待办事项";
+    let raw = (targetNode.label || targetNode.content || "").trim();
+    if (!raw) raw = "待办事项";
 
-    const lines = raw.split("\n");
-    const taskRegex = /^([ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?)\[([ xX])\][ \t]+(.*)$/;
-    const hasAnyTask = lines.some(l => taskRegex.test(l));
+    const normalized = raw
+        .replace(/<\/p>[\s]*<p[^>]*>/gi, "\n")
+        .replace(/<\/div>[\s]*<div[^>]*>/gi, "\n")
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/&lt;br\s*\/?&gt;/gi, "\n");
 
-    const updatedLines = lines.map((line, i) => {
+    const lines = normalized.split("\n");
+    const taskRegex = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)$/;
+    const hasAnyTask = lines.some(l => taskRegex.test(l.trim()));
+    const willAdd = (forceAdd !== null) ? forceAdd : !hasAnyTask;
+
+    const updatedLabelLines = [];
+    const updatedContentLines = [];
+
+    lines.forEach((line, i) => {
         const trimmed = line.trim();
-        if (!trimmed) return line;
-        if ( /^#{1,4}\s+/.test(trimmed) && lines.length > 1 && i === 0) return line;
+        if (!trimmed) {
+            updatedLabelLines.push("");
+            updatedContentLines.push("");
+            return;
+        }
+        if (/^#{1,4}\s+/.test(trimmed) && lines.length > 1 && i === 0) {
+            updatedLabelLines.push(line);
+            updatedContentLines.push(line);
+            return;
+        }
         const m = taskRegex.exec(line);
-        if (hasAnyTask) {
-            return m ? m[3] : line;
+        if (!willAdd) {
+            const textWithoutTask = m ? m[2] : line;
+            updatedLabelLines.push(textWithoutTask);
+            updatedContentLines.push(textWithoutTask);
         } else {
-            const cleanLine = line.replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]+/, "");
-            return `- [ ] ${cleanLine}`;
+            if (m) {
+                updatedLabelLines.push(line);
+                updatedContentLines.push(line);
+            } else {
+                const cleanLine = line.replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]+/, "");
+                updatedLabelLines.push(`- [ ] ${cleanLine}`);
+                updatedContentLines.push(`- [ ] ${cleanLine}`);
+            }
         }
     });
 
-    targetNode.content = updatedLines.join("\n");
+    targetNode.label = updatedLabelLines.join("<br>");
+    targetNode.content = updatedContentLines.join("\n");
+
+    const editingCard = document.querySelector('.canvas-note-card.is-editing');
+    if (editingCard) {
+        const grp = editingCard.closest('.node-group');
+        const d = grp ? d3.select(grp).datum() : null;
+        if (d && d.id === targetNode.id) {
+            const bodyEl = editingCard.querySelector('.canvas-note-card-body');
+            if (bodyEl && bodyEl.getAttribute("contenteditable") === "true") {
+                bodyEl.innerHTML = renderCardLabelHTML(targetNode.label);
+            }
+        }
+    }
+}
+
+// OneNote 风格快捷键 Ctrl + 1 或点悬浮气泡 ☑ 待办复选框
+function toggleTodoOnSelectedCard(targetNode = selectedNode) {
+    let targetNodes = [];
+    if (selectedNodeIds && selectedNodeIds.size > 0) {
+        targetNodes = nodes.filter(n => selectedNodeIds.has(n.id));
+    }
+    if (targetNodes.length === 0 && targetNode) {
+        targetNodes = [targetNode];
+    }
+    if (targetNodes.length === 0) return;
+
+    const willAdd = !targetNodes.some(n => {
+        const text = (n.label || n.content || "");
+        return /\[([ xX])\]/.test(text);
+    });
+
+    targetNodes.forEach(n => toggleTodoOnNode(n, willAdd));
+
     refreshNodeStyles();
     renderEditor();
     scheduleSaveGraph(true);
-    showToast(hasAnyTask ? "🧹 已移除待办复选框" : "☑ 已添加待办复选框 (可直接点击画布卡片上的方框打勾！)");
+    showToast(willAdd ? "☑ 已添加待办复选框 (可直接点击画布卡片上的方框打勾！)" : "🧹 已移除待办复选框");
 }
 
-// 4. 在画布卡片上直接点击第 N 个复选框时，实时切换 [ ] 与 [x] 状态
-function toggleNthTaskCheckboxInNode(node, taskIdx, isChecked) {
-    if (!node) return;
-    let raw = (node.content || node.label || "");
-    const lines = raw.split("\n");
+// 辅助函数：在文本或 HTML 标签中精准切换第 N 个复选框状态
+function toggleNthTaskInText(text, taskIdx, isChecked, isHtmlLabel = false) {
+    if (!text) return { text: text, changed: false };
+    const useBr = isHtmlLabel && /<br\s*\/?>/i.test(text);
+    const lines = useBr ? text.split(/<br\s*\/?>/gi) : text.split("\n");
     const taskRegex = /^([ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?)\[([ xX])\]([ \t]+.*)$/;
     let currentIdx = 0;
+    let changed = false;
 
     const nextLines = lines.map(line => {
         const m = taskRegex.exec(line);
         if (!m) return line;
         if (currentIdx === taskIdx) {
             currentIdx++;
-            const prefix = m[1] && m[1].trim() ? m[1] : "- ";
-            return `${prefix}[${isChecked ? "x" : " "}]${m[3]}`;
+            const wasChecked = m[2].toLowerCase() === "x";
+            if (wasChecked !== isChecked) {
+                changed = true;
+                const prefix = m[1] && m[1].trim() ? m[1] : "- ";
+                return `${prefix}[${isChecked ? "x" : " "}]${m[3]}`;
+            }
+            return line;
         }
         currentIdx++;
         return line;
     });
 
-    node.content = nextLines.join("\n");
+    return { text: nextLines.join(useBr ? "<br>" : "\n"), changed };
+}
+
+// 4. 在画布卡片上直接点击第 N 个复选框时，实时切换 [ ] 与 [x] 状态
+function toggleNthTaskCheckboxInNode(node, taskIdx, isChecked) {
+    if (!node) return;
+    let label = node.label || "";
+    let content = node.content || "";
+
+    const resLabel = toggleNthTaskInText(label, taskIdx, isChecked, true);
+    const resContent = toggleNthTaskInText(content, taskIdx, isChecked, false);
+
+    if (!resLabel.changed && !resContent.changed) return;
+
+    node.label = resLabel.text;
+    node.content = resContent.text || node.label.replace(/<br\s*\/?>/gi, "\n");
+
     refreshNodeStyles();
     if (selectedNode && selectedNode.id === node.id) {
         renderEditor();

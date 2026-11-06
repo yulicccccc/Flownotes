@@ -1,8 +1,14 @@
-# Project State: FlowNotes (v3.8.6)
+# Project State: FlowNotes (v3.8.7)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.6`
+- **Current Version**: `v3.8.7`
 - **Latest Releases**:
+  - `v3.8.7`:
+    - **Multi-Line To-Do Checklist & Interactive Card Task Engine (v3.8.7 画布卡片多行待办复选框与交互勾选引擎)**:
+      - **多行待办复选框精准切换与渲染 (`toggleTodoOnNode` & `renderCardLabelHTML`)**: 彻底解决当卡片包含多行内容（无论换行符是 `<br>` 还是 `\n`）时待办按钮无效的缺陷；支持针对多行文本按行遍历匹配，每一行均独立渲染为带专属任务序号的 `.canvas-todo-item` 与 `.canvas-todo-checkbox`；
+      - **画布卡片直接交互打勾 (`toggleNthTaskCheckboxInNode`)**: 点击画布卡片上的任意复选框时，精准定位并翻转该任务的 `[ ]` 与 `[x]` 状态，且同时严格同步更新 `node.label` 与 `node.content`，完成任务后自动施加 `.task-done` 中划线与置灰效果，彻底消灭过去点击后被旧 `label` 瞬间还原的恶性 Bug；
+      - **双向数据同步与自愈机制 (`getCardDisplayHTML` & `syncFromInlineCard`)**: 在 `serializeCardLabelFromHTML` 中全面支持 `<input type="checkbox">` 的还原，彻底移除针对待办开头的强制清洗；在 `getCardDisplayHTML` 中注入自动自愈逻辑，若 `content` 包含待办复选框而 `label` 缺失时自动补齐同步；
+      - **右侧富文本与批量卡片待办联动**: 在右侧详细笔记 `richEditor` 中点击待办复选框时同样触发卡片与双向数据更新；快捷格式栏与 `Ctrl+1` 完美支持单卡片与多选卡片批量添加/移除待办。
   - `v3.8.6`:
     - **Zero-Loss Copy-Paste Text & Word-Level Formatting Two-Way Engine (v3.8.6 跨端复制文字零截断与行内划词标色/修改双向强同步保真引擎)**:
       - **彻底移除长句复制 25/38 字符强制截断与人工 "..." 后缀**：修复 `btnLiveCatchMakeNode` 与 `initClipboardPaste` 在创建新卡片时对单段完整句子的生硬裁剪，使长文本粘贴和快投生成新卡片时 100% 完整保留所有文字，卡片自动根据文本长度换行自适应撑开；
