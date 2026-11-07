@@ -1,9 +1,16 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.8)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.9)
 
 ## Goal
-A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
+A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Synchronized 6-Color Font Palette for Note Details & Mindmap (v3.8.9 笔记详情与脑图高保真 6 色字体标色同步套件)**:
+  - **详情工具栏 6 色字体标色微型胶囊套件 (`.format-color-group`)**: 彻底解决笔记详情富文本格式栏仅有红绿双色的局限，与脑图划词快速格式化气泡保持 100% 视觉与功能统一，提供 6 种经典马卡龙字体颜色：🔴 珊瑚红 (`#ef4444`)、🟠 暖杏橙 (`#f97316`)、🟡 柠檬黄 (`#f59e0b`)、🟢 薄荷绿 (`#10b981`)、🔵 晴空蓝 (`#0ea5e9`)、🟣 薰衣草紫 (`#8b5cf6`)；
+  - **微型圆点胶囊视觉设计 (`.format-btn.format-color-dot`)**: 采用直径 17px 精致立体渐变色珠，悬浮时放大 1.32 倍并泛起当前色光晕，深浅双色主题自适应边框与阴影，优雅融入 `#format-toolbar` 且不占用垂直高度；
+  - **双模式全链路无损格式化与数据双向同步**:
+    - **富文本实时编辑态 (`#rich-editor`)**: 划选文本后点击色珠，通过保留选区防失焦技术与 `<span>` 原生内联包裹，即时为文字涂抹目标色，并同步驱动卡片与全局状态更新；未选中文本点击时切换整卡卡片文字基底色；
+    - **Markdown 原码编辑态 (`#markdown-editor`)**: 点击任意色珠自动在选中文本两端包裹 `<span style="color:#hex">...</span>`；
+  - **保留快捷键与高频标注兼容**: 完整保留 `Ctrl+Shift+R` (红) 与 `Ctrl+Shift+G` (绿) 经典热键，与 `🟡 亮` 荧光高亮及 `✍️ 批注` 手写体无缝混排协同。
 - **OneNote True Single-Line To-Do & Non-Empty Line Task Suite (v3.8.8 OneNote 原生单行待办与空行保护套件)**:
   - **光标当前行精准切换待办 (`toggleTodoOnCurrentLine`)**: 在卡片原地编辑状态下，点击 `☑` 按钮或按下 `Ctrl+1` 时，基于 DOM `compareDocumentPosition` 严格定位光标当前所在的单一文本行，**仅在此行添加或移除复选框**，绝不波及卡片内其他行或下一个空行；
   - **空行严格保护机制 (`isSubstantiveLine`)**: 无论是单行操作还是整卡批量切换，通过 `isSubstantiveLine` 严格校验实质文本内容，空行、纯空格行、仅包含 `<br>` 或 `&nbsp;` 的空行绝对不被赋予待办复选框；

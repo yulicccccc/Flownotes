@@ -1,8 +1,14 @@
-# Project State: FlowNotes (v3.8.8)
+# Project State: FlowNotes (v3.8.9)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.8`
+- **Current Version**: `v3.8.9`
 - **Latest Releases**:
+  - `v3.8.9`:
+    - **Synchronized 6-Color Font Palette for Note Details & Mindmap (v3.8.9 笔记详情与脑图高保真 6 色字体标色同步套件)**:
+      - **详情工具栏 6 色字体标色微型胶囊套件 (`.format-color-group`)**: 彻底解决笔记详情富文本格式栏仅有红绿双色的局限，与脑图划词快速格式化气泡保持 100% 视觉与功能统一，提供 6 种经典马卡龙字体颜色：🔴 珊瑚红 (`#ef4444`)、🟠 暖杏橙 (`#f97316`)、🟡 柠檬黄 (`#f59e0b`)、🟢 薄荷绿 (`#10b981`)、🔵 晴空蓝 (`#0ea5e9`)、🟣 薰衣草紫 (`#8b5cf6`)；
+      - **微型圆点胶囊视觉设计 (`.format-btn.format-color-dot`)**: 采用直径 17px 精致立体渐变色珠，悬浮时放大 1.32 倍并泛起当前色光晕，深浅双色主题自适应边框与阴影，优雅融入 `#format-toolbar` 且不占用垂直高度；
+      - **双模式全链路无损格式化与数据双向同步**: 富文本实时编辑态 (`#rich-editor`) 选区防失焦与原生内联包裹驱动卡片同步；Markdown 原码编辑态 (`#markdown-editor`) 自动包裹 `<span style="color:#hex">...</span>`；
+      - **保留快捷键与高频标注兼容**: 完整保留 `Ctrl+Shift+R` (红) 与 `Ctrl+Shift+G` (绿) 经典热键，与 `🟡 亮` 荧光高亮及 `✍️ 批注` 手写体无缝混排协同。
   - `v3.8.8`:
     - **OneNote True Single-Line To-Do & Non-Empty Line Task Suite (v3.8.8 OneNote 原生单行待办与空行保护套件)**:
       - **光标当前行精准切换待办 (`toggleTodoOnCurrentLine`)**: 在卡片原地编辑状态下，点击 `☑` 按钮或按下 `Ctrl+1` 时，基于 DOM `compareDocumentPosition` 严格定位光标当前所在的单一文本行，**仅在此行添加或移除复选框**，绝不波及卡片内其他行或下一个空行；

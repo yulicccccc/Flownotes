@@ -1045,6 +1045,59 @@ html[data-theme="light"] .dock-zoom-group {
 .format-separator { width: 1px; height: 18px; background: var(--panel-border); margin: 0 4px; }
 #md-color { width: 26px; height: 26px; border: none; background: transparent; cursor: pointer; }
 
+/* 详细笔记工具栏 6 色字体标色微型胶囊套件 (与脑图同步 6 色) */
+.format-color-group {
+    display: inline-flex;
+    align-items: center;
+    gap: 4.5px;
+    padding: 3px 6px;
+    background: rgba(15, 23, 42, 0.45);
+    border: 1px solid var(--panel-border, rgba(148, 163, 184, 0.22));
+    border-radius: 6px;
+    margin: 0 2px;
+}
+
+html[data-theme="light"] .format-color-group {
+    background: rgba(241, 245, 249, 0.9);
+    border-color: rgba(203, 213, 225, 0.85);
+}
+
+.format-btn.format-color-dot {
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
+    max-width: 17px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, 0.28);
+    padding: 0;
+    cursor: pointer;
+    transition: transform 0.15s cubic-bezier(0.18, 1.4, 0.38, 1), box-shadow 0.15s ease;
+    flex-shrink: 0;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="light"] .format-btn.format-color-dot {
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.format-btn.format-color-dot:hover {
+    transform: scale(1.32);
+    box-shadow: 0 0 8px currentColor;
+    z-index: 2;
+}
+
+.format-btn.format-color-dot:active {
+    transform: scale(0.92);
+}
+
+.format-btn.format-color-dot.dot-red { background: linear-gradient(135deg, #f87171, #ef4444); color: #ef4444; }
+.format-btn.format-color-dot.dot-orange { background: linear-gradient(135deg, #fb923c, #f97316); color: #f97316; }
+.format-btn.format-color-dot.dot-yellow { background: linear-gradient(135deg, #fde047, #f59e0b); color: #f59e0b; }
+.format-btn.format-color-dot.dot-green { background: linear-gradient(135deg, #34d399, #10b981); color: #10b981; }
+.format-btn.format-color-dot.dot-blue { background: linear-gradient(135deg, #38bdf8, #0ea5e9); color: #0ea5e9; }
+.format-btn.format-color-dot.dot-purple { background: linear-gradient(135deg, #a78bfa, #8b5cf6); color: #8b5cf6; }
+
 #note-workspace {
     flex: 1;
     min-height: 0;

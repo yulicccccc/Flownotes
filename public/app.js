@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.8 loaded — OneNote True Single-Line To-Do & Non-Empty Line Task Suite");
+    console.log("[FlowNotes] v3.8.9 loaded — Synchronized 6-Color Font Palette for Note Details & Mindmap");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -4720,8 +4720,24 @@ function applyFormatting(format, customVal = "") {
                 before = `<span style="color:#ef4444">`;
                 after = "</span>";
                 break;
+            case "color-orange":
+                before = `<span style="color:#f97316">`;
+                after = "</span>";
+                break;
+            case "color-yellow":
+                before = `<span style="color:#f59e0b">`;
+                after = "</span>";
+                break;
             case "color-green":
                 before = `<span style="color:#10b981">`;
+                after = "</span>";
+                break;
+            case "color-blue":
+                before = `<span style="color:#0ea5e9">`;
+                after = "</span>";
+                break;
+            case "color-purple":
+                before = `<span style="color:#8b5cf6">`;
                 after = "</span>";
                 break;
             default: return;

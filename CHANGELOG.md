@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.8.9] - 2026-11-06
+
+### 🎨 笔记详情与脑图高保真 6 色字体标色同步套件 (Synchronized 6-Color Font Palette for Note Details & Mindmap)
+- **🎨 详情工具栏 6 色字体标色微型胶囊套件 (`.format-color-group`)**：
+  - 响应用户建议与视觉截图，彻底消除笔记详情工具栏与脑图快速格式化气泡之间的色彩能力差；
+  - 在 `#format-toolbar` 内置 6 色马卡龙字体颜色按钮组：🔴 珊瑚红 (`#ef4444`)、🟠 暖杏橙 (`#f97316`)、🟡 柠檬黄 (`#f59e0b`)、🟢 薄荷绿 (`#10b981`)、🔵 晴空蓝 (`#0ea5e9`)、🟣 薰衣草紫 (`#8b5cf6`)；
+- **🔮 精巧微型色珠胶囊视觉设计 (`.format-btn.format-color-dot`)**：
+  - 采用 17px 直径立体渐变圆点设计，搭配柔和阴影与半透明主题边框；
+  - 悬浮时微幅放大 1.32 倍并泛起当前色彩光晕，保持极高质感与极低界面占用；
+- **⚡ 双模式全链路高保真格式化与卡片双向同步**：
+  - **富文本实时编辑态 (`#rich-editor`)**：针对选中文本划词，借助原生 Range 与选区保护直接注入行内 `<span style="color:#hex">` 样式，即时无感同步至画布卡片与全局持久化存储；
+  - **Markdown 原码编辑态 (`#markdown-editor`)**：点击任意色珠自动在选中文本两端包裹对应颜色代码；
+- **⌨️ 快捷键与高频标注能力完美继承**：
+  - 持续支持 `Ctrl+Shift+R` (红) 与 `Ctrl+Shift+G` (绿) 热键，与 `🟡 亮` 荧光黄高亮及 `✍️ 批注` 手写体无缝混排协同。
+
 ## 🚀 [v3.8.8] - 2026-11-06
 
 ### 🎯 OneNote 原生单行待办与空行保护套件 (OneNote True Single-Line To-Do & Non-Empty Line Task Suite)

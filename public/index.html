@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.8)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.9)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.8.8">
+    <link rel="stylesheet" href="index.css?v=3.8.9">
 </head>
 <body>
     <!-- 顶部导航栏 (v3.6.0 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
@@ -332,9 +332,15 @@
                         <button class="format-btn" data-format="strike" title="删除线 (Ctrl+Shift+X)">S</button>
                         <button class="format-btn" data-format="underline" title="下划线 (Ctrl+U)">U</button>
                         <span class="format-separator"></span>
-                        <!-- 零摩擦核心高频标注套件 -->
-                        <button class="format-btn color-preset-btn" data-format="color-red" title="🔴 红色核心词 / 科学问题 (Ctrl+Shift+R)" style="color:#ef4444; font-weight:bold;">🔴 红</button>
-                        <button class="format-btn color-preset-btn" data-format="color-green" title="🟢 绿色特征指标 / 测量变量 (Ctrl+Shift+G)" style="color:#10b981; font-weight:bold;">🟢 绿</button>
+                        <!-- 字体颜色标注套件 (与脑图同步 6 色) -->
+                        <div class="format-color-group" title="字体颜色 (与脑图同步 6 色)">
+                            <button class="format-btn format-color-dot dot-red" data-format="color-red" title="🔴 珊瑚红 (Ctrl+Shift+R)"></button>
+                            <button class="format-btn format-color-dot dot-orange" data-format="color-orange" title="🟠 暖杏橙"></button>
+                            <button class="format-btn format-color-dot dot-yellow" data-format="color-yellow" title="🟡 柠檬黄"></button>
+                            <button class="format-btn format-color-dot dot-green" data-format="color-green" title="🟢 薄荷绿 (Ctrl+Shift+G)"></button>
+                            <button class="format-btn format-color-dot dot-blue" data-format="color-blue" title="🔵 晴空蓝"></button>
+                            <button class="format-btn format-color-dot dot-purple" data-format="color-purple" title="🟣 薰衣草紫"></button>
+                        </div>
                         <button class="format-btn color-preset-btn" data-format="highlight" title="🟡 荧光黄高亮 (Ctrl+Shift+H)" style="background:rgba(254,240,138,0.2); color:#fef08a;">🟡 亮</button>
                         <button class="format-btn color-preset-btn" data-format="handwriting" title="✍️ 手写批注体 (选中文本或整卡切换, Ctrl+Shift+W)" style="font-family:'FlowNotesHandwriting', cursive; font-size:12px; font-weight:700;">✍️ 批注</button>
                         <button class="format-btn" data-format="clear" title="清除格式与列表 (🧹 / Ctrl+Shift+\)">🧹</button>
@@ -863,6 +869,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.8.8"></script>
+    <script src="app.js?v=3.8.9"></script>
 </body>
 </html>
