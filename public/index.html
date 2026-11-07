@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.9)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.8.9">
+    <link rel="stylesheet" href="index.css?v=3.9.0">
 </head>
 <body>
     <!-- 顶部导航栏 (v3.6.0 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
@@ -708,8 +708,24 @@
                         </div>
                     </div>
 
+                    <!-- 方案 A：从当前思维图谱待办选择下拉框 (v3.9.0) -->
+                    <div class="pomo-todo-picker-section" id="pomoTodoPickerSection">
+                        <div class="pomo-todo-picker-header">
+                            <label for="pomoTodoSelect" class="pomo-todo-picker-label">
+                                <span>📋 从当前思维图谱待办中选择：</span>
+                                <span class="pomo-todo-count-badge" id="pomoTodoCountBadge">0 项未完成</span>
+                            </label>
+                            <button type="button" class="btn-refresh-pomo-todos" id="btnRefreshPomoTodos" title="重新扫描当前图谱待办">🔄 刷新</button>
+                        </div>
+                        <div class="pomo-todo-select-wrap">
+                            <select id="pomoTodoSelect" class="input-field pomo-todo-select">
+                                <option value="">🎯 选择当前图谱待办（点击自动锁定为专注目标并平移聚焦）...</option>
+                            </select>
+                        </div>
+                    </div>
+
                     <div class="pomo-target-row">
-                        <input type="text" id="pomoTargetInput" class="input-field pomo-target-input" placeholder="🎯 本轮专注目标（如：梳理宏基因组数据清洗逻辑）">
+                        <input type="text" id="pomoTargetInput" class="input-field pomo-target-input" placeholder="🎯 本轮专注目标（可从上方选择或直接输入）">
                         <button class="btn btn-secondary btn-sm" id="btnPomoBindCard" title="一键绑定当前在画布上选中的思维图谱卡片">📍 绑定选中卡片</button>
                     </div>
 
@@ -869,6 +885,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.8.9"></script>
+    <script src="app.js?v=3.9.0"></script>
 </body>
 </html>

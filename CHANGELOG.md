@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.0] - 2026-11-06
+
+### 🍅 空间脑图待办与番茄钟深度聚焦闭环套件 (Spatial Mindmap To-Do & Pomodoro Deep Focus Suite)
+- **📋 当前图谱待办任务池实时提取 (`getActiveMapUncompletedTodos`)**：
+  - 自动遍历当前活跃脑图的所有节点卡片，智能提取所有 substantive 未完成待办行 (`- [ ] `)；
+  - 携带上层卡片上下文标签（如 `[Xenium 肾脏切片] 准备 10x 玻片耗材与试剂盒`），并在下拉框顶部实时呈现未完成任务数量徽章；
+- **🎯 极简下拉菜单秒级绑定与专注目标锁定 (`#pomoTodoSelect`)**：
+  - 在番茄钟弹窗中提供方案 A 极简下拉菜单，单次点选待办项即可秒级填入专注目标，彻底免去手动重复打字的认知阻力；
+- **🔍 视线平移聚焦与卡片呼吸光晕 (`unfoldAncestorsOf` & `focusOnNode` & `.is-pomo-focused`)**：
+  - 选择待办后，系统自动展开该卡片所在的所有祖先折叠分支，平滑将画布镜头推拉平移并居中至该卡片；
+  - 卡片四周激起 2.4s 柔和红色呼吸脉冲光晕，让用户进入“眼前只有这一张卡片”的深度心流；
+- **✅ 番茄达成自动打勾与证据库闭环 (`toggleNthTaskCheckboxInNode`)**：
+  - 当 25 分钟倒计时自然结束或点击「✅ 提前沉淀证据」时，系统自动精准将画布卡片上的该条待办打勾标记为完成 `[x]` 并打上中划线；
+  - 实时重算并刷新待办池下拉选项，同时向 Pomodoro 证据库与心流捕获沉淀完整行动记录。
+
 ## 🚀 [v3.8.9] - 2026-11-06
 
 ### 🎨 笔记详情与脑图高保真 6 色字体标色同步套件 (Synchronized 6-Color Font Palette for Note Details & Mindmap)

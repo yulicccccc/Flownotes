@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.9 loaded — Synchronized 6-Color Font Palette for Note Details & Mindmap");
+    console.log("[FlowNotes] v3.9.0 loaded — Spatial Mindmap To-Do & Pomodoro Deep Focus Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -10197,6 +10197,10 @@ function initPomodoroSuite() {
     const modeLabel = document.getElementById("pomoModeLabel");
     const targetInput = document.getElementById("pomoTargetInput");
     const btnBindCard = document.getElementById("btnPomoBindCard");
+    const todoSelect = document.getElementById("pomoTodoSelect");
+    const todoCountBadge = document.getElementById("pomoTodoCountBadge");
+    const btnRefreshTodos = document.getElementById("btnRefreshPomoTodos");
+    let currentPomoTodos = [];
     const durationChips = document.querySelectorAll(".pomo-chip");
 
     const primaryBtn = document.getElementById("pomoPrimaryBtn");
@@ -10256,7 +10260,8 @@ function initPomodoroSuite() {
                 mode: pomoState.mode,
                 totalSeconds: pomoState.totalSeconds,
                 remainingSeconds: pomoState.remainingSeconds,
-                target: pomoState.target
+                target: pomoState.target,
+                linkedTodo: pomoState.linkedTodo || null
             }));
         } catch (e) {}
     }
@@ -10308,6 +10313,78 @@ function initPomodoroSuite() {
             console.warn("[Pomo] Audio play failed:", e);
         }
     }
+
+    // v3.9.0 空间脑图未完成待办任务扫描与提取器
+    function getActiveMapUncompletedTodos() {
+        const list = [];
+        if (typeof nodes === "undefined" || !Array.isArray(nodes)) return list;
+        const taskRegex = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)$/;
+
+        nodes.forEach(node => {
+            if (!node) return;
+            const text = node.label || node.content || "";
+            const lines = /<br\s*\/?>/i.test(text) ? text.split(/<br\s*\/?>/gi) : text.split("\n");
+
+            let cardTitle = "";
+            if (node.parentId) {
+                const pNode = nodes.find(n => n.id === node.parentId);
+                if (pNode) {
+                    cardTitle = stripFormattingToPlainText(pNode.label || pNode.content || "").replace(taskRegex, "$2").trim();
+                }
+            }
+            if (!cardTitle) {
+                const nonTaskLine = lines.find(l => !taskRegex.test((l || "").trim()) && (typeof isSubstantiveLine === "function" ? isSubstantiveLine(l) : (l && l.trim().length > 0)));
+                if (nonTaskLine) {
+                    cardTitle = stripFormattingToPlainText(nonTaskLine).trim();
+                } else {
+                    cardTitle = stripFormattingToPlainText(lines[0] || "").replace(taskRegex, "$2").trim();
+                }
+            }
+            if (cardTitle.length > 16) cardTitle = cardTitle.substring(0, 15) + "…";
+            if (!cardTitle) cardTitle = "思维卡片";
+
+            let taskIndex = 0;
+            lines.forEach(line => {
+                const trimmed = (line || "").trim();
+                const m = taskRegex.exec(trimmed);
+                if (m) {
+                    const isChecked = m[1].toLowerCase() === "x";
+                    const taskText = stripFormattingToPlainText(m[2]).trim();
+                    if (!isChecked && taskText) {
+                        list.push({
+                            nodeId: node.id,
+                            taskIndex: taskIndex,
+                            cardTitle: cardTitle,
+                            taskText: taskText,
+                            fullTitle: `[${cardTitle}] ${taskText}`
+                        });
+                    }
+                    taskIndex++;
+                }
+            });
+        });
+        return list;
+    }
+
+    // 刷新并填充番茄钟待办下拉菜单
+    function updatePomoTodoDropdown() {
+        if (!todoSelect) return;
+        currentPomoTodos = getActiveMapUncompletedTodos();
+        if (todoCountBadge) {
+            todoCountBadge.textContent = `${currentPomoTodos.length} 项未完成`;
+        }
+
+        let html = `<option value="">🎯 选择当前图谱待办（点击自动锁定为专注目标并平移聚焦）...</option>`;
+        if (currentPomoTodos.length === 0) {
+            html += `<option value="" disabled>🌱 当前图谱暂无待办（可直接在下方打字输入）</option>`;
+        } else {
+            currentPomoTodos.forEach((todo, idx) => {
+                html += `<option value="${idx}">☑️ [${escapeHtml(todo.cardTitle)}] ${escapeHtml(todo.taskText)}</option>`;
+            });
+        }
+        todoSelect.innerHTML = html;
+    }
+    window.updatePomoTodoDropdown = updatePomoTodoDropdown;
 
     function updateUI() {
         const timeStr = formatTime(pomoState.remainingSeconds);
@@ -10451,6 +10528,17 @@ function initPomodoroSuite() {
 
             pomoEvidenceLog.unshift(evidenceItem);
             saveEvidenceLog();
+
+            // v3.9.0 专注达成行动闭环：若本轮专注绑定了具体图谱待办，自动将其勾选为完成 [x] 并刷新待办池
+            if (pomoState.linkedTodo) {
+                const targetNode = nodes.find(n => n.id === pomoState.linkedTodo.nodeId);
+                if (targetNode && typeof toggleNthTaskCheckboxInNode === "function") {
+                    toggleNthTaskCheckboxInNode(targetNode, pomoState.linkedTodo.taskIndex, true);
+                    updatePomoTodoDropdown();
+                }
+                d3.selectAll(".node-group").classed("is-pomo-focused", false);
+                pomoState.linkedTodo = null;
+            }
 
             if (pomoSettings.autoSyncFlow) {
                 pushEvidenceToFlowStream(evidenceItem);
@@ -10671,6 +10759,7 @@ function initPomodoroSuite() {
         if (!modal) return;
         modal.style.display = "flex";
         if (defaultTab) switchSubtab(defaultTab);
+        updatePomoTodoDropdown();
         renderEvidenceDashboard();
         updateUI();
     }
@@ -10737,6 +10826,47 @@ function initPomodoroSuite() {
             } else {
                 showToast("请先在画布上点击选中一张思维卡片，再点击绑定");
             }
+        });
+    }
+
+    // v3.9.0 待办下拉选择与画布视线聚焦绑定
+    if (todoSelect) {
+        todoSelect.addEventListener("change", (e) => {
+            const val = e.target.value;
+            if (val === "" || isNaN(parseInt(val, 10))) return;
+            const idx = parseInt(val, 10);
+            const todo = currentPomoTodos[idx];
+            if (!todo) return;
+
+            if (targetInput) targetInput.value = todo.fullTitle;
+            pomoState.target = todo.fullTitle;
+            pomoState.linkedTodo = {
+                nodeId: todo.nodeId,
+                taskIndex: todo.taskIndex,
+                cardTitle: todo.cardTitle,
+                taskText: todo.taskText,
+                fullTitle: todo.fullTitle
+            };
+            saveState();
+
+            const targetNode = nodes.find(n => n.id === todo.nodeId);
+            if (targetNode) {
+                if (typeof unfoldAncestorsOf === "function") unfoldAncestorsOf(targetNode);
+                if (typeof focusOnNode === "function") focusOnNode(targetNode);
+
+                d3.selectAll(".node-group").classed("is-pomo-focused", false);
+                d3.selectAll(".node-group").filter(d => d.id === targetNode.id).classed("is-pomo-focused", true);
+            }
+
+            showToast(`🎯 已锁定专注待办并平移聚焦卡片：「${todo.taskText}」`);
+        });
+    }
+
+    if (btnRefreshTodos) {
+        btnRefreshTodos.addEventListener("click", (e) => {
+            e.stopPropagation();
+            updatePomoTodoDropdown();
+            showToast(`🔄 已刷新当前图谱待办清单（发现 ${currentPomoTodos.length} 项未完成待办）`);
         });
     }
 
