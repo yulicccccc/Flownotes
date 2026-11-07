@@ -1,8 +1,13 @@
-# Project State: FlowNotes (v3.8.7)
+# Project State: FlowNotes (v3.8.8)
 
 ## Current Version & Status
-- **Current Version**: `v3.8.7`
+- **Current Version**: `v3.8.8`
 - **Latest Releases**:
+  - `v3.8.8`:
+    - **OneNote True Single-Line To-Do & Non-Empty Line Task Suite (v3.8.8 OneNote 原生单行待办与空行保护套件)**:
+      - **光标当前行精准切换待办 (`toggleTodoOnCurrentLine`)**: 在卡片原地编辑状态下，点击 `☑` 按钮或按下 `Ctrl+1` 时，基于 DOM `compareDocumentPosition` 严格定位光标当前所在的单一文本行，**仅在此行添加或移除复选框**，绝不波及卡片内其他行或下一个空行；
+      - **空行严格保护机制 (`isSubstantiveLine`)**: 无论是单行操作还是整卡批量切换，通过 `isSubstantiveLine` 严格校验实质文本内容，空行、纯空格行、仅包含 `<br>` 或 `&nbsp;` 的空行绝对不被赋予待办复选框；
+      - **OneNote 待办连续回车与退出机制**: 在包含实质文字的待办行按 `Enter` 键时，自动在下一行续接一个新的 `- [ ] ` 复选框；而在空待办行按 `Enter` 键时，自动剥除复选框恢复为纯净空行并退出待办模式。
   - `v3.8.7`:
     - **Multi-Line To-Do Checklist & Interactive Card Task Engine (v3.8.7 画布卡片多行待办复选框与交互勾选引擎)**:
       - **多行待办复选框精准切换与渲染 (`toggleTodoOnNode` & `renderCardLabelHTML`)**: 彻底解决当卡片包含多行内容（无论换行符是 `<br>` 还是 `\n`）时待办按钮无效的缺陷；支持针对多行文本按行遍历匹配，每一行均独立渲染为带专属任务序号的 `.canvas-todo-item` 与 `.canvas-todo-checkbox`；

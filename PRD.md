@@ -1,9 +1,13 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.7)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.8.8)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟢 green, 🟡 yellow highlight, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote True Single-Line To-Do & Non-Empty Line Task Suite (v3.8.8 OneNote 原生单行待办与空行保护套件)**:
+  - **光标当前行精准切换待办 (`toggleTodoOnCurrentLine`)**: 在卡片原地编辑状态下，点击 `☑` 按钮或按下 `Ctrl+1` 时，基于 DOM `compareDocumentPosition` 严格定位光标当前所在的单一文本行，**仅在此行添加或移除复选框**，绝不波及卡片内其他行或下一个空行；
+  - **空行严格保护机制 (`isSubstantiveLine`)**: 无论是单行操作还是整卡批量切换，通过 `isSubstantiveLine` 严格校验实质文本内容，空行、纯空格行、仅包含 `<br>` 或 `&nbsp;` 的空行绝对不被赋予待办复选框；
+  - **OneNote 待办连续回车与退出机制**: 在包含实质文字的待办行按 `Enter` 键时，自动在下一行续接一个新的 `- [ ] ` 复选框；而在空待办行按 `Enter` 键时，自动剥除复选框恢复为纯净空行并退出待办模式。
 - **Multi-Line To-Do Checklist & Interactive Card Task Engine (v3.8.7 画布卡片多行待办复选框与交互勾选引擎)**:
   - **多行待办复选框精准切换与渲染 (`toggleTodoOnNode` & `renderCardLabelHTML`)**: 彻底解决当卡片包含多行内容（无论换行符是 `<br>` 还是 `\n`）时待办按钮无效的缺陷；支持针对多行文本按行遍历匹配，每一行均独立渲染为带专属任务序号的 `.canvas-todo-item` 与 `.canvas-todo-checkbox`；
   - **画布卡片直接交互打勾 (`toggleNthTaskCheckboxInNode`)**: 点击画布卡片上的任意复选框时，精准定位并翻转该任务的 `[ ]` 与 `[x]` 状态，且同时严格同步更新 `node.label` 与 `node.content`，完成任务后自动施加 `.task-done` 中划线与置灰效果，彻底消灭过去点击后被旧 `label` 瞬间还原的恶性 Bug；

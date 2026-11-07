@@ -2,6 +2,18 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.8.8] - 2026-11-06
+
+### 🎯 OneNote 原生单行待办与空行保护套件 (OneNote True Single-Line To-Do & Non-Empty Line Task Suite)
+- **🎯 编辑态光标当前行精准切换待办 (`toggleTodoOnCurrentLine`)**：
+  - 彻底解决用户反馈的“在 OneNote 里面点完待办是在当前行，但在这里一点整张卡片每行都加上了”的痛点；
+  - 在卡片原地编辑状态下，点击 `☑` 按钮或按下 `Ctrl+1` 时，通过 DOM 节点距离判定光标所在行，**仅将光标所在的当前行（或高亮选中的具体行）切换为待办复选框**，其他行及后续空行 100% 保持原样不变；
+- **🛡️ 空行严格零污染保护机制 (`isSubstantiveLine`)**：
+  - 增设实质文本检测器，对纯空行、仅包含空格、仅包含 `<br>` 或 `&nbsp;` 的空行建立绝对保护，整卡批量操作与单行操作均绝对不会向空行盲目添加复选框；
+- **⌨️ OneNote 待办连续回车与智能退出机制**：
+  - 在包含文字的待办行末尾按 `Enter` 键时，自动在下一行续接一个新的 `- [ ] ` 复选框并自动对齐聚焦光标；
+  - 在空的待办行（仅有复选框无文字）按 `Enter` 键时，自动移除复选框并恢复为干净的普通空行，实现随心所欲的列表创建与退出。
+
 ## 🚀 [v3.8.7] - 2026-11-06
 
 ### ☑️ 画布卡片多行待办复选框与交互勾选引擎 (Multi-Line To-Do Checklist & Interactive Card Task Engine)

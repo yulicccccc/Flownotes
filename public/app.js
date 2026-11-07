@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.8.7 loaded — Multi-Line To-Do Checklist & Interactive Card Task Engine");
+    console.log("[FlowNotes] v3.8.8 loaded — OneNote True Single-Line To-Do & Non-Empty Line Task Suite");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1657,8 +1657,10 @@ function serializeCardLabelFromHTML(html) {
     }
 
     const raw = Array.from(temp.childNodes).map(serializeInline).join("");
-    const lines = raw.split("\n").map(s => s.trim()).filter(Boolean);
-    const joined = lines.length > 0 ? lines.join("<br>") : (raw.trim() || "未命名");
+    const allLines = raw.split("\n").map(s => s.trim());
+    while (allLines.length > 0 && allLines[0] === "") allLines.shift();
+    while (allLines.length > 0 && allLines[allLines.length - 1] === "") allLines.pop();
+    const joined = allLines.length > 0 ? allLines.join("<br>") : (raw.trim() || "未命名");
     return joined || "未命名";
 }
 
@@ -2293,6 +2295,55 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 return;
             }
 
+            // OneNote 经典体验：在待办行按回车自动续接新待办；在空白待办行按回车退出待办
+            if (!e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+                const sel = window.getSelection();
+                const currentTodoItem = sel && sel.anchorNode
+                    ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-todo-item")
+                    : null;
+
+                if (currentTodoItem) {
+                    e.preventDefault();
+                    const textEl = currentTodoItem.querySelector(".task-item-text");
+                    const rawText = textEl ? textEl.textContent.replace(/\u00a0/g, "").trim() : "";
+
+                    if (!rawText) {
+                        // 1. 如果当前待办行是空的，回车退出待办列表，转为普通空行
+                        const emptyText = document.createTextNode("");
+                        currentTodoItem.parentNode.replaceChild(emptyText, currentTodoItem);
+                        syncFromInlineCard();
+                        bodyEl.blur();
+                        return;
+                    } else {
+                        // 2. 当前待办项有内容，回车在下一行续接新待办复选框（OneNote 顺滑体验）
+                        const br = document.createElement("br");
+                        const newTodo = document.createElement("span");
+                        newTodo.className = "canvas-todo-item";
+                        newTodo.innerHTML = `<input type="checkbox" class="canvas-todo-checkbox"><span class="task-item-text">&nbsp;</span>`;
+
+                        if (currentTodoItem.nextSibling) {
+                            currentTodoItem.parentNode.insertBefore(br, currentTodoItem.nextSibling);
+                            currentTodoItem.parentNode.insertBefore(newTodo, br.nextSibling);
+                        } else {
+                            currentTodoItem.parentNode.appendChild(br);
+                            currentTodoItem.parentNode.appendChild(newTodo);
+                        }
+
+                        syncFromInlineCard();
+
+                        const newText = newTodo.querySelector(".task-item-text");
+                        if (newText) {
+                            const r = document.createRange();
+                            r.selectNodeContents(newText);
+                            r.collapse(false);
+                            sel.removeAllRanges();
+                            sel.addRange(r);
+                        }
+                        return;
+                    }
+                }
+            }
+
             if (e.altKey) {
                 // XMind 经典：卡片内按 Alt + Enter 插入换行
                 e.preventDefault();
@@ -2305,6 +2356,13 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 bodyEl.blur();
                 return;
             }
+        }
+
+        // OneNote 招牌快捷键: Ctrl + 1 当前行切换待办复选框
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && (e.key === "1" || e.code === "Digit1")) {
+            e.preventDefault();
+            toggleTodoOnCurrentLine(bodyEl);
+            return;
         }
 
         // OneNote 招牌快捷键: Alt+T 极速插入表格
@@ -4339,7 +4397,7 @@ function initEvents() {
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && ["1", "2", "3", "4", "5"].includes(e.key)) {
             if (selectedNode) {
                 e.preventDefault();
-                if (e.key === "1") toggleTodoOnSelectedCard(selectedNode);
+                if (e.key === "1") applyFormatting("todo");
                 else if (e.key === "2") toggleNodeFocus(selectedNode);
                 else if (e.key === "3") toggleNodeQuickTag("question", selectedNode);
                 else if (e.key === "4") toggleNodeQuickTag("idea", selectedNode);
@@ -4690,6 +4748,12 @@ function applyFormatting(format, customVal = "") {
     // 核心判定：用户是否在富文本区高亮划选了具体的某些词句（选区非空且长度大于0）
     const hasTextRange = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0);
     const isInlineWordFormatting = (activeInlineBody || inRichEditor) && hasTextRange;
+
+    // OneNote 经典待办：若光标位于卡片原地编辑区内，仅在当前行（或所划选的行）切换待办，绝不污染其它行和空行
+    if (format === "todo" && activeInlineBody) {
+        const handled = toggleTodoOnCurrentLine(activeInlineBody);
+        if (handled) return;
+    }
 
     // OneNote 经典表格插入与扩展处理
     if (format === "table") {
@@ -8497,7 +8561,21 @@ function startCardResize(event, rawD, handleEl, mode = "e") {
     window.addEventListener("touchcancel", onUp);
 }
 
-// 3. OneNote 风格：为单个卡片切换 To-Do 待办复选框（支持添加与移除）
+// 判断一行是否包含实质文字（忽略 HTML 标签、&nbsp;、空格、待办前缀与符号）
+function isSubstantiveLine(text) {
+    if (!text) return false;
+    const clean = text
+        .replace(/<[^>]+>/g, "")
+        .replace(/&nbsp;/gi, "")
+        .replace(/&[a-zA-Z0-9#]+;/g, "")
+        .replace(/^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]*/, "")
+        .replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]*/, "")
+        .replace(/[\u200B-\u200D\uFEFF]/g, "")
+        .trim();
+    return clean.length > 0;
+}
+
+// 3. OneNote 风格：为单个卡片切换 To-Do 待办复选框（严格保护空行，绝不向空行添加复选框）
 function toggleTodoOnNode(targetNode, forceAdd = null) {
     if (!targetNode) return;
     let raw = (targetNode.label || targetNode.content || "").trim();
@@ -8518,17 +8596,21 @@ function toggleTodoOnNode(targetNode, forceAdd = null) {
     const updatedContentLines = [];
 
     lines.forEach((line, i) => {
-        const trimmed = line.trim();
-        if (!trimmed) {
-            updatedLabelLines.push("");
-            updatedContentLines.push("");
+        const isSubstantive = isSubstantiveLine(line);
+        // 如果不是实质内容行（即空行/仅空格/仅<br>/仅&nbsp;），绝对不给空行添加复选框！
+        if (!isSubstantive) {
+            const cleanEmpty = line.replace(/^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]*/, "").trim();
+            updatedLabelLines.push(cleanEmpty);
+            updatedContentLines.push(cleanEmpty);
             return;
         }
-        if (/^#{1,4}\s+/.test(trimmed) && lines.length > 1 && i === 0) {
+
+        if (/^#{1,4}\s+/.test(line.trim()) && lines.length > 1 && i === 0) {
             updatedLabelLines.push(line);
             updatedContentLines.push(line);
             return;
         }
+
         const m = taskRegex.exec(line);
         if (!willAdd) {
             const textWithoutTask = m ? m[2] : line;
@@ -8562,8 +8644,109 @@ function toggleTodoOnNode(targetNode, forceAdd = null) {
     }
 }
 
+// OneNote 招牌核心：仅在光标所在的当前行（或高亮划选的行）切换 To-Do 复选框，绝不污染其它行和空行
+function toggleTodoOnCurrentLine(activeBody) {
+    if (!activeBody) return false;
+    const grp = activeBody.closest(".node-group");
+    const targetNode = grp ? d3.select(grp).datum() : selectedNode;
+    if (!targetNode) return false;
+
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return false;
+
+    // 1. 获取卡片当前所有行
+    let raw = (targetNode.label || "").trim();
+    if (!raw && targetNode.content) raw = targetNode.content.replace(/\r?\n/g, "<br>");
+    if (!raw) raw = "待办事项";
+    const lines = raw.split(/<br\s*\/?>|\r?\n/gi);
+
+    // 2. 利用 DOM compareDocumentPosition 计算光标所在的行索引
+    const brs = Array.from(activeBody.querySelectorAll("br"));
+    const range = sel.getRangeAt(0);
+    const startNode = range.startContainer;
+    const endNode = range.endContainer;
+
+    let startLineIdx = 0;
+    let endLineIdx = 0;
+    brs.forEach(br => {
+        if (br.compareDocumentPosition(startNode) & Node.DOCUMENT_POSITION_FOLLOWING) startLineIdx++;
+        if (br.compareDocumentPosition(endNode) & Node.DOCUMENT_POSITION_FOLLOWING) endLineIdx++;
+    });
+
+    startLineIdx = Math.max(0, Math.min(startLineIdx, lines.length - 1));
+    endLineIdx = Math.max(0, Math.min(endLineIdx, lines.length - 1));
+
+    const taskRegex = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)$/;
+
+    // 3. 检查目标行是否已有待办（只要目标行内有待办，本次操作即为移除待办；否则为添加待办）
+    let hasTaskInSelection = false;
+    for (let i = startLineIdx; i <= endLineIdx; i++) {
+        if (taskRegex.test((lines[i] || "").trim())) {
+            hasTaskInSelection = true;
+            break;
+        }
+    }
+
+    const willAdd = !hasTaskInSelection;
+
+    // 4. 仅修改目标行（startLineIdx 至 endLineIdx），其它行分毫未动！
+    for (let i = startLineIdx; i <= endLineIdx; i++) {
+        const line = lines[i] || "";
+        const m = taskRegex.exec(line);
+
+        if (!willAdd) {
+            // 移除待办
+            lines[i] = m ? m[2] : line;
+        } else {
+            // 添加待办
+            if (m) {
+                lines[i] = line;
+            } else {
+                const clean = line.replace(/^[ \t]*[•·▪⁃‣\-\*][ \t]+/, "");
+                lines[i] = `- [ ] ${clean}`;
+            }
+        }
+    }
+
+    // 5. 同步写入 targetNode.label 与 targetNode.content
+    targetNode.label = lines.join("<br>");
+    targetNode.content = lines.join("\n");
+
+    // 6. 原地刷新当前编辑容器 HTML
+    activeBody.innerHTML = renderCardLabelHTML(targetNode.label);
+
+    // 7. 将光标智能恢复到操作行末尾
+    try {
+        const todoItems = activeBody.querySelectorAll(".canvas-todo-item");
+        const targetEl = todoItems.length > 0 ? (todoItems[Math.min(startLineIdx, todoItems.length - 1)] || activeBody) : activeBody;
+        const targetTextEl = targetEl.querySelector ? (targetEl.querySelector(".task-item-text") || targetEl) : targetEl;
+        const newRange = document.createRange();
+        newRange.selectNodeContents(targetTextEl);
+        newRange.collapse(false);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+    } catch (err) {}
+
+    refreshNodeStyles();
+    if (selectedNode && selectedNode.id === targetNode.id) renderEditor();
+    scheduleSaveGraph(true);
+    showToast(willAdd ? "☑ 已在当前行添加待办复选框" : "🧹 已移除当前行待办复选框");
+    return true;
+}
+
 // OneNote 风格快捷键 Ctrl + 1 或点悬浮气泡 ☑ 待办复选框
 function toggleTodoOnSelectedCard(targetNode = selectedNode) {
+    // 优先检查是否有正在原地编辑中的卡片光标
+    const sel = window.getSelection();
+    const activeInlineBody = (sel && sel.rangeCount > 0 && sel.anchorNode)
+        ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body")
+        : null;
+
+    if (activeInlineBody) {
+        const ok = toggleTodoOnCurrentLine(activeInlineBody);
+        if (ok) return;
+    }
+
     let targetNodes = [];
     if (selectedNodeIds && selectedNodeIds.size > 0) {
         targetNodes = nodes.filter(n => selectedNodeIds.has(n.id));
@@ -8583,7 +8766,7 @@ function toggleTodoOnSelectedCard(targetNode = selectedNode) {
     refreshNodeStyles();
     renderEditor();
     scheduleSaveGraph(true);
-    showToast(willAdd ? "☑ 已添加待办复选框 (可直接点击画布卡片上的方框打勾！)" : "🧹 已移除待办复选框");
+    showToast(willAdd ? "☑ 已添加待办复选框 (已自动跳过空行)" : "🧹 已移除待办复选框");
 }
 
 // 辅助函数：在文本或 HTML 标签中精准切换第 N 个复选框状态
