@@ -3405,6 +3405,278 @@ html[data-theme="light"] .pomo-pill-toggle-btn {
     line-height: 1.2;
 }
 
+/* v3.9.1 顶部番茄钟即时待办专注悬浮窗 (Header Pomodoro Quick Popover) */
+.header-pomo-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.pomo-quick-popover {
+    position: absolute;
+    top: calc(100% + 9px);
+    right: 0;
+    width: 360px;
+    max-width: 90vw;
+    background: rgba(20, 28, 46, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    z-index: 9999;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: popoverFadeIn 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html[data-theme="light"] .pomo-quick-popover {
+    background: rgba(255, 255, 255, 0.96);
+    border-color: rgba(203, 213, 225, 0.9);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+@keyframes popoverFadeIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.97); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.pomo-popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.pomo-popover-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary, #f8fafc);
+}
+
+.pomo-popover-badge {
+    font-size: 10.5px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(99, 102, 241, 0.25);
+    color: #818cf8;
+    font-weight: 700;
+    border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+html[data-theme="light"] .pomo-popover-badge {
+    background: rgba(99, 102, 241, 0.12);
+    color: #4f46e5;
+}
+
+.pomo-popover-full-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 11px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s ease;
+}
+
+.pomo-popover-full-btn:hover {
+    color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.pomo-popover-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.pomo-quick-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(30, 41, 59, 0.7);
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+html[data-theme="light"] .pomo-quick-item {
+    background: rgba(241, 245, 249, 0.8);
+    border-color: rgba(203, 213, 225, 0.7);
+}
+
+.pomo-quick-item:hover {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: rgba(99, 102, 241, 0.5);
+    transform: translateX(2px);
+}
+
+.pomo-item-dot {
+    width: 6.5px;
+    height: 6.5px;
+    border-radius: 50%;
+    background: #ef4444;
+    flex-shrink: 0;
+}
+
+.pomo-item-card-tag {
+    font-size: 10.5px;
+    color: #38bdf8;
+    background: rgba(14, 165, 233, 0.15);
+    border: 1px solid rgba(14, 165, 233, 0.3);
+    padding: 1px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+
+html[data-theme="light"] .pomo-item-card-tag {
+    background: rgba(14, 165, 233, 0.1);
+    color: #0284c7;
+    border-color: rgba(14, 165, 233, 0.25);
+}
+
+.pomo-item-text {
+    font-size: 12.5px;
+    color: var(--text-primary, #f1f5f9);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+html[data-theme="light"] .pomo-item-text {
+    color: #0f172a;
+}
+
+.pomo-item-start-btn {
+    border: none;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.35);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pomo-quick-item:hover .pomo-item-start-btn {
+    transform: scale(1.2);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+}
+
+.pomo-popover-empty {
+    text-align: center;
+    padding: 14px 10px;
+    font-size: 12px;
+    color: var(--text-secondary, #94a3b8);
+}
+
+.pomo-popover-custom-row {
+    display: flex;
+    gap: 6px;
+}
+
+.pomo-popover-input {
+    flex: 1;
+    height: 32px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 6px;
+    padding: 0 10px;
+    color: var(--text-primary, #f8fafc);
+    font-size: 12px;
+    outline: none;
+}
+
+html[data-theme="light"] .pomo-popover-input {
+    background: #ffffff;
+    border-color: rgba(203, 213, 225, 0.9);
+    color: #0f172a;
+}
+
+.pomo-popover-input:focus {
+    border-color: #6366f1;
+}
+
+.btn-quick-custom-start {
+    height: 32px;
+    padding: 0 12px;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.15s ease;
+}
+
+.btn-quick-custom-start:hover {
+    opacity: 0.92;
+}
+
+.pomo-popover-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.pomo-popover-slices {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pomo-popover-slice {
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    background: transparent;
+    color: var(--text-secondary, #94a3b8);
+    font-size: 11px;
+    border-radius: 999px;
+    padding: 2px 8px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.pomo-popover-slice.active {
+    background: rgba(99, 102, 241, 0.25);
+    border-color: #818cf8;
+    color: #818cf8;
+    font-weight: 700;
+}
+
+.pomo-popover-hint {
+    font-size: 10.5px;
+    color: var(--text-secondary, #64748b);
+    text-align: center;
+}
+
 /* 番茄专注与行动证据库 Modal */
 .pomo-modal-card {
     max-width: 680px;

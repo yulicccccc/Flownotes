@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.1)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#0f172a">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,7 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://d3js.org/d3.v7.min.js"></script>
-    <link rel="stylesheet" href="index.css?v=3.9.0">
+    <link rel="stylesheet" href="index.css?v=3.9.1">
 </head>
 <body>
     <!-- 顶部导航栏 (v3.6.0 极简三段式顶栏：消除猫头鹰冗余占用，纯净面包屑与黄金单点云同步) -->
@@ -48,13 +48,45 @@
         </div>
 
         <div class="navbar-right">
-            <!-- 顶部番茄钟与心流专注胶囊 (Header Pomodoro Focus Capsule) -->
-            <div class="header-pomo-pill" id="headerPomoPill" title="🍅 点击打开「番茄专注与行动证据库」 (Alt+P 快速开始/暂停)">
-                <span class="pomo-pill-mode-dot" id="pomoPillDot"></span>
-                <span class="pomo-pill-icon">🍅</span>
-                <span class="pomo-pill-timer" id="pomoPillTimer">25:00</span>
-                <button class="pomo-pill-toggle-btn" id="pomoPillToggleBtn" title="开始/暂停番茄专注 (Alt+P)">▶</button>
-                <span class="pomo-pill-today-badge" id="pomoPillTodayBadge" title="今日已完成专注番茄数">0</span>
+            <!-- 顶部番茄钟与心流专注胶囊及极速待办下拉窗 (Header Pomodoro Focus Capsule & Quick Popover, v3.9.1) -->
+            <div class="header-pomo-wrapper" id="headerPomoWrapper" style="position:relative;">
+                <div class="header-pomo-pill" id="headerPomoPill" title="🍅 点击展开待办秒级专注通道 (Alt+P 开始/暂停)">
+                    <span class="pomo-pill-mode-dot" id="pomoPillDot"></span>
+                    <span class="pomo-pill-icon">🍅</span>
+                    <span class="pomo-pill-timer" id="pomoPillTimer">25:00</span>
+                    <button class="pomo-pill-toggle-btn" id="pomoPillToggleBtn" title="开始/暂停番茄专注 (Alt+P)">▶</button>
+                    <span class="pomo-pill-today-badge" id="pomoPillTodayBadge" title="今日已完成专注番茄数">0</span>
+                </div>
+
+                <!-- 点击番茄展开的极简待办专注悬浮窗 (v3.9.1 Quick Focus Popover) -->
+                <div class="pomo-quick-popover" id="pomoQuickPopover" style="display:none;">
+                    <div class="pomo-popover-header">
+                        <div class="pomo-popover-title">
+                            <span>🎯 待办专注快速通道</span>
+                            <span class="pomo-popover-badge" id="pomoQuickTodoBadge">0</span>
+                        </div>
+                        <button type="button" class="pomo-popover-full-btn" id="btnOpenFullPomoModal" title="打开完整时钟与专注证据库">📊 完整仪表盘</button>
+                    </div>
+
+                    <div class="pomo-popover-list" id="pomoQuickTodoList">
+                        <!-- 动态渲染待办列表项 -->
+                    </div>
+
+                    <div class="pomo-popover-custom-row">
+                        <input type="text" id="pomoQuickCustomInput" class="pomo-popover-input" placeholder="或输入临时专注目标...">
+                        <button type="button" class="btn-quick-custom-start" id="btnStartQuickCustom">▶ 开始</button>
+                    </div>
+
+                    <div class="pomo-popover-footer">
+                        <div class="pomo-popover-slices">
+                            <span style="font-size:11px;color:var(--text-secondary,#94a3b8)">时长：</span>
+                            <button type="button" class="pomo-popover-slice" data-mins="15">15m</button>
+                            <button type="button" class="pomo-popover-slice active" data-mins="25">25m</button>
+                            <button type="button" class="pomo-popover-slice" data-mins="45">45m</button>
+                        </div>
+                        <span class="pomo-popover-hint">点击任务行秒级开跑 · 自动聚焦卡片</span>
+                    </div>
+                </div>
             </div>
 
             <!-- 全局实时搜索 (紧凑优雅) -->
@@ -885,6 +917,6 @@
 
     <div class="toast" id="toast">保存成功</div>
 
-    <script src="app.js?v=3.9.0"></script>
+    <script src="app.js?v=3.9.1"></script>
 </body>
 </html>

@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.1)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Topbar Dynamic Quick Focus Dropdown & Instant Task Launcher (v3.9.1 顶栏番茄胶囊极速待办下拉窗与单按开跑套件)**:
+  - **点击顶栏番茄即刻展开极简待办面板 (`toggleQuickPopover`)**: 彻底解决弹出全屏大弹窗的重度打断感；点击顶栏番茄胶囊 (`#headerPomoPill`) 即就地向下方展开半透明磨砂毛玻璃悬浮窗 (`#pomoQuickPopover`)，所见即所得列出当前脑图所有未完成待办；
+  - **单点击秒级开跑与自动视线聚焦 (`startTaskFocus`)**: 点击待办任务行或右侧红色 `▶` 启动按钮，**单次点击直接锁定目标、将画布镜头平移居中至对应卡片激起呼吸光晕、并即刻启动 25 分钟番茄倒计时**，悬浮窗自动收拢，顶栏胶囊即刻跳动计时，实现零中断极致直觉体验；
+  - **免待办临时目标快速输入与时长切片**: 浮窗底部提供临时目标快速输入框与 `15m/25m/45m` 快速切片，支持点击 `📊 完整仪表盘` 无缝展开深度成长图表与证据库；
+  - **外部点击自动收拢与完成自动打勾闭环**: 点击浮窗外部即自动轻柔关闭，计时结束时自动精准打勾 `[x]` 并同步全局。
 - **Spatial Mindmap To-Do & Pomodoro Deep Focus Suite (v3.9.0 空间脑图待办与番茄钟深度聚焦闭环套件)**:
   - **当前图谱待办任务池实时提取 (`getActiveMapUncompletedTodos`)**: 自动遍历当前活跃脑图的所有节点卡片，智能提取所有 substantive 未完成待办行 (`- [ ] `)，带来源卡片上下文标签（如 `[Xenium 肾脏切片] 准备 10x 玻片耗材与试剂盒`），并在下拉框顶部实时统计未完成任务数量徽章；
   - **极简下拉菜单秒级绑定与专注目标锁定 (`#pomoTodoSelect`)**: 在番茄钟弹窗中提供方案 A 极简下拉菜单，单次点选待办项即可秒级填入专注目标，彻底免去手动重复打字的认知阻力；

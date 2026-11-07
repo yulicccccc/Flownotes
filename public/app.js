@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.0 loaded — Spatial Mindmap To-Do & Pomodoro Deep Focus Suite");
+    console.log("[FlowNotes] v3.9.1 loaded — Topbar Dynamic Quick Focus Dropdown & Instant Task Launcher");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -10138,6 +10138,7 @@ function initPomodoroSuite() {
         completedPomosToday: 0,
         lastTimestamp: Date.now()
     };
+    window.pomoState = pomoState;
 
     try {
         const savedState = localStorage.getItem("flownotes_pomo_state");
@@ -10201,6 +10202,16 @@ function initPomodoroSuite() {
     const todoCountBadge = document.getElementById("pomoTodoCountBadge");
     const btnRefreshTodos = document.getElementById("btnRefreshPomoTodos");
     let currentPomoTodos = [];
+
+    // v3.9.1 顶部番茄钟轻量即时待办下拉浮窗元素
+    const quickPopover = document.getElementById("pomoQuickPopover");
+    const quickTodoList = document.getElementById("pomoQuickTodoList");
+    const quickTodoBadge = document.getElementById("pomoQuickTodoBadge");
+    const btnOpenFullModal = document.getElementById("btnOpenFullPomoModal");
+    const quickCustomInput = document.getElementById("pomoQuickCustomInput");
+    const btnStartQuickCustom = document.getElementById("btnStartQuickCustom");
+    const quickSlices = document.querySelectorAll(".pomo-popover-slice");
+
     const durationChips = document.querySelectorAll(".pomo-chip");
 
     const primaryBtn = document.getElementById("pomoPrimaryBtn");
@@ -10386,6 +10397,84 @@ function initPomodoroSuite() {
     }
     window.updatePomoTodoDropdown = updatePomoTodoDropdown;
 
+    // v3.9.1 渲染顶部即时待办下拉浮窗 (Direct Popover Launcher)
+    function renderQuickPopoverTodos() {
+        if (!quickTodoList) return;
+        currentPomoTodos = getActiveMapUncompletedTodos();
+        if (quickTodoBadge) {
+            quickTodoBadge.textContent = String(currentPomoTodos.length);
+        }
+
+        if (currentPomoTodos.length === 0) {
+            quickTodoList.innerHTML = `
+                <div class="pomo-popover-empty">
+                    🌱 当前图谱暂无待办<br>
+                    <span style="font-size:11px; color:#64748b; margin-top:4px; display:inline-block;">可在卡片中写 - [ ] 待办，或在下方输入直接开跑</span>
+                </div>
+            `;
+            return;
+        }
+
+        quickTodoList.innerHTML = currentPomoTodos.map((todo, idx) => `
+            <div class="pomo-quick-item" data-idx="${idx}" title="点击立即开跑此待办，画布自动平移聚焦">
+                <span class="pomo-item-dot"></span>
+                <span class="pomo-item-card-tag" title="来源卡片: ${escapeHtml(todo.cardTitle)}">${escapeHtml(todo.cardTitle)}</span>
+                <span class="pomo-item-text">${escapeHtml(todo.taskText)}</span>
+                <button type="button" class="pomo-item-start-btn" title="立即开始针对此待办的专注">▶</button>
+            </div>
+        `).join("");
+
+        quickTodoList.querySelectorAll(".pomo-quick-item").forEach(itemEl => {
+            itemEl.addEventListener("click", () => {
+                const idx = parseInt(itemEl.dataset.idx, 10);
+                const todo = currentPomoTodos[idx];
+                if (!todo) return;
+                startTaskFocus(todo);
+            });
+        });
+    }
+    window.renderQuickPopoverTodos = renderQuickPopoverTodos;
+
+    // 一键聚焦卡片并立即开跑番茄钟
+    function startTaskFocus(todo) {
+        if (!todo) return;
+        if (targetInput) targetInput.value = todo.fullTitle;
+        pomoState.target = todo.fullTitle;
+        pomoState.linkedTodo = {
+            nodeId: todo.nodeId,
+            taskIndex: todo.taskIndex,
+            cardTitle: todo.cardTitle,
+            taskText: todo.taskText,
+            fullTitle: todo.fullTitle
+        };
+        saveState();
+
+        const targetNode = nodes.find(n => n.id === todo.nodeId);
+        if (targetNode) {
+            if (typeof unfoldAncestorsOf === "function") unfoldAncestorsOf(targetNode);
+            if (typeof focusOnNode === "function") focusOnNode(targetNode);
+
+            d3.selectAll(".node-group").classed("is-pomo-focused", false);
+            d3.selectAll(".node-group").filter(d => d.id === targetNode.id).classed("is-pomo-focused", true);
+        }
+
+        if (quickPopover) quickPopover.style.display = "none";
+        startTimer();
+        showToast(`🍅 已启动专注：「${todo.taskText}」！`);
+    }
+
+    function toggleQuickPopover() {
+        if (!quickPopover) return;
+        const isHidden = quickPopover.style.display === "none" || !quickPopover.style.display;
+        if (isHidden) {
+            quickPopover.style.display = "flex";
+            renderQuickPopoverTodos();
+        } else {
+            quickPopover.style.display = "none";
+        }
+    }
+    window.toggleQuickPopover = toggleQuickPopover;
+
     function updateUI() {
         const timeStr = formatTime(pomoState.remainingSeconds);
         if (pillTimer) pillTimer.textContent = timeStr;
@@ -10535,6 +10624,7 @@ function initPomodoroSuite() {
                 if (targetNode && typeof toggleNthTaskCheckboxInNode === "function") {
                     toggleNthTaskCheckboxInNode(targetNode, pomoState.linkedTodo.taskIndex, true);
                     updatePomoTodoDropdown();
+                    renderQuickPopoverTodos();
                 }
                 d3.selectAll(".node-group").classed("is-pomo-focused", false);
                 pomoState.linkedTodo = null;
@@ -10744,9 +10834,64 @@ function initPomodoroSuite() {
     if (headerPill) {
         headerPill.addEventListener("click", (e) => {
             if (e.target === pillToggleBtn || (pillToggleBtn && pillToggleBtn.contains(e.target))) return;
+            toggleQuickPopover();
+        });
+    }
+
+    if (btnOpenFullModal) {
+        btnOpenFullModal.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (quickPopover) quickPopover.style.display = "none";
             openModal();
         });
     }
+
+    if (btnStartQuickCustom && quickCustomInput) {
+        btnStartQuickCustom.addEventListener("click", () => {
+            const val = quickCustomInput.value.trim();
+            if (val) {
+                pomoState.target = val;
+                pomoState.linkedTodo = null;
+                saveState();
+                if (targetInput) targetInput.value = val;
+                if (quickPopover) quickPopover.style.display = "none";
+                startTimer();
+                showToast(`🍅 已启动专注：「${val}」！`);
+            } else {
+                showToast("请输入临时专注目标");
+            }
+        });
+        quickCustomInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+                btnStartQuickCustom.click();
+            }
+        });
+    }
+
+    if (quickSlices) {
+        quickSlices.forEach(slice => {
+            slice.addEventListener("click", (e) => {
+                e.stopPropagation();
+                quickSlices.forEach(s => s.classList.remove("active"));
+                slice.classList.add("active");
+                const mins = parseInt(slice.dataset.mins, 10);
+                if (!isNaN(mins) && mins > 0) {
+                    switchMode(pomoState.mode, mins);
+                    showToast(`⏱️ 已切换专注切片为 ${mins} 分钟`);
+                }
+            });
+        });
+    }
+
+    // 点击顶栏浮窗外部自动收拢
+    document.addEventListener("click", (e) => {
+        if (quickPopover && quickPopover.style.display !== "none") {
+            const wrapper = document.getElementById("headerPomoWrapper");
+            if (wrapper && !wrapper.contains(e.target)) {
+                quickPopover.style.display = "none";
+            }
+        }
+    });
 
     if (pillToggleBtn) {
         pillToggleBtn.addEventListener("click", (e) => {
