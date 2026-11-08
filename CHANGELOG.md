@@ -2,6 +2,21 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.3] - 2026-11-07
+
+### 🛡️ 节点标题与笔记详情严格隔离架构 & 下划线渲染乱码修复 (Strict Title & Note Scope Isolation & Underline Fix)
+- **🔤 下划线渲染乱码彻底根治 (`renderMarkdownToHTML` & `cleanHTMLSpill`)**：
+  - 修复 `renderMarkdownToHTML` 中因标签替换笔误导致的 `___U_END___` 无法还原回 `</u>` 的 Bug，彻底解决下划线文字后出现 `_U_END_` 乱码的恶性故障；
+  - 在 `cleanHTMLSpill` 与渲染器中增加全自动自愈逻辑，对历史文本中遗留的 `___U_END___` / `_U_END_` 自动清洗恢复为原生 `<u>` 下划线；
+- **🔒 节点标题与笔记正文严格边界隔离 (`getCardDisplayHTML` & `titleInput.oninput`)**：
+  - 响应用户核心诉求：“节点的标题出现在Map里，具体的笔记在详情里，写笔记绝对不能冲刷变成节点标题，标题也不应混入笔记”；
+  - 彻底移除 `getCardDisplayHTML` 中“若笔记首行带颜色或加粗就强行覆盖篡改卡片标题”的逻辑缺陷，严格以节点专有标题 `d.label` 作为导图卡片的权威内容；
+  - 用户在右侧编写任意长篇笔记、使用红绿蓝标色或高亮，导图卡片标题始终稳定显示用户设定的卡片名（如 `2. Coding` 并带有 `📝` 角标），详细笔记绝不泄露到导图卡片上；
+- **🛡️ 杜绝标题输入篡改笔记正文首行 (`titleInput` & `syncFromInlineCard`)**：
+  - 彻底废除 `cLines[0] = selectedNode.label` 与 `selectedNode.content = selectedNode.label` 对正文首句的暴力冲刷覆盖；
+  - 只有当笔记显式包含 `# Heading` 时才维护对应大纲标记，普通用户自写笔记正文 100% 独立保全；
+  - 在 `renderEditor` 中对早期历史数据中 content 只是简单拷贝 label 的重复脏数据执行自愈净化，让笔记面板保持纯净空白待输入。
+
 ## 🚀 [v3.9.2] - 2026-11-07
 
 ### 🖼️ 图片卡片统一标题栏与多通道标题编辑同步引擎 (Editable Image Card Titles, Unified Title-Row & Markdown Sync)

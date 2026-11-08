@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.2 loaded — Editable Image Card Titles, Unified Title-Row & Markdown Sync");
+    console.log("[FlowNotes] v3.9.3 loaded — Strict Title & Note Scope Isolation & Underline Fix");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1784,13 +1784,8 @@ function hasDetailedNote(d) {
     const firstLine = lines[0].replace(/^#{1,4}\s+/, "").trim();
     const firstLinePlain = stripFormattingToPlainText(firstLine);
 
-    let remainingLines = [];
-    if (firstLinePlain === plainTitle || firstLine === plainTitle || (plainTitle && firstLinePlain.includes(plainTitle)) || (firstLinePlain && plainTitle.includes(firstLinePlain))) {
-        remainingLines = lines.slice(1);
-    } else if (lines.length === 1) {
-        // 只有 1 行内容：这行本身就是卡片标题或单句，用户根本没在右侧写后续正文！
-        return false;
-    } else {
+    let remainingLines = lines;
+    if (firstLinePlain === plainTitle || firstLine === plainTitle) {
         remainingLines = lines.slice(1);
     }
 
@@ -1801,37 +1796,23 @@ function hasDetailedNote(d) {
         .join(" ")
         .trim();
 
-    // 只有在剩余详细笔记正文中真正有实质性内容（纯汉字/字母 > 5 个）时，才视为有详细笔记
+    // 只要在剩余详细笔记正文中真正有实质性内容且不只是标题副本，即视为有详细笔记
     const pureChars = remainingText.replace(/[\s\p{P}]/gu, "");
-    return pureChars.length > 5;
+    return pureChars.length > 3 && remainingText !== plainTitle;
 }
 
-// 生成画布卡片内部直接显示的 HTML (v3.5.1 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记点进右侧面板呈现)
+// 生成画布卡片内部直接显示的 HTML (v3.9.3 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记正文严格收纳于右侧面板，绝不泄露到导图卡片上！)
 function getCardDisplayHTML(d) {
     if (!d) return "";
 
-    // v3.8.7 高保真标题提取与待办自愈：优先保留 d.label 中的格式与待办；若 content 有待办而 label 缺失，自动自愈同步
+    // 严格以节点专属标题 d.label 作为画布卡片呈现内容，杜绝被笔记详情正文篡改或冲刷
     let rawTitle = (d.label || "").trim();
-    const labelHasStyle = rawTitle.includes("<span") || rawTitle.includes("<font") || rawTitle.includes("<mark") || rawTitle.includes("==") || rawTitle.includes("**") || rawTitle.includes("[ ]") || rawTitle.includes("[x]");
-    
-    if (d.content && typeof d.content === "string") {
-        const contentHasTask = /\[([ xX])\]/.test(d.content);
-        const labelHasTask = /\[([ xX])\]/.test(rawTitle);
-        if (!labelHasTask && contentHasTask) {
-            rawTitle = d.content.replace(/\r?\n/g, "<br>");
-            d.label = rawTitle;
-        } else {
+    if (!rawTitle) {
+        // 仅当 d.label 彻底为空时，才尝试提取 fallback 标题
+        if (d.content && typeof d.content === "string") {
             const firstLine = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
-            const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
-            if (!labelHasStyle && firstLineHasStyle && !firstLine.startsWith("![")) {
+            if (firstLine && !firstLine.startsWith("![")) {
                 rawTitle = firstLine;
-            } else if (!labelHasStyle && !firstLine.startsWith("![")) {
-                // 仅当 label 没有任何格式且首行不是图片时，才检查是否需要从 content 恢复更长标题
-                const plainRaw = stripFormattingToPlainText(rawTitle);
-                const plainFirst = stripFormattingToPlainText(firstLine);
-                if (plainFirst.startsWith(plainRaw) && plainFirst.length > plainRaw.length) {
-                    rawTitle = firstLine;
-                }
             }
         }
     }
@@ -2058,7 +2039,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         const fullFirst = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
         const pRaw = stripFormattingToPlainText(raw);
         const pFirst = stripFormattingToPlainText(fullFirst);
-        if (pRaw && pFirst && !fullFirst.startsWith("![") && (pRaw.endsWith("...") || (pFirst.startsWith(pRaw) && pFirst.length > pRaw.length))) {
+        if (pRaw && pFirst && !fullFirst.startsWith("![") && pRaw.endsWith("...")) {
             raw = fullFirst;
             d.label = raw;
         }
@@ -2143,24 +2124,14 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             d.content = `# ${plainLabel}\n\n![${plainLabel}](${d.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
         } else {
             d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
-            const isPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(d.content ? d.content.trim() : "");
-            const isContentEmpty = !d.content || 
-                !d.content.trim() || 
-                d.content.includes("点击编辑 Markdown 内容...") ||
-                isPlaceholder ||
-                d.content.trim() === d.label.trim() ||
-                d.content.trim() === `# ${d.label.trim()}`;
-            if (isContentEmpty) {
-                if (/\[([ xX])\]/.test(d.label) || d.label.includes("<br>")) {
-                    d.content = d.label.replace(/<br\s*\/?>/gi, "\n");
-                } else {
-                    d.content = "";
+            // v3.9.3 核心修复：画布原地编辑只更新卡片标题 d.label，绝不覆盖冲刷用户右侧详细笔记！
+            if (d.content && typeof d.content === "string") {
+                if (/^#{1,2}\s+/.test(d.content)) {
+                    const cLines = d.content.split("\n");
+                    cLines[0] = `# ${stripFormattingToPlainText(d.label)}`;
+                    d.content = cLines.join("\n");
                 }
-            } else if (d.content.includes("\n") && !d.label.includes("<br>")) {
-                const cLines = d.content.split("\n");
-                cLines[0] = d.label;
-                d.content = cLines.join("\n");
-            } else {
+            } else if (/\[([ xX])\]/.test(d.label) || d.label.includes("<br>")) {
                 d.content = d.label.replace(/<br\s*\/?>/gi, "\n");
             }
         }
@@ -2170,7 +2141,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         const richEditor = document.getElementById("rich-editor");
         if (selectedNode && selectedNode.id === d.id) {
             if (titleInput) titleInput.value = stripFormattingToPlainText(d.label);
-            if (tableWrap || (imgWrap && d.imageUrl) || (!d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容..."))) {
+            if (tableWrap || (imgWrap && d.imageUrl)) {
                 if (mdTextarea) mdTextarea.value = d.content;
                 if (richEditor && document.activeElement !== richEditor) {
                     richEditor.innerHTML = renderMarkdownToHTML(d.content);
@@ -4005,14 +3976,13 @@ function initEvents() {
                 .replace(/^#{1,4}\s+[^\n]*/gm, "")
                 .trim();
             selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
-        } else if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
-            selectedNode.content = selectedNode.label;
-        } else if (selectedNode.content.includes("\n")) {
-            const cLines = selectedNode.content.split("\n");
-            cLines[0] = selectedNode.label;
-            selectedNode.content = cLines.join("\n");
-        } else {
-            selectedNode.content = selectedNode.label;
+        } else if (selectedNode.content && typeof selectedNode.content === "string") {
+            // v3.9.3 严格隔离：仅当详细笔记显式以 Markdown H1/H2 标题开头时，才同步更新首行 H1 标题；绝不覆盖冲刷用户自写笔记正文！
+            if (/^#{1,2}\s+/.test(selectedNode.content)) {
+                const cLines = selectedNode.content.split("\n");
+                cLines[0] = `# ${stripFormattingToPlainText(selectedNode.label)}`;
+                selectedNode.content = cLines.join("\n");
+            }
         }
         refreshNodeStyles();
         if (!e.isComposing && !isImeComposing) {
@@ -5050,14 +5020,12 @@ function applyFormatting(format, customVal = "") {
                         .replace(/^#{1,4}\s+[^\n]*/gm, "")
                         .trim();
                     selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
-                } else if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
-                    selectedNode.content = selectedNode.label;
-                } else if (selectedNode.content.includes("\n")) {
-                    const cLines = selectedNode.content.split("\n");
-                    cLines[0] = selectedNode.label;
-                    selectedNode.content = cLines.join("\n");
-                } else {
-                    selectedNode.content = selectedNode.label;
+                } else if (selectedNode.content && typeof selectedNode.content === "string") {
+                    if (/^#{1,2}\s+/.test(selectedNode.content)) {
+                        const cLines = selectedNode.content.split("\n");
+                        cLines[0] = `# ${stripFormattingToPlainText(selectedNode.label)}`;
+                        selectedNode.content = cLines.join("\n");
+                    }
                 }
                 if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
                 refreshNodeStyles();
@@ -5238,6 +5206,8 @@ function cleanHTMLSpill(text) {
         .replace(/<br\s*\/?>/gi, "\n")
         .replace(/<font color=["']?([^"'>]+)["']?>/gi, '<span style="color:$1">')
         .replace(/<\/font>/gi, '</span>')
+        .replace(/___U_START___|_U_START_/g, "<u>")
+        .replace(/___U_END___|_U_END_/g, "</u>")
         .replace(/<b>/gi, "**").replace(/<\/b>/gi, "**")
         .replace(/<strong>/gi, "**").replace(/<\/strong>/gi, "**")
         .replace(/<i>/gi, "*").replace(/<\/i>/gi, "*")
@@ -5510,8 +5480,8 @@ function renderMarkdownToHTML(text) {
         .replace(/___HANDWRITING_START___/g, '<span class="font-handwriting">')
         .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
         .replace(/___SPAN_END___/g, '</span>')
-        .replace(/___U_START___/g, '<u>')
-        .replace(/<\/u>/gi, '</u>');
+        .replace(/___U_START___|_U_START_/g, '<u>')
+        .replace(/___U_END___|_U_END_/g, '</u>');
 
     // 清理 <br> 紧随 list 与 table 标签后的多余换行
     html = html
@@ -5534,8 +5504,14 @@ function renderEditor() {
     const focusBtn = document.getElementById("btn-toggle-focus");
 
     if (selectedNode) {
-        // 自动净化清洗之前残留的 HTML 污染
-        const cleanContent = cleanHTMLSpill(selectedNode.content || "");
+        // 自动净化清洗之前残留的 HTML 污染与残余标记
+        let cleanContent = cleanHTMLSpill(selectedNode.content || "");
+        
+        // v3.9.3 核心自愈：若历史数据中 content 只是机械拷贝了标题本身或与标题完全重复，清空让笔记面板保持纯净
+        const trimmedPlain = stripFormattingToPlainText(selectedNode.label || "").trim();
+        if (cleanContent.trim() === trimmedPlain || cleanContent.trim() === `# ${trimmedPlain}`) {
+            cleanContent = "";
+        }
         selectedNode.content = cleanContent;
 
         titleInput.value = stripFormattingToPlainText(selectedNode.label);

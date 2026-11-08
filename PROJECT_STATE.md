@@ -1,8 +1,13 @@
-# Project State: FlowNotes (v3.9.2)
+# Project State: FlowNotes (v3.9.3)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.2`
+- **Current Version**: `v3.9.3`
 - **Latest Releases**:
+  - `v3.9.3`:
+    - **Strict Title & Note Scope Isolation & Underline Fix (v3.9.3 节点标题与笔记详情严格隔离架构 & 下划线渲染乱码修复)**:
+      - **下划线渲染乱码彻底根治 (`renderMarkdownToHTML` & `cleanHTMLSpill`)**: 修复 `renderMarkdownToHTML` 中因标签替换笔误导致的 `___U_END___` 无法还原回 `</u>` 的 Bug，并在 `cleanHTMLSpill` 与渲染器中注入自动自愈机制，彻底根除 `_U_END_` 乱码；
+      - **节点标题与笔记正文严格边界隔离 (`getCardDisplayHTML` & `titleInput.oninput`)**: 彻底移除“若笔记首行带颜色或加粗就强行覆盖篡改卡片标题”的逻辑缺陷，严格以节点专有标题 `d.label` 作为导图卡片的权威内容；用户在右侧编写任意长篇笔记、使用红绿蓝标色或高亮，导图卡片标题始终稳定显示用户设定的卡片名（如 `2. Coding` 并带有 `📝` 角标），详细笔记绝不泄露到导图卡片上；
+      - **杜绝标题输入篡改笔记正文首行 (`titleInput` & `syncFromInlineCard`)**: 彻底废除 `cLines[0] = selectedNode.label` 与 `selectedNode.content = selectedNode.label` 对正文首句的暴力冲刷覆盖，普通用户自写笔记正文 100% 独立保全；并在 `renderEditor` 中对历史脏数据自动执行自愈净化。
   - `v3.9.2`:
     - **Editable Image Card Titles, Unified Title-Row & Markdown Sync (v3.9.2 图片卡片统一标题栏与多通道标题编辑同步引擎)**:
       - **图片卡片统一标题栏规范与视觉层次一致性 (`getCardDisplayHTML`)**: 彻底解决添加图片后卡片无法修改标题、始终只能叫“未命名”的问题。重塑图片卡片结构，对齐表格卡片（Table Cards）的黄金布局：顶部常驻标准卡片标题行 (`.canvas-card-title-row`)，下方自适应包裹图片 (`.canvas-card-img-wrap`)，标题清晰呈现用户自定义文字（如 `Task1`）；
