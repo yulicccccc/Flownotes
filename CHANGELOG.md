@@ -2,6 +2,25 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.4] - 2026-11-08
+
+### ▦ OneNote 级全功能直觉表格引擎与极速悬浮操作手柄 (OneNote-Grade Intuitive Table Engine & Direct Action Bar)
+- **⚡ 根治“点击删除当前行无反应”核心缺陷 (`executeTableAction` & `menu.onmousedown`)**：
+  - 深度排查根因：用户在行内编辑表格单元格时，右键点击上下文菜单导致输入框失焦 (`blur`)，原逻辑在 `onBlur` 中过早重绘了卡片 HTML，导致菜单捕获的 DOM 引用脱离文档树，后续删除行操作在游离节点上执行而对真实卡片数据毫无作用；
+  - 建立统一 `executeTableAction` 核心控制台，通过 `menu.onmousedown` 阻止意外失焦，并动态重获实时活动表格，修改后直接原子化同步回 Markdown 模型并即时触发 `refreshNodeStyles()`，彻底根除失焦脱节与静默失败；
+- **🖱️ OneNote 招牌表格悬浮微型快捷手柄 (`.canvas-table-toolbar`)**：
+  - 响应用户反馈“表格操作不够直觉、右键找操作麻烦”的体验痛点；
+  - 在卡片内表格右上角常驻 OneNote 风格轻量玻璃拟态悬浮操作胶囊：`[➕行]`、`[➖行]`、`[➕列]`、`[➖列]`、`[🗑️]`；
+  - 鼠标悬浮或聚焦卡片表格时自动显现，零右键直达，点击按钮即时增删行/列，防失焦防冒泡极速响应；
+- **⌨️ OneNote 经典快捷键全面打通 (`startInlineCardEdit` & `richEditor`)**：
+  - **空行退格自动删行**：在空白表格行按 `Backspace` 自动删除当前行并将光标平滑跳至上一行对齐单元格（若为最后一行则自动销毁表格），符合 OneNote 肌肉记忆；
+  - **强制删行快捷键**：支持 `Alt + Delete` 与 `Alt + Backspace` 极速删除当前行；
+  - **按 Enter 自动加行**：在单元格内按 `Enter` 自动在下方插入新行并对齐当前列；在最后一个单元格按 `Tab` 自动在末尾追加新行；
+- **📋 专属 OneNote 表格右键控制台 (`showCanvasContextMenu`)**：
+  - 当光标位于表格内时，右键菜单置顶展开独立的 `▦ OneNote 表格控制台`；
+  - 补齐“在上方插入行”、“在左侧插入列”、“清空当前行文字”等完整 OneNote 功能集，全流程指引快捷键；
+  - 画布卡片与右侧笔记抽屉双工作区全面对齐生效。
+
 ## 🚀 [v3.9.3] - 2026-11-07
 
 ### 🛡️ 节点标题与笔记详情严格隔离架构 & 下划线渲染乱码修复 (Strict Title & Note Scope Isolation & Underline Fix)

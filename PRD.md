@@ -1,9 +1,17 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.3)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.4)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote-Grade Intuitive Table Engine & Direct Action Bar (v3.9.4 OneNote 级全功能直觉表格引擎与极速悬浮操作手柄)**:
+  - **根除“点击删除行无反应”失焦脱节缺陷 (`executeTableAction` & `menu.onmousedown`)**: 深度重构表格增删操作引擎，阻止右键菜单点击导致的意外 `blur`，支持动态定位活体表格并原子化写回 Markdown 模型，实时调用 `refreshNodeStyles()` 驱动视图更新，彻底消除操作无反应问题；
+  - **OneNote 招牌表格悬浮微型快捷手柄 (`.canvas-table-toolbar`)**: 表格右上角常驻轻量玻璃拟态操作胶囊：`[➕行]`、`[➖行]`、`[➕列]`、`[➖列]`、`[🗑️]`，鼠标悬浮或编辑时即时显现，零右键直达；
+  - **OneNote 经典快捷键全面打通 (`startInlineCardEdit` & `richEditor`)**:
+    - 在空白表格行按 `Backspace` 自动删除当前行并将光标跳至上一行对应单元格（若为最后一行则自动销毁表格）；
+    - 支持 `Alt + Delete` 与 `Alt + Backspace` 极速删除当前行；
+    - 单元格内按 `Enter` 自动在下方插入新行并对齐当前列；在最后一个单元格按 `Tab` 自动在末尾追加新行；
+  - **专属 OneNote 表格右键控制台 (`showCanvasContextMenu`)**: 菜单顶部置顶展开独立表格控制专区，补齐“在上方插入行”、“在左侧插入列”、“清空当前行文字”等完整 OneNote 功能集。
 - **Strict Title & Note Scope Isolation & Underline Fix (v3.9.3 节点标题与笔记详情严格隔离架构 & 下划线渲染乱码修复)**:
   - **下划线渲染乱码彻底根治 (`renderMarkdownToHTML` & `cleanHTMLSpill`)**: 修复 `renderMarkdownToHTML` 中因标签替换笔误导致的 `___U_END___` 无法还原回 `</u>` 的 Bug，并在 `cleanHTMLSpill` 与渲染器中注入自动自愈机制，彻底根除 `_U_END_` 乱码；
   - **节点标题与笔记正文严格边界隔离 (`getCardDisplayHTML` & `titleInput.oninput`)**: 彻底移除“若笔记首行带颜色或加粗就强行覆盖篡改卡片标题”的逻辑缺陷，严格以节点专有标题 `d.label` 作为导图卡片的权威内容；用户在右侧编写任意长篇笔记、使用红绿蓝标色或高亮，导图卡片标题始终稳定显示用户设定的卡片名（如 `2. Coding` 并带有 `📝` 角标），详细笔记绝不泄露到导图卡片上；

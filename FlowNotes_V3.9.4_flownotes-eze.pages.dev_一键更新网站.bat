@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ===================================================
-echo   FlowNotes V3.9.3 - Auto Deploy to Cloudflare
+echo   FlowNotes V3.9.4 - Auto Deploy to Cloudflare
 echo   Target Domain: https://flownotes-eze.pages.dev
 echo ===================================================
 echo.
@@ -25,7 +25,7 @@ call .\node\npx.cmd --yes wrangler pages deploy public --project-name flownotes 
 
 echo.
 echo ===================================================
-echo   Deployment finished!
-echo   Live URL: https://flownotes-eze.pages.dev
+echo   Deployment finished! 
+echo   Site live at: https://flownotes-eze.pages.dev
 echo ===================================================
 pause
