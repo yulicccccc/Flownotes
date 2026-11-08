@@ -2228,15 +2228,36 @@ html[data-theme="light"] .canvas-note-card.is-editing {
     padding-left: 18px;
 }
 
+.canvas-card-img-wrap {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 4px;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.canvas-note-card:has(.canvas-card-img-wrap),
+.canvas-note-card.is-image-card {
+    min-width: 140px;
+}
+
 .canvas-card-img {
     display: block;
-    max-width: 240px;
-    max-height: 150px;
+    max-width: 280px;
+    max-height: 200px;
     width: auto;
     height: auto;
     border-radius: 6px;
     object-fit: contain;
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: zoom-in;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.canvas-card-img:hover {
+    transform: scale(1.02);
 }
 
 .canvas-card-caption {

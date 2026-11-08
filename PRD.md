@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.1)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.2)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Editable Image Card Titles, Unified Title-Row & Markdown Sync (v3.9.2 图片卡片统一标题栏与多通道标题编辑同步引擎)**:
+  - **图片卡片统一标题栏规范与视觉层次一致性 (`getCardDisplayHTML`)**: 彻底解决添加图片后卡片无法修改标题、始终只能叫“未命名”的问题。重塑图片卡片结构，对齐表格卡片（Table Cards）的黄金布局：顶部常驻标准卡片标题行 (`.canvas-card-title-row`)，下方自适应包裹图片 (`.canvas-card-img-wrap`)，标题清晰呈现用户自定义文字（如 `Task1`）；
+  - **画布卡片原地双击/打字行内编辑 (`startInlineCardEdit`)**: 精准解耦“点击图片打开全屏高清灯箱”与“点击卡片标题直接打字原地编辑”，支持选中卡片直接敲键盘即可瞬间进入标题行编辑，回车即时保存并自动对齐；
+  - **富文本与双向强同步保活 (`syncFromInlineCard` & `titleInput.addEventListener`)**: 增设 `imgWrap` 独立解析通道，从标题行提取纯标题，杜绝 `<img>` 标签序列化为空文本导致重置为“未命名”；在右侧详情面板中修改 `#title-input` 时，智能维护卡片 `content` 中 Markdown 图片引用 (`![图片](data:...)`)，绝不再覆盖冲刷图片链接；
+  - **智能过滤图片 Base64 避免虚假笔记角标 (`hasDetailedNote`)**: 详情笔记判定算法自动剥离 Markdown 图片标记，杜绝数万字符 Base64 字符串误触发 `📝` 笔记角标。
 - **Topbar Dynamic Quick Focus Dropdown & Instant Task Launcher (v3.9.1 顶栏番茄胶囊极速待办下拉窗与单按开跑套件)**:
   - **点击顶栏番茄即刻展开极简待办面板 (`toggleQuickPopover`)**: 彻底解决弹出全屏大弹窗的重度打断感；点击顶栏番茄胶囊 (`#headerPomoPill`) 即就地向下方展开半透明磨砂毛玻璃悬浮窗 (`#pomoQuickPopover`)，所见即所得列出当前脑图所有未完成待办；
   - **单点击秒级开跑与自动视线聚焦 (`startTaskFocus`)**: 点击待办任务行或右侧红色 `▶` 启动按钮，**单次点击直接锁定目标、将画布镜头平移居中至对应卡片激起呼吸光晕、并即刻启动 25 分钟番茄倒计时**，悬浮窗自动收拢，顶栏胶囊即刻跳动计时，实现零中断极致直觉体验；

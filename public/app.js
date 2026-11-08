@@ -286,7 +286,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.1 loaded — Topbar Dynamic Quick Focus Dropdown & Instant Task Launcher");
+    console.log("[FlowNotes] v3.9.2 loaded — Editable Image Card Titles, Unified Title-Row & Markdown Sync");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1794,9 +1794,9 @@ function hasDetailedNote(d) {
         remainingLines = lines.slice(1);
     }
 
-    // 检查剩余段落
+    // 检查剩余段落 (排除图片 Markdown 语法，避免 base64 数据串虚假触发详细笔记标记)
     const remainingText = remainingLines
-        .map(l => l.replace(/^#{1,4}\s+/, "").trim())
+        .map(l => l.replace(/^#{1,4}\s+/, "").replace(/!\[.*?\]\(.*?\)/g, "").trim())
         .filter(l => l && !l.includes("点击编辑 Markdown 内容...") && !isPlaceholderRegex.test(l))
         .join(" ")
         .trim();
@@ -1809,10 +1809,6 @@ function hasDetailedNote(d) {
 // 生成画布卡片内部直接显示的 HTML (v3.5.1 核心规范：画布卡片严格只显示标题 d.label，长篇详细笔记点进右侧面板呈现)
 function getCardDisplayHTML(d) {
     if (!d) return "";
-    if (d.isImage && d.imageUrl) {
-        const caption = (d.label && !d.label.startsWith("📸 截图")) ? `<div class="canvas-card-caption">${renderCardLabelHTML(d.label)}</div>` : "";
-        return `<img class="canvas-card-img" src="${d.imageUrl}" alt="截图" draggable="false" />${caption}`;
-    }
 
     // v3.8.7 高保真标题提取与待办自愈：优先保留 d.label 中的格式与待办；若 content 有待办而 label 缺失，自动自愈同步
     let rawTitle = (d.label || "").trim();
@@ -1827,10 +1823,10 @@ function getCardDisplayHTML(d) {
         } else {
             const firstLine = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
             const firstLineHasStyle = firstLine.includes("<span") || firstLine.includes("<font") || firstLine.includes("<mark") || firstLine.includes("==") || firstLine.includes("**");
-            if (!labelHasStyle && firstLineHasStyle) {
+            if (!labelHasStyle && firstLineHasStyle && !firstLine.startsWith("![")) {
                 rawTitle = firstLine;
-            } else if (!labelHasStyle) {
-                // 仅当 label 没有任何格式时，才检查是否需要从 content 恢复更长标题
+            } else if (!labelHasStyle && !firstLine.startsWith("![")) {
+                // 仅当 label 没有任何格式且首行不是图片时，才检查是否需要从 content 恢复更长标题
                 const plainRaw = stripFormattingToPlainText(rawTitle);
                 const plainFirst = stripFormattingToPlainText(firstLine);
                 if (plainFirst.startsWith(plainRaw) && plainFirst.length > plainRaw.length) {
@@ -1839,7 +1835,7 @@ function getCardDisplayHTML(d) {
             }
         }
     }
-    if (!rawTitle) rawTitle = "未命名";
+    if (!rawTitle) rawTitle = d.isImage ? "图片" : "未命名";
 
     const titleHTML = renderCardLabelHTML(rawTitle);
     const tableHTML = extractTableHTMLFromContent(d.content);
@@ -1848,8 +1844,13 @@ function getCardDisplayHTML(d) {
         ? `<span class="card-has-note-badge" title="📝 包含详细笔记 (点击选中并在右侧查看)">📝</span>`
         : "";
 
+    // v3.9.2 图片卡片统一标题栏规范：与表格卡片对齐，顶部常驻可编辑标题行，下方自适应包裹图片
+    if (d.isImage && d.imageUrl) {
+        return `<div class="canvas-card-title-row"><span class="canvas-card-title-text">${titleHTML}</span>${noteBadge}</div><div class="canvas-card-img-wrap"><img class="canvas-card-img" src="${d.imageUrl}" alt="${stripFormattingToPlainText(rawTitle) || '图片'}" draggable="false" /></div>`;
+    }
+
     if (tableHTML) {
-        return `<div class="canvas-card-title-row"><span>${titleHTML}</span>${noteBadge}</div><div class="canvas-card-table-wrap">${tableHTML}</div>`;
+        return `<div class="canvas-card-title-row"><span class="canvas-card-title-text">${titleHTML}</span>${noteBadge}</div><div class="canvas-card-table-wrap">${tableHTML}</div>`;
     }
 
     return `${titleHTML}${noteBadge}`;
@@ -2038,10 +2039,6 @@ function startInlineCardEditById(nodeId, selectAll = false, cursorAtEnd = false,
 
 function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false, initialAppendChar = "") {
     if (!d || !groupEl) return;
-    if (d.isImage && d.imageUrl) {
-        openImageLightbox(d);
-        return;
-    }
     const group = d3.select(groupEl);
     const cardDiv = group.select(".canvas-note-card");
     const bodyDiv = group.select(".canvas-note-card-body");
@@ -2054,14 +2051,14 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     selectedNodeIds = new Set([d.id]);
     renderEditor();
 
-    // 载入可编辑内容 (v3.5.5: 若卡片包含表格，在画布上同步呈现表格与标题，供双向交互编辑)
-    let raw = (d.label || "").trim() || "未命名";
+    // 载入可编辑内容 (v3.5.5: 若卡片包含表格或图片，在画布上同步呈现内容与标题，供双向交互编辑)
+    let raw = (d.label || "").trim() || (d.isImage ? "图片" : "未命名");
     // v3.8.6 若 label 历史被截断过（例如末尾带 ... 且 content 首行更长完整），自动以更完整的首行载入，防止双击编辑丢失文字
     if (d.content && typeof d.content === "string") {
         const fullFirst = d.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
         const pRaw = stripFormattingToPlainText(raw);
         const pFirst = stripFormattingToPlainText(fullFirst);
-        if (pRaw && pFirst && (pRaw.endsWith("...") || (pFirst.startsWith(pRaw) && pFirst.length > pRaw.length))) {
+        if (pRaw && pFirst && !fullFirst.startsWith("![") && (pRaw.endsWith("...") || (pFirst.startsWith(pRaw) && pFirst.length > pRaw.length))) {
             raw = fullFirst;
             d.label = raw;
         }
@@ -2073,7 +2070,9 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     }
     const inlineTableHTML = extractTableHTMLFromContent(d.content);
     if (inlineTableHTML) {
-        bodyEl.innerHTML = `<div class="canvas-card-title-row"><span>${renderCardLabelHTML(raw)}</span></div><div class="canvas-card-table-wrap">${inlineTableHTML}</div>`;
+        bodyEl.innerHTML = `<div class="canvas-card-title-row"><span class="canvas-card-title-text">${renderCardLabelHTML(raw)}</span></div><div class="canvas-card-table-wrap">${inlineTableHTML}</div>`;
+    } else if (d.isImage && d.imageUrl) {
+        bodyEl.innerHTML = `<div class="canvas-card-title-row"><span class="canvas-card-title-text">${renderCardLabelHTML(raw)}</span></div><div class="canvas-card-img-wrap"><img class="canvas-card-img" src="${d.imageUrl}" alt="图片" draggable="false" /></div>`;
     } else {
         bodyEl.innerHTML = renderCardLabelHTML(raw);
     }
@@ -2098,8 +2097,9 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     }
 
     const syncFromInlineCard = () => {
-        // v3.5.5 双工作区表格引擎：若卡片含有表格，提取标题与表格分别同步
+        // v3.5.5 双工作区表格引擎 & v3.9.2 图片卡片标题引擎：提取标题与多媒体分别同步
         const tableWrap = bodyEl.querySelector(".canvas-card-table-wrap") || bodyEl.querySelector("table.canvas-card-table");
+        const imgWrap = bodyEl.querySelector(".canvas-card-img-wrap") || bodyEl.querySelector("img.canvas-card-img");
         const titleRow = bodyEl.querySelector(".canvas-card-title-row");
 
         if (tableWrap) {
@@ -2122,6 +2122,25 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 .replace(/^#{1,4}\s+[^\n]*/gm, "")
                 .trim();
             d.content = `# ${stripFormattingToPlainText(d.label)}\n\n${tableMd}` + (otherNotes ? `\n\n${otherNotes}` : "");
+        } else if (imgWrap && d.imageUrl) {
+            let titleSourceHtml = "";
+            if (titleRow) {
+                titleSourceHtml = titleRow.innerHTML;
+            } else {
+                const clone = bodyEl.cloneNode(true);
+                clone.querySelectorAll(".canvas-card-img-wrap, img.canvas-card-img").forEach(el => el.remove());
+                titleSourceHtml = clone.innerHTML;
+            }
+            d.label = serializeCardLabelFromHTML(titleSourceHtml);
+            if (!d.label || d.label === "未命名") {
+                d.label = "图片";
+            }
+            const plainLabel = stripFormattingToPlainText(d.label) || "图片";
+            const otherNotes = (d.content || "")
+                .replace(/!\[.*?\]\(.*?\)/g, "")
+                .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                .trim();
+            d.content = `# ${plainLabel}\n\n![${plainLabel}](${d.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
         } else {
             d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
             const isPlaceholder = /^(新分支|同级卡片|新笔记|父级节点|过渡节点)\s*\d*$/.test(d.content ? d.content.trim() : "");
@@ -2151,7 +2170,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         const richEditor = document.getElementById("rich-editor");
         if (selectedNode && selectedNode.id === d.id) {
             if (titleInput) titleInput.value = stripFormattingToPlainText(d.label);
-            if (tableWrap || (!d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容..."))) {
+            if (tableWrap || (imgWrap && d.imageUrl) || (!d.content || !d.content.trim() || d.content.includes("点击编辑 Markdown 内容..."))) {
                 if (mdTextarea) mdTextarea.value = d.content;
                 if (richEditor && document.activeElement !== richEditor) {
                     richEditor.innerHTML = renderMarkdownToHTML(d.content);
@@ -2649,7 +2668,7 @@ function updateD3Graph() {
 
     nodeElements = nodeElements.data(visibleNodes, d => d.id).join(
         enter => {
-            const g = enter.append("g").attr("class", "node-group")
+            const g = enter.append("g").attr("class", "node-group").attr("data-node-id", d => d.id)
                 .call(d3.drag()
                     .filter(event => {
                         if (event.target.closest && (
@@ -2691,7 +2710,11 @@ function updateD3Graph() {
 
                     // 直觉式交互（同 OneNote / PPT）：如果这张卡片此前已经是唯一选中状态，再次单击它直接进入原地文字编辑/划词标色！
                     if (d._wasSingleSelectedBeforeMousedown) {
-                        startInlineCardEdit(d, event.currentTarget, false);
+                        if (event.target && event.target.tagName === "IMG" && d.isImage && d.imageUrl) {
+                            openImageLightbox(d);
+                        } else {
+                            startInlineCardEdit(d, event.currentTarget, false);
+                        }
                         return;
                     }
 
@@ -2703,7 +2726,11 @@ function updateD3Graph() {
                 })
                 .on("dblclick", (event, d) => {
                     event.stopPropagation();
-                    startInlineCardEdit(d, event.currentTarget, false);
+                    if (event.target && event.target.tagName === "IMG" && d.isImage && d.imageUrl) {
+                        openImageLightbox(d);
+                    } else {
+                        startInlineCardEdit(d, event.currentTarget, false);
+                    }
                 })
                 .on("contextmenu", (event, d) => {
                     event.preventDefault();
@@ -3970,8 +3997,15 @@ function initEvents() {
 
     titleInput.addEventListener("input", (e) => {
         if (!selectedNode) return;
-        selectedNode.label = titleInput.value.trim() || "未命名";
-        if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
+        selectedNode.label = titleInput.value.trim() || (selectedNode.isImage ? "图片" : "未命名");
+        if (selectedNode.isImage && selectedNode.imageUrl) {
+            const plainLabel = stripFormattingToPlainText(selectedNode.label) || "图片";
+            const otherNotes = (selectedNode.content || "")
+                .replace(/!\[.*?\]\(.*?\)/g, "")
+                .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                .trim();
+            selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+        } else if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
             selectedNode.content = selectedNode.label;
         } else if (selectedNode.content.includes("\n")) {
             const cLines = selectedNode.content.split("\n");
@@ -4458,7 +4492,7 @@ function initEvents() {
         // XMind 核心直觉：当选中了单张卡片（未处于双击编辑态）时，直接敲键盘打字即刻进入该卡片的原地编辑！
         if (selectedNode && selectedNodeIds.size === 1 && !selectedLink && !e.ctrlKey && !e.metaKey && !e.altKey) {
             const isGlobalShortcutKey = ["f", "F", "b", "B", "m", "M", "g", "G", "l", "L", "p", "P"].includes(e.key);
-            if (!isGlobalShortcutKey && (e.key.length === 1 || e.key === "Process") && !selectedNode.isImage) {
+            if (!isGlobalShortcutKey && (e.key.length === 1 || e.key === "Process")) {
                 const initChar = e.key === "Process" ? "" : e.key;
                 if (initChar) e.preventDefault();
                 startInlineCardEditById(selectedNode.id, false, true, initChar);
@@ -4988,8 +5022,9 @@ function applyFormatting(format, customVal = "") {
             if (activeInlineBody) {
                 let titleSourceHtml = activeInlineBody.innerHTML;
                 const tableWrap = activeInlineBody.querySelector(".canvas-card-table-wrap, table.canvas-card-table");
+                const imgWrap = activeInlineBody.querySelector(".canvas-card-img-wrap, img.canvas-card-img");
                 if (tableWrap) {
-                    const titleRow = activeInlineBody.querySelector(".canvas-card-title-row span");
+                    const titleRow = activeInlineBody.querySelector(".canvas-card-title-row span") || activeInlineBody.querySelector(".canvas-card-title-row");
                     if (titleRow) {
                         titleSourceHtml = titleRow.innerHTML;
                     } else {
@@ -4997,9 +5032,25 @@ function applyFormatting(format, customVal = "") {
                         clone.querySelectorAll(".canvas-card-table-wrap, table.canvas-card-table").forEach(el => el.remove());
                         titleSourceHtml = clone.innerHTML;
                     }
+                } else if (imgWrap) {
+                    const titleRow = activeInlineBody.querySelector(".canvas-card-title-row span") || activeInlineBody.querySelector(".canvas-card-title-row");
+                    if (titleRow) {
+                        titleSourceHtml = titleRow.innerHTML;
+                    } else {
+                        const clone = activeInlineBody.cloneNode(true);
+                        clone.querySelectorAll(".canvas-card-img-wrap, img.canvas-card-img").forEach(el => el.remove());
+                        titleSourceHtml = clone.innerHTML;
+                    }
                 }
                 selectedNode.label = serializeCardLabelFromHTML(titleSourceHtml);
-                if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
+                if (selectedNode.isImage && selectedNode.imageUrl) {
+                    const plainLabel = stripFormattingToPlainText(selectedNode.label) || "图片";
+                    const otherNotes = (selectedNode.content || "")
+                        .replace(/!\[.*?\]\(.*?\)/g, "")
+                        .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                        .trim();
+                    selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+                } else if (!selectedNode.content || !selectedNode.content.trim() || selectedNode.content.includes("点击编辑 Markdown 内容...")) {
                     selectedNode.content = selectedNode.label;
                 } else if (selectedNode.content.includes("\n")) {
                     const cLines = selectedNode.content.split("\n");
@@ -7435,11 +7486,12 @@ function initClipboardPaste() {
                     const targetY = (lastCanvasMouseCoords && Number.isFinite(lastCanvasMouseCoords.y)) ? lastCanvasMouseCoords.y : 320;
 
                     const nowTs = Date.now();
+                    const cleanLabel = `📸 截图 ${nodes.length + 1}`;
                     const newNode = {
                         id: newId,
-                        label: `📸 截图 ${nodes.length + 1}`,
+                        label: cleanLabel,
                         parentId: null, // 独立自由悬浮卡片
-                        content: `![截图](${compressedDataUrl})\n\n`,
+                        content: `# ${cleanLabel}\n\n![截图](${compressedDataUrl})\n\n`,
                         isImage: true,
                         imageUrl: compressedDataUrl,
                         createdAt: nowTs,
@@ -8038,7 +8090,8 @@ function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
 
         menu.innerHTML = `
             ${tableMenuItems}
-            <div class="ctx-item" data-cact="edit">${isImg ? "🔍 高清放大查看图片" : "✏️ 编辑卡片文字"} <span class="ctx-kbd">直接打字 / 双击</span></div>
+            ${isImg ? `<div class="ctx-item" data-cact="view-image">🔍 高清放大查看图片</div>` : ""}
+            <div class="ctx-item" data-cact="edit">✏️ 编辑卡片标题/文字 <span class="ctx-kbd">直接打字 / 双击</span></div>
             <div class="ctx-item" data-cact="toggle-handwriting">✍️ ${targetNode.fontStyle === "handwriting" ? "恢复默认印刷字体" : "切换为灵感批注手写体"} <span class="ctx-kbd">Ctrl+Shift+W</span></div>
             <div class="ctx-item" data-cact="todo">☑ 切换待办复选框 <span class="ctx-kbd">Ctrl+1</span></div>
             <div class="ctx-item" data-cact="child">➕ 衍生子卡片 <span class="ctx-kbd">Tab</span></div>
@@ -8220,9 +8273,11 @@ function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
                 scheduleSaveGraph(true);
                 showToast("🗑️ 已删除整个表格");
             }
-            else if (act === "edit" && targetNode) {
+            else if (act === "view-image" && targetNode) {
                 if (targetNode.isImage && targetNode.imageUrl) openImageLightbox(targetNode);
-                else startInlineCardEditById(targetNode.id, false);
+            }
+            else if (act === "edit" && targetNode) {
+                startInlineCardEditById(targetNode.id, false);
             }
             else if (act === "toggle-handwriting" && targetNode) {
                 targetNode.fontStyle = (targetNode.fontStyle === "handwriting" ? "" : "handwriting");
@@ -9276,14 +9331,20 @@ function openImageLightbox(node) {
     if (renBtn) {
         renBtn.onclick = (e) => {
             e.stopPropagation();
-            const nextCaption = prompt("请输入截图卡片的图注标题：", node.label || "");
+            const nextCaption = prompt("请输入图片卡片的标题：", node.label || "");
             if (nextCaption !== null && nextCaption.trim()) {
                 node.label = nextCaption.trim();
+                const plainLabel = stripFormattingToPlainText(node.label) || "图片";
+                const otherNotes = (node.content || "")
+                    .replace(/!\[.*?\]\(.*?\)/g, "")
+                    .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                    .trim();
+                node.content = `# ${plainLabel}\n\n![${plainLabel}](${node.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
                 if (capEl) capEl.textContent = node.label;
                 refreshNodeStyles();
                 renderEditor();
                 scheduleSaveGraph(true);
-                showToast("✏️ 已更新截图说明文字");
+                showToast("✏️ 已更新图片卡片标题");
             }
         };
     }
@@ -9319,7 +9380,7 @@ function initCanvasDragAndDrop() {
                             id: newId,
                             label: cleanName,
                             parentId: null,
-                            content: `![${cleanName}](${compressedUrl})\n\n`,
+                            content: `# ${cleanName}\n\n![${cleanName}](${compressedUrl})\n\n`,
                             isImage: true,
                             imageUrl: compressedUrl,
                             createdAt: nowTs,
@@ -9566,8 +9627,11 @@ function initSecondaryWorkbenches() {
     if (saveNoteBtn) {
         saveNoteBtn.addEventListener("click", () => {
             if (!selectedNode) return;
-            if (noteTitleInput) selectedNode.label = noteTitleInput.value.trim() || "未命名";
+            if (noteTitleInput) selectedNode.label = noteTitleInput.value.trim() || (selectedNode.isImage ? "图片" : "未命名");
             if (noteContentInput) selectedNode.content = noteContentInput.value;
+            if (selectedNode.isImage && selectedNode.imageUrl && !selectedNode.content.includes(selectedNode.imageUrl)) {
+                selectedNode.content += `\n\n![${stripFormattingToPlainText(selectedNode.label) || '图片'}](${selectedNode.imageUrl})`;
+            }
             refreshNodeStyles();
             renderSidebarNotesList();
             renderEditor();
@@ -9578,7 +9642,15 @@ function initSecondaryWorkbenches() {
     if (noteTitleInput) {
         noteTitleInput.addEventListener("input", () => {
             if (!selectedNode) return;
-            selectedNode.label = noteTitleInput.value.trim() || "未命名";
+            selectedNode.label = noteTitleInput.value.trim() || (selectedNode.isImage ? "图片" : "未命名");
+            if (selectedNode.isImage && selectedNode.imageUrl) {
+                const plainLabel = stripFormattingToPlainText(selectedNode.label) || "图片";
+                const otherNotes = (selectedNode.content || "")
+                    .replace(/!\[.*?\]\(.*?\)/g, "")
+                    .replace(/^#{1,4}\s+[^\n]*/gm, "")
+                    .trim();
+                selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+            }
             refreshNodeStyles();
             renderEditor();
             scheduleSaveGraph(true);
