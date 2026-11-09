@@ -1,10 +1,10 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.4)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.5)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
-- **OneNote-Grade Intuitive Table Engine & Direct Action Bar (v3.9.4 OneNote 级全功能直觉表格引擎与极速悬浮操作手柄)**:
+- **OneNote-Grade Intuitive Table Engine & Direct Action Bar (v3.9.5 OneNote 级全功能直觉表格引擎与极速悬浮操作手柄)**:
   - **根除“点击删除行无反应”失焦脱节缺陷 (`executeTableAction` & `menu.onmousedown`)**: 深度重构表格增删操作引擎，阻止右键菜单点击导致的意外 `blur`，支持动态定位活体表格并原子化写回 Markdown 模型，实时调用 `refreshNodeStyles()` 驱动视图更新，彻底消除操作无反应问题；
   - **OneNote 招牌表格悬浮微型快捷手柄 (`.canvas-table-toolbar`)**: 表格右上角常驻轻量玻璃拟态操作胶囊：`[➕行]`、`[➖行]`、`[➕列]`、`[➖列]`、`[🗑️]`，鼠标悬浮或编辑时即时显现，零右键直达；
   - **OneNote 经典快捷键全面打通 (`startInlineCardEdit` & `richEditor`)**:

@@ -1,8 +1,15 @@
-# Project State: FlowNotes (v3.9.4)
+# Project State: FlowNotes (v3.9.5)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.4`
+- **Current Version**: `v3.9.5`
 - **Latest Releases**:
+  - `v3.9.5`:
+    - **Bulletproof Note Details Persistence & Anti-Wipe Engine (v3.9.5 笔记详情防丢防冲刷装甲与原子级数据持久化引擎)**:
+      - **节点切换与失焦原子化强制提交 (`commitCurrentEditorToSelectedNode`)**: 打造核心提交引擎，在节点选中状态变更（单选/多选/右键/角标/新增子节点/侧边栏树切换）前无条件将当前富文本编辑器的最新内容写回原节点 `content`，彻底消除切节点笔记丢失；
+      - **永久移除 `sanitizeGraph` 破坏性空笔记清洗陷阱**: 彻底删除了在 `!hasDetailedNote(n)` 时执行 `n.content = ""` 的历史遗留反模式，严禁任何辅助整理函数擦除用户已写正文；
+      - **修复管线符 `|` 正则误杀简历联系方式的严重缺陷 (`hasDetailedNote` & `syncFromInlineCard`)**: 彻底重构表格剔除与笔记判定算法，支持文本中任意包含 `|` 的联系方式与技能说明，确保简历与复杂正文完好保全；
+      - **待办切换绝对保护详细笔记正文 (`toggleTodoOnNode` & `toggleTodoOnCurrentLine`)**: 根除在卡片上按 `Ctrl+1` 时详细笔记被卡片标题覆盖冲刷的缺陷，完整保全长文正文；
+      - **编辑器全生命周期监听与抽屉折叠强同步 (`richEditor.onblur` / `onpaste` / `focusout` / `beforeunload`)**: 增补失焦、粘贴与折叠全生命周期强存，解决 IME 输入法状态卡死与关闭抽屉丢失未落盘内容。
   - `v3.9.4`:
     - **OneNote-Grade Intuitive Table Engine & Direct Action Bar (v3.9.4 OneNote 级全功能直觉表格引擎与极速悬浮操作手柄)**:
       - **根除“点击删除行无反应”失焦脱节缺陷 (`executeTableAction` & `menu.onmousedown`)**: 深度重构表格增删操作引擎，阻止右键菜单点击导致的意外 `blur`，支持动态定位活体表格并原子化写回 Markdown 模型，实时调用 `refreshNodeStyles()` 驱动视图更新，彻底消除操作无反应问题；

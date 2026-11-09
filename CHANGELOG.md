@@ -2,6 +2,25 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.5] - 2026-11-08
+
+### 🛡️ 笔记详情防丢防冲刷装甲与原子级数据持久化引擎 (Bulletproof Note Details Persistence & Anti-Wipe Engine)
+- **⚡ 节点切换与失焦原子化强制提交 (`commitCurrentEditorToSelectedNode`)**：
+  - 深度排查根因：用户在右侧详细笔记面板输入长篇正文（如简历、项目笔记）后，切换选中其他卡片或点击导图空白处，系统直接重置 `selectedNode` 且无失焦监听，导致尚未触发或处于 IME 输入法组合态的笔记内容被静默抛弃；
+  - 打造核心 `commitCurrentEditorToSelectedNode` 强同步提交引擎：在选中节点变更（导图单选/多选/右键/角标点击/新增子节点/新增同级卡片/OneNote 侧边栏树节点点选）前，**第一优先级无条件读取当前富文本/Markdown 编辑区全部最新 DOM 树与内容并沉淀回原节点的 `content`**，彻底根除切换节点导致的笔记丢失；
+- **🧹 永久移除 `sanitizeGraph` 破坏性空笔记清洗陷阱**：
+  - 排查出历史遗留反模式：`sanitizeGraph` 曾在 `!hasDetailedNote(n)` 时执行 `n.content = ""` 暴力清空，导致短篇笔记、表格笔记或包含单换行的笔记被系统机械判定为假笔记而遭到永久擦除；
+  - 彻底删除该破坏性清空代码，确立核心架构准则：`sanitizeGraph` 仅负责维护图谱节点坐标与拓扑连通性，**绝对不可销毁任何用户已输入的笔记正文数据**；
+- **🔍 彻底修复管线符 `|` 正则误杀简历与联系方式的严重缺陷 (`hasDetailedNote` & `syncFromInlineCard`)**：
+  - 修复 `hasDetailedNote` 与 `syncFromInlineCard` 中用机械正则 `/\|[^\n]+\|/g` 剔除表格时，误将简历中包含的联系方式（如 `Houston, TX | (314) 309-7255 | email`）、职称（`Microbiologist | 16S Analysis`）整行抹去的问题；
+  - 升级为严格 GFM Markdown 表格语法检测，保护所有正文中的管道符 `|` 原样留存；
+- **🛡️ 待办切换绝对保护详细笔记正文 (`toggleTodoOnNode` & `toggleTodoOnCurrentLine`)**：
+  - 根除当用户在卡片上按 `Ctrl+1` 或点击待办复选框时，`targetNode.content` 被卡片标题单行直接覆盖篡改的严重缺陷；仅更新卡片 `label` 与首行标题大纲，100% 完整保全长篇详细笔记正文；
+- **🔒 编辑器全生命周期监听与抽屉折叠强同步 (`richEditor.onblur` / `onpaste` / `focusout` / `beforeunload`)**：
+  - 为 `#rich-editor`、`#title-input`、`#md-textarea` 增补完备的 `blur`、`paste` 与 `#editor-panel` `focusout` 事件监听，并在粘贴后延迟 20ms 自动提交流水；
+  - 彻底解决中文输入法 (IME) 异常取消导致 `isImeComposing` 永久卡死阻止后续打字保存的问题；
+  - 右侧面板右上角 `[X]` 关闭按钮、抽屉折叠切换、图谱切换、页面刷新 (`beforeunload`)、切后台 (`visibilitychange`) 时全链路调用 `commitCurrentEditorToSelectedNode()` 与 `flushPendingSave()`，确立真正意义上的“输入即安全、关闭即持久化”。
+
 ## 🚀 [v3.9.4] - 2026-11-08
 
 ### ▦ OneNote 级全功能直觉表格引擎与极速悬浮操作手柄 (OneNote-Grade Intuitive Table Engine & Direct Action Bar)
