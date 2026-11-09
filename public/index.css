@@ -2065,9 +2065,12 @@ html[data-theme="light"] .canvas-card-table th {
     border-right: 1px solid rgba(148, 163, 184, 0.16);
     color: var(--text-primary, #e2e8f0);
     min-width: 60px;
-    min-height: 22px;
+    min-height: 24px;
     transition: background 0.12s ease;
     outline: none;
+    cursor: text;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 html[data-theme="light"] .canvas-card-table td {
@@ -2090,6 +2093,16 @@ html[data-theme="light"] .canvas-card-table td {
 
 html[data-theme="light"] .canvas-card-table tr:hover td {
     background: rgba(15, 23, 42, 0.03);
+}
+
+/* v3.9.6: 当前选中行 / 正在聚焦行 / 正在操作行的柔和高亮底色 (OneNote 级视效) */
+.canvas-card-table tr:focus-within td,
+.canvas-card-table tr.is-active-row td {
+    background: rgba(56, 189, 248, 0.14) !important;
+}
+html[data-theme="light"] .canvas-card-table tr:focus-within td,
+html[data-theme="light"] .canvas-card-table tr.is-active-row td {
+    background: rgba(79, 70, 229, 0.08) !important;
 }
 
 /* 单元格聚焦与原地编辑时的 OneNote 风格柔和高亮微圈 */

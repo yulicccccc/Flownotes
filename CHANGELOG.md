@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.6] - 2026-11-08
+
+### ▦ OneNote 级表格焦点与行追踪引擎、单元格软换行与中段空行精准删除 (OneNote-Grade Table Focus, Soft Linebreak & Accurate Row Deletion Engine)
+- **⚡ 单元格内 Enter 默认软换行，彻底杜绝意外突生中段空行**：
+  - 深度排查根因：原逻辑在单元格按回车时无条件拦截并强制触发 	able-insert-row-below，导致用户在打字输入英文/中文 IME 确认或想在单元格内换行写多行笔记时，系统在下方瞬间强插多余空白行；
+  - 核心重构：单元格内按普通 Enter 或 Shift+Enter 严格执行原生软换行（<br> / insertLineBreak），支持单格自由撰写多行要点；只有明确按下 Alt+Enter、Ctrl+Enter 或在末尾单元格按 Tab 或点击操作条 [➕行] 时才创建新行；
+- **🎯 表格全生命周期焦点与活动行精准追踪 (updateTableActiveTracking)**：
+  - 深度排查根因：卡片工具栏 [➖行] 点击时因失焦导致 window.getSelection() 丢失单元格引用，系统原先机械回退到 llRows[allRows.length - 1] 盲目删除最后一行，造成中间空行死活删不掉、底部正常内容反而被误杀；
+  - 建立全局表格交互追踪引擎：在 pointerdown、ocusin、mouseover 时实时记录 	able._lastActiveTr 与 	able._lastActiveCell，并在 CSS 增加 	r:focus-within 和 	r.is-active-row 柔和高亮，用户点击 [➖行] 时精准定向删除当前聚焦/悬停的行；
+  - 智能兜底补丁：当无特定活动行时，系统自动扫描并优先精准删除全空行（空白行优先被消灭）；
+- **🖱️ 画布卡片表格单元格直觉点选穿透聚焦 (startInlineCardEdit)**：
+  - 深度排查根因：原卡片点击事件在进入编辑模式时强制重写 odyEl.innerHTML 并默认将光标强制推送到卡片标题大纲，导致用户点击中段空白单元格时无法精准落焦；
+  - 升级 startInlineCardEdit 接收 initialTargetElement：计算点击单元格的行索引与列索引，并在原地进入编辑后直接将光标精准置入该单元格，点击即选中、即编辑；
+- **⌨️ 空行 Backspace 与 Alt+Delete 原地无损极速删除**：
+  - 修复空行退格与快捷删除时因调用 updateD3Graph() 导致卡片 DOM 被全量重绘破坏就地编辑上下文的缺陷；改用原地 ctiveTr.remove() + syncFromInlineCard()，秒删多余行并平滑转移光标到上一行单元格，完全无闪烁、无光标漂移。
+
 ## 🚀 [v3.9.5] - 2026-11-08
 
 ### 🛡️ 笔记详情防丢防冲刷装甲与原子级数据持久化引擎 (Bulletproof Note Details Persistence & Anti-Wipe Engine)

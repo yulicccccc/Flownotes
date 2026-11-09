@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.5)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.6)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **OneNote-Grade Table Focus, Soft Linebreak & Accurate Row Deletion (v3.9.6 OneNote 级表格焦点与行追踪引擎、单元格软换行与中段空行精准删除)**:
+  - **单元格内 Enter 默认软换行，杜绝意外突生空行**: 单元格内普通 Enter 或 Shift+Enter 执行原生软换行（<br> / insertLineBreak），方便在单元格内自由书写多行内容；仅在明确按下 Alt+Enter、Ctrl+Enter 或在最后单元格按 Tab 或点击操作条 [➕行] 时才新增行，彻底根除打字/确认 IME 时中间意外冒出空行的缺陷；
+  - **表格全生命周期焦点与活动行精准追踪 (updateTableActiveTracking)**: 全局监听 pointerdown、focusin、mouseover 事件，实时锁定 table._lastActiveTr 与 table._lastActiveCell，配合 tr:focus-within 柔和高亮，点击 [➖行] 时精确删除当前聚焦/悬停行；若无活动行但存在空行，智能兜底优先删除空行；
+  - **画布卡片表格单元格直觉点选穿透聚焦 (startInlineCardEdit)**: 允许用户直接单点击卡片内的表格单元格进入行内编辑，并精准落焦到点击的对应单元格，无需多次点击，不发生光标跳移卡片标题；
+  - **空行 Backspace 与 Alt+Delete 原地无损极速删除**: 空行退格与 Alt+Del 直接原地移除 DOM 节点并同步模型，不触发全局 updateD3Graph 重绘，消除卡片重绘闪烁与光标丢失问题。
 - **OneNote-Grade Intuitive Table Engine & Direct Action Bar (v3.9.5 OneNote 级全功能直觉表格引擎与极速悬浮操作手柄)**:
   - **根除“点击删除行无反应”失焦脱节缺陷 (`executeTableAction` & `menu.onmousedown`)**: 深度重构表格增删操作引擎，阻止右键菜单点击导致的意外 `blur`，支持动态定位活体表格并原子化写回 Markdown 模型，实时调用 `refreshNodeStyles()` 驱动视图更新，彻底消除操作无反应问题；
   - **OneNote 招牌表格悬浮微型快捷手柄 (`.canvas-table-toolbar`)**: 表格右上角常驻轻量玻璃拟态操作胶囊：`[➕行]`、`[➖行]`、`[➕列]`、`[➖列]`、`[🗑️]`，鼠标悬浮或编辑时即时显现，零右键直达；

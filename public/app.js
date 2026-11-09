@@ -315,7 +315,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.5 loaded — Bulletproof Note Details Persistence & Anti-Wipe Engine");
+    console.log("[FlowNotes] v3.9.6 loaded — OneNote Intuitive Table Cell Focus, Soft Linebreak & Accurate Row Deletion");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -1751,7 +1751,28 @@ function extractTableHTMLFromContent(content) {
     return "";
 }
 
-// v3.9.4 OneNote 级全功能表格引擎：增删行列、清空、删表与双工作区无缝同步
+// v3.9.6 OneNote 级表格焦点与行追踪引擎：精准捕捉每一次点击、划入、聚焦的单元格与所在行
+function updateTableActiveTracking(target) {
+    if (!target) return null;
+    const td = (target.nodeType === 1 ? target : target.parentElement)?.closest?.("td, th");
+    if (td) {
+        const tr = td.closest("tr");
+        const tbl = tr ? tr.closest("table") : null;
+        if (tbl && tr) {
+            tbl._lastActiveCell = td;
+            tbl._lastActiveTr = tr;
+            window._lastActiveTableCell = td;
+            window._lastActiveTableTr = tr;
+            window._lastActiveTable = tbl;
+            tbl.querySelectorAll("tr.is-active-row").forEach(r => r.classList.remove("is-active-row"));
+            tr.classList.add("is-active-row");
+            return { td, tr, tbl };
+        }
+    }
+    return null;
+}
+
+// v3.9.6 OneNote 级全功能表格引擎：增删行列、清空、删表与双工作区无缝同步
 function executeTableAction(act, targetNode, targetTable, targetCell, isFromEditor = false) {
     if (!targetNode) return;
         const richEditorEl = document.getElementById("rich-editor");
@@ -1783,9 +1804,30 @@ function executeTableAction(act, targetNode, targetTable, targetCell, isFromEdit
         if (selCell && table.contains(selCell)) {
             cell = selCell;
             activeTr = selCell.closest("tr");
-        } else {
-            activeTr = allRows[allRows.length - 1];
         }
+    }
+    if (!activeTr) {
+        // v3.9.6: 优先检查表格自身或全局记录的最近活动行与单元格
+        if (table._lastActiveTr && table.contains(table._lastActiveTr)) {
+            activeTr = table._lastActiveTr;
+            cell = (table._lastActiveCell && table.contains(table._lastActiveCell)) ? table._lastActiveCell : activeTr.children[0];
+        } else if (window._lastActiveTable === table && window._lastActiveTableTr && table.contains(window._lastActiveTableTr)) {
+            activeTr = window._lastActiveTableTr;
+            cell = (window._lastActiveTableCell && table.contains(window._lastActiveTableCell)) ? window._lastActiveTableCell : activeTr.children[0];
+        }
+    }
+    if (!activeTr && act === "table-delete-row" && allRows.length > 1) {
+        // v3.9.6 智能精准删除：优先检查表格中是否存在全空行（用户往往因误按回车在中间产生空行想删除），优先精准删除全空行！
+        const emptyRow = allRows.slice(1).find(tr => {
+            return Array.from(tr.children).every(c => !c.textContent.replace(/\u00a0/g, "").trim());
+        });
+        if (emptyRow) {
+            activeTr = emptyRow;
+            cell = emptyRow.children[0];
+        }
+    }
+    if (!activeTr && allRows.length > 0) {
+        activeTr = allRows[allRows.length - 1];
     }
     if (!activeTr && act !== "table-delete") return;
 
@@ -1802,7 +1844,7 @@ function executeTableAction(act, targetNode, targetTable, targetCell, isFromEdit
             newTr.appendChild(newTd);
         }
         activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
-        toastMsg = "➕ 已在下方插入新行 (Enter)";
+        toastMsg = "➕ 已在下方插入新行 (Alt+Enter)";
     } else if (act === "table-insert-row-above") {
         const isHeader = !!activeTr.querySelector("th");
         const newTr = document.createElement("tr");
@@ -1845,7 +1887,7 @@ function executeTableAction(act, targetNode, targetTable, targetCell, isFromEdit
             toastMsg = "🗑️ 已删除整个表格";
         } else {
             activeTr.remove();
-            toastMsg = "➖ 已删除当前行 (OneNote)";
+            toastMsg = "➖ 已删除当前行";
         }
     } else if (act === "table-delete-col") {
         allRows.forEach(row => {
@@ -1882,8 +1924,8 @@ function executeTableAction(act, targetNode, targetTable, targetCell, isFromEdit
         }
 
         const otherNotes = (targetNode.content || "")
-            .replace(/\|[^\n]+\|/g, "")
-            .replace(/^[ \t]*:?---+:?[ \t]*$/gm, "")
+            .replace(/^\|[^\n]+\|\s*$/gm, "")
+            .replace(/^[ \t]*\|?(\s*:?-+:?\s*\|?)+\s*$/gm, "")
             .replace(/^#{1,4}\s+[^\n]*/gm, "")
             .trim();
 
@@ -1900,10 +1942,13 @@ function executeTableAction(act, targetNode, targetTable, targetCell, isFromEdit
         }
     }
 
-    // 5. 立即刷新卡片视图并保存
-    refreshNodeStyles();
-    renderPositions();
-    updateD3Graph();
+    // 5. 立即刷新卡片视图并保存 (若当前卡片正在画布原地编辑，避免 updateD3Graph 强行打断破坏编辑上下文)
+    const isInlineEditingThisCard = document.querySelector(`.node-group[data-node-id="${targetNode.id}"] .canvas-note-card.is-editing`);
+    if (!isInlineEditingThisCard) {
+        refreshNodeStyles();
+        renderPositions();
+        updateD3Graph();
+    }
     scheduleSaveGraph(true);
     if (toastMsg) showToast(toastMsg);
 }
@@ -1984,8 +2029,8 @@ function getCardDisplayHTML(d) {
     if (tableHTML) {
         const tableToolbar = `
             <div class="canvas-table-toolbar" contenteditable="false" data-node-id="${d.id}">
-                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-insert-row-below" title="➕ 在下方插入行 (Enter)">➕行</button>
-                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-delete-row" title="➖ 删除当前行 (Alt+Del / 空行退格)">➖行</button>
+                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-insert-row-below" title="➕ 在下方插入行 (Alt+Enter)">➕行</button>
+                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-delete-row" title="➖ 删除当前/空行 (Alt+Del / 空行退格)">➖行</button>
                 <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-insert-col-right" title="➕ 在右侧插入列">➕列</button>
                 <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-delete-col" title="➖ 删除当前列">➖列</button>
                 <button type="button" class="tbl-toolbar-btn danger" data-tbl-act="table-delete" title="🗑️ 删除整个表格">🗑️</button>
@@ -2178,7 +2223,7 @@ function startInlineCardEditById(nodeId, selectAll = false, cursorAtEnd = false,
     });
 }
 
-function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false, initialAppendChar = "") {
+function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false, initialAppendChar = "", initialTargetElement = null) {
     if (!d || !groupEl) return;
     const group = d3.select(groupEl);
     const cardDiv = group.select(".canvas-note-card");
@@ -2213,8 +2258,8 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     if (inlineTableHTML) {
         const tableToolbar = `
             <div class="canvas-table-toolbar" contenteditable="false" data-node-id="${d.id}">
-                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-insert-row-below" title="➕ 在下方插入行 (Enter)">➕行</button>
-                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-delete-row" title="➖ 删除当前行 (Alt+Del / 空行退格)">➖行</button>
+                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-insert-row-below" title="➕ 在下方插入行 (Alt+Enter)">➕行</button>
+                <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-delete-row" title="➖ 删除当前/空行 (Alt+Del / 空行退格)">➖行</button>
                 <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-insert-col-right" title="➕ 在右侧插入列">➕列</button>
                 <button type="button" class="tbl-toolbar-btn" data-tbl-act="table-delete-col" title="➖ 删除当前列">➖列</button>
                 <button type="button" class="tbl-toolbar-btn danger" data-tbl-act="table-delete" title="🗑️ 删除整个表格">🗑️</button>
@@ -2230,20 +2275,62 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
     cardDiv.classed("is-editing", true);
     bodyEl.focus();
 
-    const titleEl = bodyEl.querySelector(".canvas-card-title-row span") || bodyEl;
-    if (selectAll && !initialAppendChar) {
-        const range = document.createRange();
-        range.selectNodeContents(titleEl);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
-    } else if (cursorAtEnd || initialAppendChar) {
-        const range = document.createRange();
-        range.selectNodeContents(titleEl);
-        range.collapse(false);
-        const sel = window.getSelection();
-        sel.removeAllRanges();
-        sel.addRange(range);
+    // v3.9.6 精准聚焦引擎：若用户直接点击了表格中的单元格（包括中段空行），直接聚焦到该单元格并放置光标！
+    let focusedCellDirectly = false;
+    if (initialTargetElement) {
+        const clickedCell = (initialTargetElement.nodeType === 1 ? initialTargetElement : initialTargetElement.parentElement)?.closest?.("td, th");
+        if (clickedCell) {
+            const clickedTr = clickedCell.closest("tr");
+            const oldTable = clickedTr ? clickedTr.closest("table") : null;
+            if (clickedTr && oldTable) {
+                const allOldTrs = Array.from(oldTable.querySelectorAll("tr"));
+                const rowIdx = allOldTrs.indexOf(clickedTr);
+                const colIdx = Array.from(clickedTr.children).indexOf(clickedCell);
+                const newTable = bodyEl.querySelector("table.canvas-card-table, table");
+                if (newTable && rowIdx >= 0 && colIdx >= 0) {
+                    const allNewTrs = Array.from(newTable.querySelectorAll("tr"));
+                    const targetTr = allNewTrs[rowIdx] || allNewTrs[0];
+                    if (targetTr) {
+                        const targetTd = targetTr.children[Math.min(colIdx, targetTr.children.length - 1)];
+                        if (targetTd) {
+                            targetTd.focus();
+                            const r = document.createRange();
+                            r.selectNodeContents(targetTd);
+                            r.collapse(false);
+                            const sel = window.getSelection();
+                            sel.removeAllRanges();
+                            sel.addRange(r);
+                            newTable._lastActiveCell = targetTd;
+                            newTable._lastActiveTr = targetTr;
+                            window._lastActiveTableCell = targetTd;
+                            window._lastActiveTableTr = targetTr;
+                            window._lastActiveTable = newTable;
+                            newTable.querySelectorAll("tr.is-active-row").forEach(r => r.classList.remove("is-active-row"));
+                            targetTr.classList.add("is-active-row");
+                            focusedCellDirectly = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!focusedCellDirectly) {
+        const titleEl = bodyEl.querySelector(".canvas-card-title-row span") || bodyEl;
+        if (selectAll && !initialAppendChar) {
+            const range = document.createRange();
+            range.selectNodeContents(titleEl);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else if (cursorAtEnd || initialAppendChar) {
+            const range = document.createRange();
+            range.selectNodeContents(titleEl);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(range);
+        }
     }
 
     const syncFromInlineCard = () => {
@@ -2424,7 +2511,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             return;
         }
 
-        // OneNote 招牌表格交互 3: 在空行按 Backspace 自动删除当前行
+        // OneNote 招牌表格交互 3: 在空行按 Backspace 自动删除当前行（顺滑原地删除，不损毁卡片 DOM）
         if (e.key === "Backspace" && !e.ctrlKey && !e.altKey && !e.metaKey && !e.isComposing && !isImeComposing) {
             if (activeCell) {
                 const activeTr = activeCell.closest("tr");
@@ -2440,19 +2527,25 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                         const currColIdx = Array.from(activeTr.children).indexOf(activeCell);
 
                         if (allRows.length <= 1) {
-                            executeTableAction("table-delete", d, activeTable, activeCell, false);
-                            bodyEl.blur();
+                            activeTable.remove();
+                            syncFromInlineCard();
+                            showToast("🗑️ 已删除整个表格");
                         } else {
                             const targetTr = allRows[currRowIdx - 1] || allRows[currRowIdx + 1];
-                            executeTableAction("table-delete-row", d, activeTable, activeCell, false);
+                            activeTr.remove();
+                            syncFromInlineCard();
+                            showToast("➖ 已删除空行");
                             if (targetTr) {
                                 const targetCell = targetTr.children[Math.min(currColIdx, targetTr.children.length - 1)];
                                 if (targetCell) {
+                                    targetCell.focus();
                                     const r = document.createRange();
                                     r.selectNodeContents(targetCell);
                                     r.collapse(false);
                                     activeSel.removeAllRanges();
                                     activeSel.addRange(r);
+                                    activeTable._lastActiveCell = targetCell;
+                                    activeTable._lastActiveTr = targetTr;
                                 }
                             }
                         }
@@ -2462,51 +2555,83 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             }
         }
 
-        // OneNote 招牌表格交互 4: Alt+Delete 或 Alt+Backspace 强制删除当前行
+        // OneNote 招牌表格交互 4: Alt+Delete 或 Alt+Backspace 强制删除当前行（包括中段空行）
         if (e.altKey && (e.key === "Delete" || e.key === "Backspace")) {
             if (activeCell) {
                 e.preventDefault();
                 const activeTr = activeCell.closest("tr");
                 const activeTable = activeTr ? activeTr.closest("table") : null;
                 if (activeTr && activeTable) {
-                    executeTableAction("table-delete-row", d, activeTable, activeCell, false);
+                    const allRows = Array.from(activeTable.querySelectorAll("tr"));
+                    const currRowIdx = allRows.indexOf(activeTr);
+                    const currColIdx = Array.from(activeTr.children).indexOf(activeCell);
+
+                    if (allRows.length <= 1) {
+                        activeTable.remove();
+                        syncFromInlineCard();
+                        showToast("🗑️ 已删除整个表格");
+                    } else {
+                        const targetTr = allRows[currRowIdx - 1] || allRows[currRowIdx + 1];
+                        activeTr.remove();
+                        syncFromInlineCard();
+                        showToast("➖ 已删除当前行");
+                        if (targetTr) {
+                            const targetCell = targetTr.children[Math.min(currColIdx, targetTr.children.length - 1)];
+                            if (targetCell) {
+                                targetCell.focus();
+                                const r = document.createRange();
+                                r.selectNodeContents(targetCell);
+                                r.collapse(false);
+                                activeSel.removeAllRanges();
+                                activeSel.addRange(r);
+                                activeTable._lastActiveCell = targetCell;
+                                activeTable._lastActiveTr = targetTr;
+                            }
+                        }
+                    }
                     return;
                 }
             }
         }
 
-        // OneNote 招牌表格交互 2: 在单元格内按 Enter 自动在下方插入新行并对齐当前列
+        // v3.9.6 OneNote 招牌表格体验：在单元格内 Enter 默认软换行；Alt+Enter 或 Ctrl+Enter 插入新行！
         if (e.key === "Enter" && !e.isComposing && !isImeComposing) {
             if (activeCell) {
-                if (e.altKey || e.shiftKey) {
+                if (e.altKey || e.ctrlKey) {
                     e.preventDefault();
-                    document.execCommand("insertLineBreak");
+                    const activeTr = activeCell.closest("tr");
+                    const colIdx = Array.from(activeTr.children).indexOf(activeCell);
+                    const colCount = activeTr.children.length;
+                    const newTr = document.createElement("tr");
+                    for (let c = 0; c < colCount; c++) {
+                        const newTd = document.createElement("td");
+                        newTd.innerHTML = "<br>";
+                        newTr.appendChild(newTd);
+                    }
+                    activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
                     syncFromInlineCard();
+                    const targetCell = newTr.children[Math.min(colIdx, colCount - 1)] || newTr.firstElementChild;
+                    if (targetCell) {
+                        targetCell.focus();
+                        const r = document.createRange();
+                        r.selectNodeContents(targetCell);
+                        r.collapse(true);
+                        activeSel.removeAllRanges();
+                        activeSel.addRange(r);
+                        const tbl = activeTr.closest("table");
+                        if (tbl) {
+                            tbl._lastActiveCell = targetCell;
+                            tbl._lastActiveTr = newTr;
+                        }
+                    }
+                    showToast("➕ 已在下方插入新行 (Alt+Enter)");
                     return;
                 }
+                // 普通 Enter 或 Shift+Enter: 在当前单元格内自然软换行，绝不意外乱突增空行！
                 e.preventDefault();
-                const activeTr = activeCell.closest("tr");
-                const colIdx = Array.from(activeTr.children).indexOf(activeCell);
-                const colCount = activeTr.children.length;
-                const newTr = document.createElement("tr");
-                for (let c = 0; c < colCount; c++) {
-                    const newTd = document.createElement("td");
-                    newTd.innerHTML = "<br>";
-                    newTr.appendChild(newTd);
-                }
-                activeTr.parentNode.insertBefore(newTr, activeTr.nextSibling);
+                document.execCommand("insertLineBreak");
                 syncFromInlineCard();
-                const targetCell = newTr.children[Math.min(colIdx, colCount - 1)] || newTr.firstElementChild;
-                if (targetCell) {
-                    const r = document.createRange();
-                    r.selectNodeContents(targetCell);
-                    r.collapse(true);
-                    activeSel.removeAllRanges();
-                    activeSel.addRange(r);
-                }
                 return;
-
-
             }
 
             // OneNote 经典体验：在待办行按回车自动续接新待办；在空白待办行按回车退出待办
@@ -2868,6 +2993,8 @@ function updateD3Graph() {
                     .filter(event => {
                         if (event.target.closest && (
                             event.target.closest('[contenteditable="true"]') ||
+                            event.target.closest('.canvas-card-table') ||
+                            event.target.closest('.canvas-table-toolbar') ||
                             event.target.closest('.node-connect-port') ||
                             event.target.closest('.node-quick-add-btn') ||
                             event.target.closest('.node-fold-badge') ||
@@ -2904,12 +3031,14 @@ function updateD3Graph() {
                         return;
                     }
 
-                    // 直觉式交互（同 OneNote / PPT）：如果这张卡片此前已经是唯一选中状态，再次单击它直接进入原地文字编辑/划词标色！
-                    if (d._wasSingleSelectedBeforeMousedown) {
+                    // 直觉式交互（同 OneNote / PPT）：如果这张卡片此前已经是唯一选中状态，或者用户直接点击了卡片中的表格单元格，立即进入原地编辑！
+                    const clickedCell = event.target ? (event.target.nodeType === 1 ? event.target : event.target.parentElement)?.closest?.("td, th") : null;
+                    if (d._wasSingleSelectedBeforeMousedown || clickedCell) {
                         if (event.target && event.target.tagName === "IMG" && d.isImage && d.imageUrl) {
                             openImageLightbox(d);
                         } else {
-                            startInlineCardEdit(d, event.currentTarget, false);
+                            const nodeGrp = event.currentTarget || (event.target ? event.target.closest(".node-group") : null) || document.querySelector(`.node-group[data-node-id="${d.id}"]`);
+                            startInlineCardEdit(d, nodeGrp, false, false, "", event.target);
                         }
                         return;
                     }
@@ -2926,7 +3055,8 @@ function updateD3Graph() {
                     if (event.target && event.target.tagName === "IMG" && d.isImage && d.imageUrl) {
                         openImageLightbox(d);
                     } else {
-                        startInlineCardEdit(d, event.currentTarget, false);
+                        const nodeGrp = event.currentTarget || (event.target ? event.target.closest(".node-group") : null) || document.querySelector(`.node-group[data-node-id="${d.id}"]`);
+                        startInlineCardEdit(d, nodeGrp, false, false, "", event.target);
                     }
                 })
                 .on("contextmenu", (event, d) => {
@@ -4370,11 +4500,16 @@ function initEvents() {
             }
         }
 
-        // OneNote 招牌表格体验 2: 在 richEditor 单元格内按 Enter 自动在下方插入新行
-        if (e.key === "Enter" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey && !e.isComposing && !isImeComposing) {
+        // v3.9.6 OneNote 招牌表格体验 2: 在 richEditor 单元格内 Enter 默认软换行；Alt+Enter 或 Ctrl+Enter 插入新行
+        if (e.key === "Enter" && !e.isComposing && !isImeComposing) {
             if (activeCell) {
+                if (e.altKey || e.ctrlKey) {
+                    e.preventDefault();
+                    executeTableAction("table-insert-row-below", selectedNode, activeCell.closest("table"), activeCell, true);
+                    return;
+                }
                 e.preventDefault();
-                executeTableAction("table-insert-row-below", selectedNode, activeCell.closest("table"), activeCell, true);
+                document.execCommand("insertLineBreak");
                 return;
             }
         }
@@ -8380,11 +8515,11 @@ function showCanvasContextMenu(clientX, clientY, targetNode, eventTarget) {
         if (targetCell && targetTable) {
             tableMenuItems = `
                 <div class="ctx-table-header">▦ OneNote 表格控制台</div>
-                <div class="ctx-item" data-cact="table-insert-row-below">➕ 在下方插入行 <span class="ctx-kbd">Enter</span></div>
+                <div class="ctx-item" data-cact="table-insert-row-below">➕ 在下方插入行 <span class="ctx-kbd">Alt+Enter</span></div>
                 <div class="ctx-item" data-cact="table-insert-row-above">➕ 在上方插入行</div>
                 <div class="ctx-item" data-cact="table-insert-col-right">➕ 在右侧插入列</div>
                 <div class="ctx-item" data-cact="table-insert-col-left">➕ 在左侧插入列</div>
-                <div class="ctx-item" data-cact="table-delete-row">➖ 删除当前行 <span class="ctx-kbd">Alt+Del / 空行退格</span></div>
+                <div class="ctx-item" data-cact="table-delete-row">➖ 删除当前/空行 <span class="ctx-kbd">Alt+Del / 空行退格</span></div>
                 <div class="ctx-item" data-cact="table-delete-col">➖ 删除当前列</div>
                 <div class="ctx-item" data-cact="table-clear-row">🧹 清空当前行文字</div>
                 <div class="ctx-item danger" data-cact="table-delete">🗑️ 删除整个表格</div>
@@ -11783,7 +11918,23 @@ function setLinkArrowStyle(link, style) {
 
 
 
-// v3.9.4: OneNote 表格悬浮工具栏点击与防失焦事件委托 (使用捕获阶段 true 穿透 SVG/D3 拦截)
+// v3.9.6: 全局表格交互与悬浮工具栏点击精准定位委托
+document.addEventListener("pointerdown", (e) => updateTableActiveTracking(e.target), true);
+document.addEventListener("focusin", (e) => updateTableActiveTracking(e.target), true);
+document.addEventListener("mouseover", (e) => {
+    const tr = e.target?.closest?.(".canvas-card-table tr");
+    if (tr) {
+        const tbl = tr.closest("table");
+        if (tbl) {
+            tbl._lastActiveTr = tr;
+            const td = e.target.closest("td, th") || tr.children[0];
+            if (td) tbl._lastActiveCell = td;
+            tbl.querySelectorAll("tr.is-active-row").forEach(r => r.classList.remove("is-active-row"));
+            tr.classList.add("is-active-row");
+        }
+    }
+}, true);
+
 document.addEventListener("mousedown", (e) => {
     const btn = e.target.closest(".tbl-toolbar-btn");
     if (btn) {
@@ -11804,5 +11955,6 @@ document.addEventListener("click", (e) => {
     if (!targetNode) return;
     const cardEl = toolbar.closest(".canvas-note-card") || toolbar.closest(".node-group") || document.querySelector(`.node-group[data-node-id="${targetNode.id}"]`);
     const targetTable = cardEl ? cardEl.querySelector("table.canvas-card-table, table") : null;
-    executeTableAction(act, targetNode, targetTable, null, false);
+    const cellToUse = targetTable?._lastActiveCell || null;
+    executeTableAction(act, targetNode, targetTable, cellToUse, false);
 }, true);
