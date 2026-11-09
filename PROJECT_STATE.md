@@ -1,8 +1,33 @@
-# Project State: FlowNotes (v3.9.8)
+# Project State: FlowNotes (v3.9.9)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.5`
+- **Current Version**: `v3.9.9`
 - **Latest Releases**:
+  - `v3.9.9`:
+    - **Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine (v3.9.9 外部内容粘贴换行严密保护与无损序列化引擎)**:
+      - **根除外部内容粘贴丢分行粘连缺陷**: 解决从 ChatGPT、Notion、Word、网页或其它编辑器复制多段文本粘贴进笔记详情 (`#rich-editor`) 时，所有段落之间的空行与分行全部消失、首尾英文标点生硬粘连的问题（如 `between zero and one.First... in a soil sample.Next...`）。
+      - **纯净 DOM 树多级段落与换行序列化引擎 (`htmlToSafeMarkdown`)**:
+        - **显式 `<p>` 语义识别**: 赋给 `<p>` 标签标准 Markdown 双换行包装 `\n\n${inner}\n\n`，确保各段落之间具备充足清晰的逻辑空白与视觉间隔；
+        - **动态 `<div>` / 容器层级规范**: 对 Chrome/Edge 原生编辑器分行 `<div>` 赋予前导换行 `\n${inner}`，并对空行容器 `<div><br></div>` 识别为单个换行符，避免多余空行膨胀；
+        - **原子级 `<br>` 与 `<hr>` 解析**: 显式映射 `tag === "br" -> \n` 与 `tag === "hr" -> \n\n---\n\n`，消除换行标签在 DOM 遍历中被丢弃的缺陷；
+        - **背景色过滤与高亮安全**: 过滤 `transparent`、`rgba(0, 0, 0, 0)` 等无色属性，防止普通文字误染高亮；
+      - **双向无损往返闭环验证**: 输入 9 大段复杂英文逻辑文本，序列化后在 Markdown 中精准切分为 9 个独立段落，无任何单词/标点粘连；重新加载与卡片切换时富文本编辑器内严格还原 `<br><br>` 双换行布局，往返完全 100% 比对一致。
+  - `v3.9.8`:
+    - **Default Light Theme & Persistent Theme Management Engine (v3.9.8 全局默认白天模式与主题持久化体系)**:
+      - **默认白天模式 (Light Mode by Default)**: 应用基底默认主题全面设置为清爽高对比度的白天模式 (`data-theme="light"`)，`<head>` 注入微型防闪烁初始化逻辑；
+      - **主题切换健壮化与异常阻断修复**: 修复 `initUIEvents` 中未定义 `previewPanel` 抛出 `ReferenceError` 导致事件监听断裂的问题，确保 `#themeToggle` 可靠响应；
+      - **偏好持久化与状态反馈**: 实现 `applyTheme` 与 `toggleTheme`，切换时无缝切换 `☀️ / 🌙` 图标，`localStorage` 跨会话永久记住。
+  - `v3.9.7`:
+    - **Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine (v3.9.7 详细笔记图片内嵌卡片与 Base64 防泄洪美化体系)**:
+      - **Markdown 图片语法交互式解析 (`renderMarkdownToHTML`)**: 将 `![alt](url)` 智能转换为带微阴影、圆角、悬浮放大提示、居中图注的高质感内嵌卡片 (`.note-embedded-img-wrap`)，彻底消除数十万 Base64 乱码倾倒；
+      - **双向无损序列化与持久化 (`htmlToSafeMarkdown`)**: 反序列化时精准提取图片元素 src 与 alt，无损还原为规范 Markdown `![alt](src)`，补充 H1~H6 与 blockquote 样式；
+      - **点击一键唤起高清大图预览 Lightbox**: 点击任意图片直接直达全屏预览模态框；
+      - **标题与笔记正文防冗余隔离自愈**: 智能清洗残留 # 标题，顶栏输入框与正文编辑器职责清晰隔离。
+  - `v3.9.6`:
+    - **OneNote-Grade Table Focus, Soft Linebreak & Accurate Row Deletion (v3.9.6 OneNote 级表格焦点与行追踪引擎、单元格软换行与中段空行精准删除)**:
+      - 单元格内 Enter 默认原生软换行（`<br>`），杜绝打字/输入法确认意外生出空白行；
+      - 表格全生命周期活动行追踪（`updateTableActiveTracking`），点击 `[➖行]` 精确删除当前聚焦行或全空行；
+      - 单元格单次点击穿透聚焦行内编辑，空行 Backspace / Alt+Delete 原地无损秒删。
   - `v3.9.5`:
     - **Bulletproof Note Details Persistence & Anti-Wipe Engine (v3.9.5 笔记详情防丢防冲刷装甲与原子级数据持久化引擎)**:
       - **节点切换与失焦原子化强制提交 (`commitCurrentEditorToSelectedNode`)**: 打造核心提交引擎，在节点选中状态变更（单选/多选/右键/角标/新增子节点/侧边栏树切换）前无条件将当前富文本编辑器的最新内容写回原节点 `content`，彻底消除切节点笔记丢失；

@@ -315,7 +315,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine"); // console.log("[FlowNotes] v3.9.6 loaded — OneNote Intuitive Table Cell Focus, Soft Linebreak & Accurate Row Deletion");
+    console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -5701,26 +5701,24 @@ function cleanHTMLSpill(text) {
 
 function htmlToSafeMarkdown(html) {
     if (!html) return "";
-    
-    // 预处理块级换行，避免 div 包裹导致的换行丢失
-    let preProcessed = html
-        .replace(/<div><br><\/div>/gi, "\n")
-        .replace(/<p><br><\/p>/gi, "\n")
-        .replace(/<div>/gi, "\n<div>")
-        .replace(/<p>/gi, "\n<p>")
-        .replace(/<br\s*\/?>/gi, "\n");
 
     const div = document.createElement("div");
-    div.innerHTML = preProcessed;
+    div.innerHTML = html;
     div.querySelectorAll(".canvas-table-toolbar").forEach(t => t.remove());
     
     function serializeNode(node) {
         if (node.nodeType === 3) {
-            return node.textContent.replace(/^[ \t]*[•·▪⁃‣][ \t]*/gm, "- ");
+            return node.textContent.replace(/\r\n/g, "\n").replace(/^[ \t]*[•·▪⁃‣][ \t]*/gm, "- ");
         }
         if (node.nodeType === 1) {
             const tag = node.tagName.toLowerCase();
+
+            // 换行标签
+            if (tag === "br") {
+                return "\n";
+            }
             
+            // Markdown 表格反序列化
             if (tag === "table") {
                 const rows = Array.from(node.querySelectorAll("tr"));
                 if (rows.length === 0) return "";
@@ -5763,6 +5761,7 @@ function htmlToSafeMarkdown(html) {
                 return Array.from(node.childNodes).map(serializeNode).join("");
             }
 
+            // 无序列表与待办
             if (tag === "ul") {
                 const items = Array.from(node.childNodes).map(child => {
                     if (child.nodeType === 1 && child.querySelector) {
@@ -5781,6 +5780,7 @@ function htmlToSafeMarkdown(html) {
                 return `\n${items}\n`;
             }
             
+            // 有序列表
             if (tag === "ol") {
                 const startAttr = node.getAttribute("start");
                 let idx = startAttr ? parseInt(startAttr, 10) : 1;
@@ -5821,6 +5821,21 @@ function htmlToSafeMarkdown(html) {
                 return "";
             }
 
+            // v3.9.9: 段落与分块容器严密换行保护 (彻底解决 ChatGPT/Notion/Word 等外部复制粘贴丢换行粘连 Bug)
+            if (tag === "p") {
+                const inner = Array.from(node.childNodes).map(serializeNode).join("").trim();
+                if (!inner) return "";
+                return `\n\n${inner}\n\n`;
+            }
+
+            if (tag === "div" || tag === "section" || tag === "article") {
+                const inner = Array.from(node.childNodes).map(serializeNode).join("");
+                if (!inner.trim()) {
+                    return "\n";
+                }
+                return `\n${inner}`;
+            }
+
             const inner = Array.from(node.childNodes).map(serializeNode).join("");
             if (tag === "li") {
                 return inner.trim();
@@ -5837,6 +5852,9 @@ function htmlToSafeMarkdown(html) {
                 const bLines = inner.trim().split("\n");
                 return `\n\n${bLines.map(l => `> ${l}`).join("\n")}\n\n`;
             }
+            if (tag === "hr") {
+                return `\n\n---\n\n`;
+            }
 
             let result = inner;
             
@@ -5846,7 +5864,7 @@ function htmlToSafeMarkdown(html) {
             if (tag === "u") result = `<u>${result}</u>`;
             if (tag === "code") result = `\`${result}\``;
             
-            if (tag === "mark" || (node.style && node.style.backgroundColor)) {
+            if (tag === "mark" || (node.style && node.style.backgroundColor && !["transparent", "rgba(0, 0, 0, 0)", "inherit", "initial"].includes(node.style.backgroundColor.trim().toLowerCase()))) {
                 result = `==${result}==`;
             }
             
@@ -5871,7 +5889,11 @@ function htmlToSafeMarkdown(html) {
     }
 
     let markdown = Array.from(div.childNodes).map(serializeNode).join("");
-    markdown = markdown.replace(/&nbsp;/g, " ").replace(/\n{3,}/g, "\n\n").trimStart();
+    markdown = markdown
+        .replace(/&nbsp;/g, " ")
+        .replace(/\r\n/g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
     return markdown;
 }
 

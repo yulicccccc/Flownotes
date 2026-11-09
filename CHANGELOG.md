@@ -2,6 +2,32 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.9] - 2026-11-09
+
+### 📝 外部内容复制粘贴换行严密保护与无损 Markdown 序列化引擎 (Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine)
+- **🌟 根除外部内容粘贴丢分行粘连缺陷 (Paragraph Paste Linebreak Fix)**：
+  - **核心痛点定位**：用户从 ChatGPT、Notion、Word、网页或其它编辑器复制多段文本粘贴进右侧笔记详情 (`#rich-editor`) 时，所有段落之间的空行与分行全部消失，导致不同段落首尾英文直接与句号紧密粘连在一起（如 `between zero and one.First, I would consider... in a soil sample.Next, I would examine...`）。
+  - **深度根因挖掘**：
+    1. 外部剪贴板 HTML 通常包含带有属性的段落元素（如 `<p class="whitespace-pre-wrap">` 或 `<p style="...">`），而历史遗留的正则预处理仅匹配字面无属性的 `<p>`，导致带属性的 `<p>` 标签未被注入换行符。
+    2. 序列化引擎 `serializeNode` 过去缺乏针对 `<p>`、`<div>`、`<br>` 的显式处理分支，导致容器遍历子节点后直接以空字符串 `""` 拼接，将各段落末尾与下一段首句生硬贴合。
+- **🛡️ 纯净 DOM 树多级段落与换行序列化引擎 (`htmlToSafeMarkdown`)**：
+  - **显式 `<p>` 语义识别**：为 `<p>` 标签赋予标准的 Markdown 双换行包装 `
+
+${inner}
+
+`，保证段落之间具备充裕清晰的逻辑空白与视觉间隔。
+  - **动态 `<div>` / 容器层级规范**：针对 Chrome/Firefox 原生编辑器生成的 `<div>` 标签赋予前导换行 `
+${inner}`，并对空行容器 `<div><br></div>` 识别为单个换行符，避免多余空行膨胀。
+  - **原子级 `<br>` 与 `<hr>` 解析**：显式映射 `tag === "br" -> 
+` 与 `tag === "hr" -> 
+
+---
+
+`，彻底消除任意富文本换行标签在 DOM 遍历中被静默忽视吃掉的现象。
+  - **背景色过滤与高亮安全**：完善 `node.style.backgroundColor` 校验，排除网页常见的 `transparent`、`rgba(0, 0, 0, 0)` 等无色属性，防止普通文字被意外错误包裹为 `==高亮==`。
+- **🔄 双向双向无损往返闭环验证 (Round-Trip Lossless Verification)**：
+  - 经由 Playwright 真实环境与自动化测试套件深度验证：输入用户真实场景中的 9 大段复杂英文逻辑文本，序列化后在 Markdown 中精准切分为 9 个独立段落，无任何单词/标点粘连；重新加载与卡片切换时富文本编辑器内严格还原 `<br><br>` 双换行布局，往返完全 100% 比对一致。
+
 ## 🚀 [v3.9.8] - 2026-11-08
 
 ### ☀️ 全局默认白天模式与主题持久化管理体系 (Default Light Theme & Persistent Theme Management Engine)

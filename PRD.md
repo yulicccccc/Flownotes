@@ -1,9 +1,17 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.6)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.9)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine (v3.9.9 外部内容粘贴换行严密保护与无损序列化引擎)**:
+  - **根除外部内容粘贴丢分行粘连缺陷**: 解决从 ChatGPT、Notion、Word、网页或其它编辑器复制多段文本粘贴进笔记详情 (`#rich-editor`) 时，所有段落之间的空行与分行全部消失、首尾英文标点生硬粘连的问题（如 `between zero and one.First... in a soil sample.Next...`）。
+  - **纯净 DOM 树多级段落与换行序列化引擎 (`htmlToSafeMarkdown`)**:
+    - **显式 `<p>` 语义识别**: 赋给 `<p>` 标签标准 Markdown 双换行包装 `\n\n${inner}\n\n`，确保各段落之间具备充足清晰的逻辑空白与视觉间隔；
+    - **动态 `<div>` / 容器层级规范**: 对 Chrome/Edge 原生编辑器分行 `<div>` 赋予前导换行 `\n${inner}`，并对空行容器 `<div><br></div>` 识别为单个换行符，避免多余空行膨胀；
+    - **原子级 `<br>` 与 `<hr>` 解析**: 显式映射 `tag === "br" -> \n` 与 `tag === "hr" -> \n\n---\n\n`，消除换行标签在 DOM 遍历中被丢弃的缺陷；
+    - **背景色过滤与高亮安全**: 过滤 `transparent`、`rgba(0, 0, 0, 0)` 等无色属性，防止普通文字误染高亮；
+  - **双向无损往返闭环验证**: 输入 9 大段复杂英文逻辑文本，序列化后在 Markdown 中精准切分为 9 个独立段落，无任何单词/标点粘连；重新加载与卡片切换时富文本编辑器内严格还原 `<br><br>` 双换行布局，往返完全 100% 比对一致。
 - **Default Light Theme & Persistent Theme Management Engine (v3.9.8 全局默认白天模式与主题持久化体系)**:
   - **默认白天模式 (Default to Light Mode)**：将应用基底默认主题全面设置为清爽高对比度的白天模式 (`data-theme="light"`、`meta theme-color="#f8fafc"`)，并在 `<head>` 注入微型防闪烁初始化逻辑。
   - **主题切换健壮化与异常阻断修复**：修复 `initUIEvents` 中由于引用未定义的 `previewPanel` 抛出 `ReferenceError` 导致后置事件监听断裂的隐蔽问题，确保 `#themeToggle` 按钮百分之百可靠响应。
