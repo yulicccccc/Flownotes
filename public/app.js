@@ -315,7 +315,8 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine"); // console.log("[FlowNotes] v3.9.6 loaded — OneNote Intuitive Table Cell Focus, Soft Linebreak & Accurate Row Deletion");
+    console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine"); // console.log("[FlowNotes] v3.9.6 loaded — OneNote Intuitive Table Cell Focus, Soft Linebreak & Accurate Row Deletion");
+    initTheme();
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -4451,8 +4452,9 @@ function initEvents() {
         }
     });
 
-    if (previewPanel) {
-        previewPanel.addEventListener("click", (e) => {
+    const previewPanelEl = document.getElementById("preview-panel");
+    if (previewPanelEl) {
+        previewPanelEl.addEventListener("click", (e) => {
             const imgBox = e.target && e.target.closest ? e.target.closest(".note-embedded-img-box, .note-embedded-img") : null;
             if (imgBox) {
                 const img = imgBox.tagName === "IMG" ? imgBox : imgBox.querySelector("img");
@@ -4734,7 +4736,10 @@ function initEvents() {
     }
 
     // 主题
-    document.getElementById("themeToggle").addEventListener("click", toggleTheme);
+    const btnThemeToggle = document.getElementById("themeToggle");
+    if (btnThemeToggle) {
+        btnThemeToggle.addEventListener("click", toggleTheme);
+    }
 
     // 顶部导航栏「更多」下拉菜单 (⋯) 控制 (v3.5.2)
     const btnNavbarMore = document.getElementById("btnNavbarMore");
@@ -7691,10 +7696,44 @@ function expandAllTree() {
     showToast("📂 已全部展开");
 }
 
+// v3.9.8 全局主题管理引擎 (默认白天模式 + 偏好持久化 + 图标状态联动)
+function applyTheme(theme, save = true) {
+    const targetTheme = theme === "dark" ? "dark" : "light";
+    document.documentElement.setAttribute("data-theme", targetTheme);
+    if (document.body) {
+        document.body.classList.toggle("dark-mode", targetTheme === "dark");
+    }
+    if (save) {
+        safeLocalStorageSet("flownotes_theme", targetTheme);
+    }
+    const themeIcon = document.getElementById("themeIcon");
+    const themeToggle = document.getElementById("themeToggle");
+    if (themeIcon) {
+        themeIcon.textContent = targetTheme === "light" ? "☀️" : "🌙";
+    }
+    if (themeToggle) {
+        themeToggle.title = targetTheme === "light" ? "当前为白天模式，点击切换为深色模式" : "当前为深色模式，点击切换为白天模式";
+    }
+    const metaTheme = document.querySelector('meta[name="theme-color"]');
+    if (metaTheme) {
+        metaTheme.setAttribute("content", targetTheme === "light" ? "#f8fafc" : "#0f172a");
+    }
+}
+
 function toggleTheme() {
-    const current = document.documentElement.getAttribute("data-theme") || "dark";
-    const next = current === "dark" ? "light" : "dark";
-    document.documentElement.setAttribute("data-theme", next);
+    const current = document.documentElement.getAttribute("data-theme") || "light";
+    const next = current === "light" ? "dark" : "light";
+    applyTheme(next, true);
+    showToast(next === "light" ? "☀️ 已切换为白天模式" : "🌙 已切换为深色模式");
+}
+
+function initTheme() {
+    // 默认白天模式 (light)！优先尊重用户在当前设备上的手动选择
+    let saved = "light";
+    try {
+        saved = localStorage.getItem("flownotes_theme") || "light";
+    } catch(e) {}
+    applyTheme(saved, false);
 }
 
 function showOwlWisdom() {

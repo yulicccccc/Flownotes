@@ -2,6 +2,19 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.8] - 2026-11-08
+
+### ☀️ 全局默认白天模式与主题持久化管理体系 (Default Light Theme & Persistent Theme Management Engine)
+- **🌟 默认白天模式 (Light Mode by Default)**：
+  - 核心诉求响应：顺应用户视觉偏好，将全应用初始主题由深色彻底切换为干净通透、对比度极高的白天模式 (`data-theme="light"`)。
+  - 防闪烁架构：在 `index.html` 的 `<head>` 注入微型防闪烁脚本与默认属性，保证冷启动打开页面或刷新时 0 毫秒即刻呈现纯净白天模式，杜绝黑屏闪烁。
+- **🛡️ 修复主题切换失效 Bug (previewPanel ReferenceError)**：
+  - 深度排错定位：彻底解决因之前在 `initUIEvents` 中引用未局部声明的 `previewPanel` 抛出 `ReferenceError` 导致事件监听链条中断、使 `#themeToggle` 按钮被动“卡死失效”的隐蔽缺陷。
+  - 变量安全守卫：规范声明 `previewPanelEl = document.getElementById("preview-panel")`，彻底消除初始化阶段的任何非捕获异常。
+- **💾 主题偏好持久化与图标状态联动 (`applyTheme` & `toggleTheme`)**：
+  - 状态实时同步：白天模式下右上角清晰呈现 `☀️` 图标，点击一键切换为深色模式 (`🌙`) 并附带全局 Toast 状态提示。
+  - 多端记忆保存：用户的白天/深色手动选择通过 `safeLocalStorageSet("flownotes_theme")` 跨会话永久保存，重新打开或多标签切换永远保持一致。
+
 ## 🚀 [v3.9.7] - 2026-11-08
 
 ### 🖼️ 详细笔记富文本图片渲染与防 Base64 泄洪自愈引擎 (Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine)

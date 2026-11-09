@@ -1,4 +1,4 @@
-# Project State: FlowNotes (v3.9.7)
+# Project State: FlowNotes (v3.9.8)
 
 ## Current Version & Status
 - **Current Version**: `v3.9.5`

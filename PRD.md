@@ -4,6 +4,10 @@
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Default Light Theme & Persistent Theme Management Engine (v3.9.8 全局默认白天模式与主题持久化体系)**:
+  - **默认白天模式 (Default to Light Mode)**：将应用基底默认主题全面设置为清爽高对比度的白天模式 (`data-theme="light"`、`meta theme-color="#f8fafc"`)，并在 `<head>` 注入微型防闪烁初始化逻辑。
+  - **主题切换健壮化与异常阻断修复**：修复 `initUIEvents` 中由于引用未定义的 `previewPanel` 抛出 `ReferenceError` 导致后置事件监听断裂的隐蔽问题，确保 `#themeToggle` 按钮百分之百可靠响应。
+  - **偏好持久化与状态反馈**：实现 `applyTheme` 与 `toggleTheme`，切换时无缝切换 `☀️ / 🌙` 图标与 Tooltip 提示，并通过 `localStorage` 跨会话长效记住用户偏好。
 - **Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine (v3.9.7 详细笔记图片内嵌卡片与 Base64 防泄洪美化体系)**:
   - **Markdown 图片语法交互式解析 (
 enderMarkdownToHTML)**：彻底终结右侧笔记详情在展示截图或嵌入图片时，向用户抛射几十万字符 Base64 乱码字符串的恶性 Bug。将 ![alt](url) 智能转换为带微阴影、圆角、悬浮放大提示、居中图注的高质感内嵌卡片 (.note-embedded-img-wrap)。
