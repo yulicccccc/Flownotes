@@ -315,7 +315,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.6 loaded — OneNote Intuitive Table Cell Focus, Soft Linebreak & Accurate Row Deletion");
+    console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine"); // console.log("[FlowNotes] v3.9.6 loaded — OneNote Intuitive Table Cell Focus, Soft Linebreak & Accurate Row Deletion");
     initStorage();
     initD3Mindmap();
     initEvents();
@@ -2379,7 +2379,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 .replace(/!\[.*?\]\(.*?\)/g, "")
                 .replace(/^#{1,4}\s+[^\n]*/gm, "")
                 .trim();
-            d.content = `# ${plainLabel}\n\n![${plainLabel}](${d.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+            d.content = `![${plainLabel}](${d.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
         } else {
             d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
             // v3.9.3 核心修复：画布原地编辑只更新卡片标题 d.label，绝不覆盖冲刷用户右侧详细笔记！
@@ -4345,7 +4345,7 @@ function initEvents() {
                 .replace(/!\[.*?\]\(.*?\)/g, "")
                 .replace(/^#{1,4}\s+[^\n]*/gm, "")
                 .trim();
-            selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+            selectedNode.content = `![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
         } else if (selectedNode.content && typeof selectedNode.content === "string") {
             // v3.9.3 严格隔离：仅当详细笔记显式以 Markdown H1/H2 标题开头时，才同步更新首行 H1 标题；绝不覆盖冲刷用户自写笔记正文！
             if (/^#{1,2}\s+/.test(selectedNode.content)) {
@@ -4433,10 +4433,38 @@ function initEvents() {
 
     richEditor.addEventListener("click", (e) => {
         const cb = e.target && e.target.closest ? e.target.closest(".canvas-todo-checkbox") : null;
-        if (!cb || !selectedNode) return;
-        const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
-        toggleNthTaskCheckboxInNode(selectedNode, idx, cb.checked);
+        if (cb && selectedNode) {
+            const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
+            toggleNthTaskCheckboxInNode(selectedNode, idx, cb.checked);
+            return;
+        }
+        // v3.9.7: 点击笔记中的内嵌图片卡片，一键打开高清大图预览 Lightbox
+        const imgBox = e.target && e.target.closest ? e.target.closest(".note-embedded-img-box, .note-embedded-img") : null;
+        if (imgBox) {
+            const img = imgBox.tagName === "IMG" ? imgBox : imgBox.querySelector("img");
+            if (img && img.src) {
+                const target = (selectedNode && selectedNode.imageUrl === img.src)
+                    ? selectedNode
+                    : { imageUrl: img.src, label: img.getAttribute("alt") || (selectedNode ? selectedNode.label : "图片预览") };
+                openImageLightbox(target);
+            }
+        }
     });
+
+    if (previewPanel) {
+        previewPanel.addEventListener("click", (e) => {
+            const imgBox = e.target && e.target.closest ? e.target.closest(".note-embedded-img-box, .note-embedded-img") : null;
+            if (imgBox) {
+                const img = imgBox.tagName === "IMG" ? imgBox : imgBox.querySelector("img");
+                if (img && img.src) {
+                    const target = (selectedNode && selectedNode.imageUrl === img.src)
+                        ? selectedNode
+                        : { imageUrl: img.src, label: img.getAttribute("alt") || (selectedNode ? selectedNode.label : "图片预览") };
+                    openImageLightbox(target);
+                }
+            }
+        });
+    }
 
     // v3.5.5 OneNote 招牌表格体验：在详细笔记 richEditor 中支持 Tab/Shift+Tab 换格与末尾自动加行
     richEditor.addEventListener("keydown", (e) => {
@@ -5470,7 +5498,7 @@ function applyFormatting(format, customVal = "") {
                         .replace(/!\[.*?\]\(.*?\)/g, "")
                         .replace(/^#{1,4}\s+[^\n]*/gm, "")
                         .trim();
-                    selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+                    selectedNode.content = `![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
                 } else if (selectedNode.content && typeof selectedNode.content === "string") {
                     if (/^#{1,2}\s+/.test(selectedNode.content)) {
                         const cLines = selectedNode.content.split("\n");
@@ -5765,9 +5793,44 @@ function htmlToSafeMarkdown(html) {
                 return `\n${items}\n`;
             }
             
+            // v3.9.7: 嵌入图片卡片或单独 img 标签反序列化为 clean Markdown
+            if (node.classList && node.classList.contains("note-embedded-img-wrap")) {
+                const img = node.querySelector("img");
+                if (img) {
+                    const alt = img.getAttribute("alt") || "图片";
+                    const src = img.getAttribute("src") || "";
+                    if (src) {
+                        return `\n\n![${alt}](${src})\n\n`;
+                    }
+                }
+                return "";
+            }
+
+            if (tag === "img") {
+                if (node.closest && node.closest(".note-embedded-img-wrap")) return "";
+                const alt = node.getAttribute("alt") || "图片";
+                const src = node.getAttribute("src") || "";
+                if (src) {
+                    return `\n\n![${alt}](${src})\n\n`;
+                }
+                return "";
+            }
+
             const inner = Array.from(node.childNodes).map(serializeNode).join("");
             if (tag === "li") {
                 return inner.trim();
+            }
+
+            // v3.9.7: 标题与引用标签精准反序列化为 Markdown
+            if (tag === "h1") return `\n\n# ${inner.trim()}\n\n`;
+            if (tag === "h2") return `\n\n## ${inner.trim()}\n\n`;
+            if (tag === "h3") return `\n\n### ${inner.trim()}\n\n`;
+            if (tag === "h4") return `\n\n#### ${inner.trim()}\n\n`;
+            if (tag === "h5") return `\n\n##### ${inner.trim()}\n\n`;
+            if (tag === "h6") return `\n\n###### ${inner.trim()}\n\n`;
+            if (tag === "blockquote") {
+                const bLines = inner.trim().split("\n");
+                return `\n\n${bLines.map(l => `> ${l}`).join("\n")}\n\n`;
             }
 
             let result = inner;
@@ -5884,9 +5947,18 @@ function renderMarkdownToHTML(text) {
             continue;
         }
 
+        const isHeading = /^[ \t]*(#{1,6})\s+(.*)/.exec(line);
         const isTask = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(line);
-        const isBullet = !isTask && /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
-        const isOrdered = /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
+        const isBullet = !isTask && !isHeading && /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
+        const isOrdered = !isHeading && /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
+
+        if (isHeading) {
+            if (inUl) { listProcessed.push("</ul>"); inUl = false; }
+            if (inOl) { listProcessed.push("</ol>"); inOl = false; }
+            const level = isHeading[1].length;
+            listProcessed.push(`<h${level} class="note-heading note-h${level}">${isHeading[2]}</h${level}>`);
+            continue;
+        }
 
         if (isTask) {
             if (inOl) { listProcessed.push("</ol>"); inOl = false; }
@@ -5935,7 +6007,15 @@ function renderMarkdownToHTML(text) {
         .replace(/___U_START___|_U_START_/g, '<u>')
         .replace(/___U_END___|_U_END_/g, '</u>');
 
-    // 清理 <br> 紧随 list 与 table 标签后的多余换行
+    // v3.9.7: Markdown 图片语法解析: ![alt](url)
+    // 渲染为高质感、内嵌式交互图片卡片，彻底避免数十万字符 Base64 源码倾倒给用户
+    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+        const cleanSrc = src.replace(/&amp;/g, "&").trim();
+        const cleanAlt = alt.trim();
+        return `<div class="note-embedded-img-wrap" contenteditable="false"><div class="note-embedded-img-box"><img class="note-embedded-img" src="${cleanSrc}" alt="${cleanAlt || '图片'}" draggable="false" /><div class="note-embedded-img-overlay"><span class="note-img-zoom-tip">🔍 点击放大查看高清大图</span></div></div><div class="note-img-caption">${cleanAlt || '图片'}</div></div>`;
+    });
+
+    // 清理 <br> 紧随 list 与 table 标签以及图片、标题后的多余换行
     html = html
         .replace(/<\/ul><br>/gi, "</ul>")
         .replace(/<\/ol><br>/gi, "</ol>")
@@ -5943,7 +6023,11 @@ function renderMarkdownToHTML(text) {
         .replace(/<ul><br>/gi, "<ul>")
         .replace(/<ol><br>/gi, "<ol>")
         .replace(/<\/table><br>/gi, "</table>")
-        .replace(/<br><table/gi, "<table");
+        .replace(/<br><table/gi, "<table")
+        .replace(/<\/div><br>/gi, "</div>")
+        .replace(/<br><div class="note-embedded-img-wrap"/gi, '<div class="note-embedded-img-wrap"')
+        .replace(/<\/h[1-6]><br>/gi, match => match.slice(0, 5))
+        .replace(/<br><h[1-6]/gi, match => match.slice(4));
 
     return html;
 }
@@ -5959,8 +6043,13 @@ function renderEditor() {
         // 自动净化清洗之前残留的 HTML 污染与残余标记
         let cleanContent = cleanHTMLSpill(selectedNode.content || "");
         
-        // v3.9.3 核心自愈：若历史数据中 content 只是机械拷贝了标题本身或与标题完全重复，清空让笔记面板保持纯净
+        // v3.9.7 核心自愈：若标题在 content 开头重复出现（如历史遗留的 # 标题），自动剔除开头的冗余标题，保证笔记区域纯净
         const trimmedPlain = stripFormattingToPlainText(selectedNode.label || "").trim();
+        if (trimmedPlain) {
+            const escapedPlain = trimmedPlain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const titleRegex = new RegExp(`^#{1,2}\\s+${escapedPlain}\\s*\\n+`, "i");
+            cleanContent = cleanContent.replace(titleRegex, "");
+        }
         if (cleanContent.trim() === trimmedPlain || cleanContent.trim() === `# ${trimmedPlain}`) {
             cleanContent = "";
         }
@@ -5976,7 +6065,11 @@ function renderEditor() {
 
         const isRichFocused = richEditor && (document.activeElement === richEditor || richEditor.contains(document.activeElement));
         if (richEditor && !isRichFocused) {
-            richEditor.innerHTML = renderMarkdownToHTML(cleanContent);
+            let renderedHtml = renderMarkdownToHTML(cleanContent);
+            if (renderedHtml.endsWith("</div>")) {
+                renderedHtml += "<div><br></div>";
+            }
+            richEditor.innerHTML = renderedHtml;
         }
         if (previewPanel) {
             previewPanel.innerHTML = renderMarkdownToHTML(cleanContent);
@@ -7930,7 +8023,7 @@ function initClipboardPaste() {
                         id: newId,
                         label: cleanLabel,
                         parentId: null, // 独立自由悬浮卡片
-                        content: `# ${cleanLabel}\n\n![截图](${compressedDataUrl})\n\n`,
+                        content: `![${cleanLabel}](${compressedDataUrl})\n\n`,
                         isImage: true,
                         imageUrl: compressedDataUrl,
                         createdAt: nowTs,
@@ -9710,7 +9803,7 @@ function openImageLightbox(node) {
                     .replace(/!\[.*?\]\(.*?\)/g, "")
                     .replace(/^#{1,4}\s+[^\n]*/gm, "")
                     .trim();
-                node.content = `# ${plainLabel}\n\n![${plainLabel}](${node.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+                node.content = `![${plainLabel}](${node.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
                 if (capEl) capEl.textContent = node.label;
                 refreshNodeStyles();
                 renderEditor();
@@ -9751,7 +9844,7 @@ function initCanvasDragAndDrop() {
                             id: newId,
                             label: cleanName,
                             parentId: null,
-                            content: `# ${cleanName}\n\n![${cleanName}](${compressedUrl})\n\n`,
+                            content: `![${cleanName}](${compressedUrl})\n\n`,
                             isImage: true,
                             imageUrl: compressedUrl,
                             createdAt: nowTs,
@@ -10020,7 +10113,7 @@ function initSecondaryWorkbenches() {
                     .replace(/!\[.*?\]\(.*?\)/g, "")
                     .replace(/^#{1,4}\s+[^\n]*/gm, "")
                     .trim();
-                selectedNode.content = `# ${plainLabel}\n\n![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+                selectedNode.content = `![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
             }
             refreshNodeStyles();
             renderEditor();

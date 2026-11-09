@@ -4965,3 +4965,115 @@ html[data-theme="light"] .floating-bar-style-group {
 }
 
 
+
+/* ==========================================================================
+   v3.9.7 详细笔记图片内嵌卡片与 Base64 防泄洪美化体系
+   ========================================================================== */
+.note-embedded-img-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 14px 0;
+    max-width: 100%;
+    user-select: none;
+    clear: both;
+}
+
+.note-embedded-img-box {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(226, 232, 240, 0.85);
+    background: #f8fafc;
+    cursor: zoom-in;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.note-embedded-img-box:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 0 8px 22px rgba(99, 102, 241, 0.22);
+    border-color: #6366f1;
+}
+
+.note-embedded-img {
+    display: block;
+    max-width: 100%;
+    max-height: 480px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 9px;
+    pointer-events: auto;
+}
+
+.note-embedded-img-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 6px 12px;
+    background: linear-gradient(to top, rgba(15, 23, 42, 0.78), transparent);
+    color: #ffffff;
+    font-size: 11.5px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.note-embedded-img-box:hover .note-embedded-img-overlay {
+    opacity: 1;
+}
+
+.note-img-zoom-tip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 0.2px;
+}
+
+.note-img-caption {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #64748b;
+    text-align: center;
+    font-style: italic;
+    max-width: 90%;
+    word-break: break-all;
+}
+
+/* 笔记内标题 H1 - H6 优雅样式 */
+.note-heading {
+    margin: 12px 0 6px;
+    font-weight: 700;
+    line-height: 1.35;
+    color: var(--text-primary, #0f172a);
+}
+.note-h1 { font-size: 1.45em; border-bottom: 1px solid rgba(148, 163, 184, 0.25); padding-bottom: 4px; }
+.note-h2 { font-size: 1.25em; }
+.note-h3 { font-size: 1.1em; }
+.note-h4 { font-size: 1.0em; }
+.note-h5 { font-size: 0.9em; }
+.note-h6 { font-size: 0.85em; color: var(--text-secondary, #64748b); }
+
+html[data-theme="dark"] .note-embedded-img-box,
+body.dark-mode .note-embedded-img-box {
+    border-color: rgba(255, 255, 255, 0.16);
+    background: #1e293b;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+html[data-theme="dark"] .note-img-caption,
+body.dark-mode .note-img-caption {
+    color: #94a3b8;
+}
+
+html[data-theme="dark"] .note-heading,
+body.dark-mode .note-heading {
+    color: #f1f5f9;
+}

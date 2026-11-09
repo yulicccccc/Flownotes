@@ -2,6 +2,22 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.7] - 2026-11-08
+
+### 🖼️ 详细笔记富文本图片渲染与防 Base64 泄洪自愈引擎 (Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine)
+- **🌟 Markdown 图片语法自动解析为交互式卡片元素 (
+enderMarkdownToHTML)**：
+  - 核心痛点根除：解决在右侧笔记详情面板中打开带有图片的卡片（如截图卡片或 Markdown 引用图片）时，由于缺少图片语法转换，导致几十万字符的原始 Base64 数据串（如 ![Coding稿子](data:image/jpeg;base64,...)）像瀑布一样倾倒在编辑器中、彻底阻碍用户阅读和记录笔记的问题。
+  - 优雅内嵌呈现：将 ![alt](url) 智能渲染为带有微阴影、圆角、悬浮放大遮罩、居中图注的 .note-embedded-img-wrap 交互卡片，对用户呈现纯净视觉图片，彻底隐藏底层数据编码。
+  - 点击直达全屏预览：在富文本编辑器与预览面板中点击任意图片，即可直接无缝唤出原有 HD Lightbox 高清大图查看器，支持全屏缩放与细节查看。
+- **🛡️ 双向无损 Markdown 序列化引擎 (htmlToSafeMarkdown)**：
+  - 在富文本序列化时精准识别 .note-embedded-img-wrap 及独立 <img> 元素，提取 lt 与真实数据源 src，原子级还原为标准 Markdown ![alt](src) 格式，图注与额外笔记内容绝不重复丢失。
+  - 同步补充 H1 ~ H6 与 lockquote 标签的双向解析与序列化，全面支持工具栏富文本样式无损持久化。
+- **🧹 标题与笔记详情防冗余隔离自愈 (
+enderEditor & Title Scope Isolation)**：
+  - 自动侦测并清理由于历史遗留自动生成而在 content 开头堆叠的 # 标题，使右侧面板顶部标题输入框聚焦维护卡片名称，正文编辑区域专注呈现图片与深度笔记，不再出现标题在两处重复显示与混乱的问题。
+  - 交互式占位增强：在嵌入式图片末尾智能维护输入缓冲占位空间，用户只需在图片下方轻轻一点即可立刻开始顺畅记录要点笔记。
+
 ## 🚀 [v3.9.6] - 2026-11-08
 
 ### ▦ OneNote 级表格焦点与行追踪引擎、单元格软换行与中段空行精准删除 (OneNote-Grade Table Focus, Soft Linebreak & Accurate Row Deletion Engine)

@@ -4,6 +4,13 @@
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine (v3.9.7 详细笔记图片内嵌卡片与 Base64 防泄洪美化体系)**:
+  - **Markdown 图片语法交互式解析 (
+enderMarkdownToHTML)**：彻底终结右侧笔记详情在展示截图或嵌入图片时，向用户抛射几十万字符 Base64 乱码字符串的恶性 Bug。将 ![alt](url) 智能转换为带微阴影、圆角、悬浮放大提示、居中图注的高质感内嵌卡片 (.note-embedded-img-wrap)。
+  - **双向无损序列化与持久化 (htmlToSafeMarkdown)**：反序列化时精准提取图片元素 src 与 lt，无损还原为规范 Markdown ![alt](src)，并全面补充 H1 ~ H6 与 lockquote 样式持久化，确保图文互转零失真。
+  - **点击一键唤起高清大图预览 Lightbox**：富文本编辑器与预览面板中点击任意图片，自动直达 HD Lightbox 全屏预览模态框。
+  - **卡片标题与笔记内容防冗余隔离自愈 (
+enderEditor & Title Scope Isolation)**：智能清洗历史数据中残留的 # 标题，右侧面板顶层输入框专注卡片名称，正文编辑器专注纯净笔记与图片，末尾自适应输入占位缓冲空间。
 - **OneNote-Grade Table Focus, Soft Linebreak & Accurate Row Deletion (v3.9.6 OneNote 级表格焦点与行追踪引擎、单元格软换行与中段空行精准删除)**:
   - **单元格内 Enter 默认软换行，杜绝意外突生空行**: 单元格内普通 Enter 或 Shift+Enter 执行原生软换行（<br> / insertLineBreak），方便在单元格内自由书写多行内容；仅在明确按下 Alt+Enter、Ctrl+Enter 或在最后单元格按 Tab 或点击操作条 [➕行] 时才新增行，彻底根除打字/确认 IME 时中间意外冒出空行的缺陷；
   - **表格全生命周期焦点与活动行精准追踪 (updateTableActiveTracking)**: 全局监听 pointerdown、focusin、mouseover 事件，实时锁定 table._lastActiveTr 与 table._lastActiveCell，配合 tr:focus-within 柔和高亮，点击 [➖行] 时精确删除当前聚焦/悬停行；若无活动行但存在空行，智能兜底优先删除空行；
