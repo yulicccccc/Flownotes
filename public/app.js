@@ -315,7 +315,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
+    console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -1633,11 +1633,18 @@ function serializeCardLabelFromHTML(html) {
             }
             const inner = Array.from(node.childNodes).map(serializeInline).join("");
 
-            if (tag === "b" || tag === "strong") return `**${inner}**`;
-            if (tag === "i" || tag === "em") return `*${inner}*`;
-            if (tag === "u") return `<u>${inner}</u>`;
-            if (tag === "s" || tag === "del" || tag === "strike") return `~~${inner}~~`;
-            if (tag === "code") return `\`${inner}\``;
+            const isBoldNode = tag === "b" || tag === "strong" || (node.style && (node.style.fontWeight === "bold" || node.style.fontWeight === "bolder" || parseInt(node.style.fontWeight, 10) >= 600));
+            const isItalicNode = tag === "i" || tag === "em" || (node.style && (node.style.fontStyle === "italic" || node.style.fontStyle === "oblique"));
+            const isUnderlineNode = tag === "u" || (node.style && node.style.textDecoration && node.style.textDecoration.includes("underline"));
+            const isStrikeNode = tag === "s" || tag === "del" || tag === "strike" || (node.style && node.style.textDecoration && node.style.textDecoration.includes("line-through"));
+
+            let formatted = inner;
+            if (isBoldNode) formatted = `**${formatted}**`;
+            if (isItalicNode) formatted = `*${formatted}*`;
+            if (isUnderlineNode) formatted = `<u>${formatted}</u>`;
+            if (isStrikeNode) formatted = `~~${formatted}~~`;
+            if (tag === "code") formatted = `\`${formatted}\``;
+            if (isBoldNode || isItalicNode || isUnderlineNode || isStrikeNode || tag === "code") return formatted;
 
             // 背景荧光高亮 (hiliteColor / backColor / mark)
             if (node.style && node.style.backgroundColor) {
@@ -4819,32 +4826,20 @@ function initEvents() {
             return;
         }
 
-        // Ctrl+B / Ctrl+I / Ctrl+U: 粗体 / 斜体 / 下划线 (选框整体变粗/变斜/下划线 或 划词局部变粗/变斜/下划线)
+        // Ctrl+B / Ctrl+I / Ctrl+U: 粗体 / 斜体 / 下划线 (编辑区内自动选词/划词局部格式化，或卡片整体加粗/斜体/下划线)
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
             if (e.key === "b" || e.key === "B" || e.code === "KeyB") {
-                const s = window.getSelection();
-                const hasSelectedText = !!(s && !s.isCollapsed && s.toString().trim());
-                if (!isEditing || !hasSelectedText) {
-                    e.preventDefault();
-                    applyFormatting("bold");
-                    return;
-                }
+                e.preventDefault();
+                applyFormatting("bold");
+                return;
             } else if (e.key === "i" || e.key === "I" || e.code === "KeyI") {
-                const s = window.getSelection();
-                const hasSelectedText = !!(s && !s.isCollapsed && s.toString().trim());
-                if (!isEditing || !hasSelectedText) {
-                    e.preventDefault();
-                    applyFormatting("italic");
-                    return;
-                }
+                e.preventDefault();
+                applyFormatting("italic");
+                return;
             } else if (e.key === "u" || e.key === "U" || e.code === "KeyU") {
-                const s = window.getSelection();
-                const hasSelectedText = !!(s && !s.isCollapsed && s.toString().trim());
-                if (!isEditing || !hasSelectedText) {
-                    e.preventDefault();
-                    applyFormatting("underline");
-                    return;
-                }
+                e.preventDefault();
+                applyFormatting("underline");
+                return;
             }
         }
 
@@ -5152,10 +5147,48 @@ function clearTextareaFormatAndLists(textarea) {
     textarea.focus();
 }
 
+// v3.9.10 智能单词选区扩展工具函数：当光标单点折叠闪烁于某词内部时，自动向左右扩展至词边界
+function expandSelectionToWord(sel) {
+    if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return false;
+    const node = sel.anchorNode;
+    if (!node || node.nodeType !== 3) return false;
+    const text = node.textContent;
+    const offset = sel.anchorOffset;
+    if (!text || text.length === 0) return false;
+
+    const isWordChar = (ch) => /[\p{L}\p{N}_]/u.test(ch);
+    let start = offset;
+    let end = offset;
+
+    if (start > 0 && (start >= text.length || !isWordChar(text[start])) && isWordChar(text[start - 1])) {
+        start--;
+        end = start;
+    }
+    if (!isWordChar(text[start])) return false;
+
+    while (start > 0 && isWordChar(text[start - 1])) {
+        start--;
+    }
+    while (end < text.length && isWordChar(text[end])) {
+        end++;
+    }
+
+    if (start < end) {
+        const range = document.createRange();
+        range.setStart(node, start);
+        range.setEnd(node, end);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return true;
+    }
+    return false;
+}
+
 function applyFormatting(format, customVal = "") {
     const mdTextarea = document.getElementById("md-textarea");
     const richEditor = document.getElementById("rich-editor");
-    const previewMode = document.getElementById("note-workspace").dataset.previewMode;
+    const noteWorkspace = document.getElementById("note-workspace");
+    const previewMode = (noteWorkspace && noteWorkspace.dataset.previewMode) || "live";
 
     // 在 Markdown 源码模式下操作 textarea
     if (previewMode === "edit" && mdTextarea) {
@@ -5249,9 +5282,14 @@ function applyFormatting(format, customVal = "") {
         : null;
     const inRichEditor = !!(richEditor && (previewMode === "live") && sel && sel.anchorNode && richEditor.contains(sel.anchorNode));
 
-    // 核心判定：用户是否在富文本区高亮划选了具体的某些词句（选区非空且长度大于0）
+    // v3.9.10: 若在编辑区内且光标单点折叠，智能扩展到光标所在单词，防止误触发卡片级加粗与重绘清空
+    if ((activeInlineBody || inRichEditor) && sel && sel.rangeCount > 0 && sel.isCollapsed) {
+        expandSelectionToWord(sel);
+    }
+
+    // 核心判定：只要处于富文本编辑区或卡片行内编辑区，全部作为行内/词级格式化处理，绝不回退至整卡破坏性重绘分支
     const hasTextRange = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0);
-    const isInlineWordFormatting = (activeInlineBody || inRichEditor) && hasTextRange;
+    const isInlineWordFormatting = !!(activeInlineBody || inRichEditor);
 
     // OneNote 经典待办：若光标位于卡片原地编辑区内，仅在当前行（或所划选的行）切换待办，绝不污染其它行和空行
     if (format === "todo" && activeInlineBody) {
@@ -5357,6 +5395,7 @@ function applyFormatting(format, customVal = "") {
                     const strong = document.createElement("strong");
                     try { range.surroundContents(strong); } catch (e) { const f = range.extractContents(); strong.appendChild(f); range.insertNode(strong); }
                 } else {
+                    if (inRichEditor && richEditor) richEditor.focus();
                     document.execCommand("bold");
                 }
                 break;
@@ -5858,10 +5897,18 @@ function htmlToSafeMarkdown(html) {
 
             let result = inner;
             
-            if (tag === "strong" || tag === "b") result = `**${result}**`;
-            if (tag === "em" || tag === "i") result = `*${result}*`;
-            if (tag === "del" || tag === "s" || tag === "strike") result = `~~${result}~~`;
-            if (tag === "u") result = `<u>${result}</u>`;
+            const isBoldEl = tag === "strong" || tag === "b" || (node.style && (node.style.fontWeight === "bold" || node.style.fontWeight === "bolder" || parseInt(node.style.fontWeight, 10) >= 600));
+            if (isBoldEl) result = `**${result}**`;
+
+            const isItalicEl = tag === "em" || tag === "i" || (node.style && (node.style.fontStyle === "italic" || node.style.fontStyle === "oblique"));
+            if (isItalicEl) result = `*${result}*`;
+
+            const isStrikeEl = tag === "del" || tag === "s" || tag === "strike" || (node.style && node.style.textDecoration && node.style.textDecoration.includes("line-through"));
+            if (isStrikeEl) result = `~~${result}~~`;
+
+            const isUnderlineEl = tag === "u" || (node.style && node.style.textDecoration && node.style.textDecoration.includes("underline"));
+            if (isUnderlineEl) result = `<u>${result}</u>`;
+
             if (tag === "code") result = `\`${result}\``;
             
             if (tag === "mark" || (node.style && node.style.backgroundColor && !["transparent", "rgba(0, 0, 0, 0)", "inherit", "initial"].includes(node.style.backgroundColor.trim().toLowerCase()))) {

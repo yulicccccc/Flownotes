@@ -96,7 +96,7 @@
          local('仓耳玄三 M'),
          local('仓耳玄三'),
          url('/fonts/TsangerXuanSanM-W03.ttf') format('truetype');
-    font-weight: 100 900;
+    font-weight: normal;
     font-style: normal;
     font-display: swap;
 }
@@ -111,7 +111,7 @@
          local('AaZZXMCCSN (Non-Commercial Use)'),
          url('/fonts/YeGenYouSanMo.ttf') format('truetype'),
          url('/fonts/AaJiandaoshitoubu.ttf') format('truetype');
-    font-weight: 100 900;
+    font-weight: normal;
     font-style: normal;
     font-display: swap;
 }
@@ -131,6 +131,24 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+}
+
+/* ==========================================================================
+   v3.9.10 粗体渲染强化 (Windows Chromium DirectWrite 单字重 TTF 伪粗体补偿引擎)
+   ========================================================================== */
+b, strong, .is-bold,
+#rich-editor b, #rich-editor strong,
+#preview-panel b, #preview-panel strong,
+.canvas-note-card b, .canvas-note-card strong,
+.canvas-note-card-body b, .canvas-note-card-body strong,
+.note-heading,
+.is-card-bold,
+[style*="font-weight: bold"],
+[style*="font-weight: 700"],
+[style*="font-weight: 800"],
+[style*="font-weight: 900"] {
+    font-weight: 700 !important;
+    -webkit-text-stroke: 0.45px currentColor;
 }
 
 /* 顶栏导航 (v3.5.2 现代化三段式极简顶栏) */

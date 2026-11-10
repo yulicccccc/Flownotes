@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.9)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.10)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Faux-Bold Rendering Engine & Robust Word Selection Bold Engine (v3.9.10 伪粗体渲染补偿引擎与智能选词加粗体系)**:
+  - **根除 Chromium DirectWrite 自定义 TTF 单字重无法加粗缺陷**: 修复因在 `@font-face` 中对静态单字重（400 Medium）字体 `TsangerXuanSanM-W03.ttf` 声明 `font-weight: 100 900;` 导致 DirectWrite 放弃合成伪粗体的问题。将其规范修正为 `font-weight: normal;`，并为所有粗体元素（`b, strong, .is-bold, #rich-editor b/strong, #preview-panel b/strong, .canvas-note-card b/strong` 以及内联 `[style*="font-weight: bold / 700"]`）注入 `-webkit-text-stroke: 0.45px currentColor;`，中英文均能呈现极具质感、高对比度的扎实粗体字形；
+  - **智能单词选区扩展与防整卡误粗化清空架构 (`expandSelectionToWord`)**: 当用户未显式划选大块文本、仅将光标点击闪烁在某一单词内部（如 `Observation` 或 `benchmarks`）即按下 `Ctrl+B` 或点击 "B" 按钮时，系统自动识别词边界并扩展选中当前词，一键完成加粗；
+  - **消除破坏性整卡加粗与重绘**: 彻底杜绝光标折叠时误跳入整卡加粗分支（Branch 2）调用 `renderEditor()` 导致正在输入的未保存内容被瞬间重绘清空、光标失焦的恶性缺陷。凡处于 `#rich-editor` 或行内编辑中，均严格收敛为行内操作，绝不触发整卡破坏性重绘；
+  - **全通道 Markdown 无损序列化支持 (`htmlToSafeMarkdown` & `serializeInline`)**: DOM 树序列化解析除原生 `<b>` / `<strong>` 标签外，全面兼容 Chrome 原生注入的 `<span style="font-weight: bold / 700 / 800 / 900">`，双向往返均精准序列化为 Markdown `**加粗**` 语法，多端同步与导出绝对无损。
 - **Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine (v3.9.9 外部内容粘贴换行严密保护与无损序列化引擎)**:
   - **根除外部内容粘贴丢分行粘连缺陷**: 解决从 ChatGPT、Notion、Word、网页或其它编辑器复制多段文本粘贴进笔记详情 (`#rich-editor`) 时，所有段落之间的空行与分行全部消失、首尾英文标点生硬粘连的问题（如 `between zero and one.First... in a soil sample.Next...`）。
   - **纯净 DOM 树多级段落与换行序列化引擎 (`htmlToSafeMarkdown`)**:

@@ -2,6 +2,23 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.10] - 2026-11-09
+
+### 🔤 伪粗体渲染补偿引擎与智能选词加粗体系 (Faux-Bold Rendering Engine & Robust Word Selection Bold Engine)
+- **🌟 根除 Chromium DirectWrite 自定义 TTF 单字重无法加粗缺陷 (Faux-Bold Stroke Fix)**：
+  - **核心痛点定位**：用户在右侧笔记详情 (`#rich-editor`) 中划选词句（如 `Observation`）并点击顶栏 "B" 粗体按钮后，按钮呈现激活态，但文本在视觉上依然纤细如常，毫无加粗效果。
+  - **深度根因挖掘**：
+    1. **@font-face 字重区间欺骗**：项目在 `@font-face` 中将单字重（400 Medium）静态字体 `TsangerXuanSanM-W03.ttf` 声明为 `font-weight: 100 900;`，误导 Chromium 判定该字体已覆盖全字重，导致 DirectWrite 直接以 400 原始字重渲染 `font-weight: 700`，静默放弃了浏览器合成伪粗体（Faux Bold）。
+    2. **DirectWrite 渲染补偿缺失**：在 Windows DirectWrite 渲染管线下，单字重 TTF 需通过 `-webkit-text-stroke: 0.45px currentColor;` 注入微描边，方可呈现出媲美 OneNote/Notion/Obsidian 的扎实、清润、高对比度粗体字形。
+  - **纯净 CSS 渲染架构注入**：
+    - 将 `@font-face` 字重规范修正为 `font-weight: normal;`。
+    - 全局为 `b, strong, .is-bold, #rich-editor b, #rich-editor strong, #preview-panel b, #preview-panel strong, .canvas-note-card b, .canvas-note-card strong, .note-heading, .is-card-bold` 以及内联 `[style*="font-weight: bold / 700"]` 注入 `-webkit-text-stroke: 0.45px currentColor;`，中英文均能呈现极具质感的加粗效果。
+- **🛡️ 智能单词选区扩展与防整卡误粗化清空架构 (Smart Word Boundary & Anti-Editor Wipe)**：
+  - **折叠光标智能扩选 (`expandSelectionToWord`)**：当用户未显式划选大块文本、仅将光标点击闪烁在某一单词内部（如 `benchmarks` 或 `Observation`）即按下 `Ctrl+B` 或点击 "B" 按钮时，系统自动识别词边界并扩展选中当前词，一键完成加粗。
+  - **消除破坏性整卡加粗与重绘**：过去在光标折叠时因 `hasTextRange === false` 误跳入整卡加粗分支（Branch 2），调用 `renderEditor()` 导致正在输入的未保存内容被瞬间重绘清空、光标失焦。升级后凡处于 `#rich-editor` 或行内编辑中，均严格收敛为行内操作，绝不触发整卡破坏性重绘。
+- **🔄 全通道 Markdown 无损序列化支持 (`htmlToSafeMarkdown` & `serializeInline`)**：
+  - 在 DOM 树序列化解析中，除识别原生 `<b>` / `<strong>` 标签外，全面兼容 Chrome 原生可能注入的 `<span style="font-weight: bold / 700 / 800 / 900">`，双向往返均精准序列化为 Markdown `**加粗**` 语法，多端同步与导出绝对无损。
+
 ## 🚀 [v3.9.9] - 2026-11-09
 
 ### 📝 外部内容复制粘贴换行严密保护与无损 Markdown 序列化引擎 (Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine)

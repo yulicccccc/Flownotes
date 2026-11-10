@@ -1,8 +1,14 @@
-# Project State: FlowNotes (v3.9.9)
+# Project State: FlowNotes (v3.9.10)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.9`
+- **Current Version**: `v3.9.10`
 - **Latest Releases**:
+  - `v3.9.10`:
+    - **Faux-Bold Rendering Engine & Robust Word Selection Bold Engine (v3.9.10 伪粗体渲染补偿引擎与智能选词加粗体系)**:
+      - **根除 Chromium DirectWrite 自定义 TTF 单字重无法加粗缺陷**: 修复因在 `@font-face` 中声明 `font-weight: 100 900;` 导致 DirectWrite 放弃合成伪粗体的问题。修正为 `font-weight: normal;`，并为所有粗体元素（`b, strong, .is-bold, #rich-editor b/strong, #preview-panel b/strong, .canvas-note-card b/strong` 以及内联 `[style*="font-weight: bold / 700"]`）注入 `-webkit-text-stroke: 0.45px currentColor;`，中英文呈现高质量高对比度粗体；
+      - **智能单词选区扩展与防整卡误粗化清空架构 (`expandSelectionToWord`)**: 当用户未显式划选大块文本、仅将光标点击闪烁在某一单词内部（如 `Observation` 或 `benchmarks`）即按下 `Ctrl+B` 或点击 "B" 按钮时，系统自动识别词边界并扩展选中当前词，一键完成加粗；
+      - **消除破坏性整卡加粗与重绘**: 彻底杜绝光标折叠时误跳入整卡加粗分支（Branch 2）调用 `renderEditor()` 导致正在输入的未保存内容被瞬间重绘清空、光标失焦的缺陷。编辑器与行内编辑时严格收敛为行内操作；
+      - **全通道 Markdown 无损序列化支持 (`htmlToSafeMarkdown` & `serializeInline`)**: DOM 树序列化全面兼容 Chrome 原生注入的 `<span style="font-weight: bold / 700 / 800 / 900">`，双向往返均精准序列化为 Markdown `**加粗**` 语法，多端同步与导出绝对无损。
   - `v3.9.9`:
     - **Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine (v3.9.9 外部内容粘贴换行严密保护与无损序列化引擎)**:
       - **根除外部内容粘贴丢分行粘连缺陷**: 解决从 ChatGPT、Notion、Word、网页或其它编辑器复制多段文本粘贴进笔记详情 (`#rich-editor`) 时，所有段落之间的空行与分行全部消失、首尾英文标点生硬粘连的问题（如 `between zero and one.First... in a soil sample.Next...`）。
