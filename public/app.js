@@ -315,7 +315,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
+    console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -12159,3 +12159,297 @@ document.addEventListener("click", (e) => {
     const cellToUse = targetTable?._lastActiveCell || null;
     executeTableAction(act, targetNode, targetTable, cellToUse, false);
 }, true);
+
+
+// ============================================================================
+// v3.9.11 OneNote/Excel 级智能多维表格粘贴引擎 (Smart Table Paste Engine)
+// 支持将 ChatGPT、Excel、网页复制的任意表格 (HTML Table / TSV / Markdown Table)
+// 100% 格式对齐一键粘贴入现有表格单元格，支持自适应扩展行列与全自动建表
+// ============================================================================
+
+function formatPastedTableCellContent(rawVal) {
+    if (rawVal === undefined || rawVal === null) return "<br>";
+    let val = String(rawVal).trim();
+    if (!val) return "<br>";
+    // 解除 Excel/CSV 的外层包裹双引号
+    if (val.startsWith('"') && val.endsWith('"') && val.length >= 2) {
+        val = val.slice(1, -1).replace(/""/g, '"').trim();
+    }
+    // 将普通文本中的换行安全转换为 <br>
+    val = val.replace(/\r?\n/g, "<br>");
+    return val || "<br>";
+}
+
+function parseClipboardToTableGrid(clipboardData) {
+    if (!clipboardData) return null;
+    const html = clipboardData.getData("text/html") || "";
+    const text = clipboardData.getData("text/plain") || "";
+
+    // 1. 优先解析富文本 HTML Table (ChatGPT、Word、网页、Excel 等原生输出)
+    if (html && /<table[\s>]/i.test(html)) {
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            const table = doc.querySelector("table");
+            if (table) {
+                const trs = Array.from(table.querySelectorAll("tr"));
+                if (trs.length > 0) {
+                    const grid = [];
+                    trs.forEach(tr => {
+                        const cells = Array.from(tr.querySelectorAll("th, td"));
+                        if (cells.length > 0) {
+                            grid.push(cells.map(c => {
+                                let inner = c.innerHTML.trim();
+                                inner = inner.replace(/^(<br\s*\/?>)+|(<br\s*\/?>)+$/gi, "").trim();
+                                return inner;
+                            }));
+                        }
+                    });
+                    if (grid.length > 0 && grid.some(r => r.length > 0)) {
+                        return grid;
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn("[FlowNotes] HTML table parse fallback:", e);
+        }
+    }
+
+    // 2. 解析 Markdown 表格 (| 列 1 | 列 2 |)
+    if (text && text.includes("|") && /\|[ \t]*:?---+:?[ \t]*\|/.test(text)) {
+        const rawLines = text.trim().split(/\r?\n/);
+        const grid = [];
+        for (const l of rawLines) {
+            const trimmed = l.trim();
+            if (!trimmed.startsWith("|") || !trimmed.endsWith("|")) continue;
+            // 忽略分隔行 | --- | --- |
+            if (/^\|([ \t]*:?---+:?[ \t]*\|)+$/.test(trimmed)) continue;
+            const cells = trimmed.slice(1, -1).split("|").map(c => c.trim());
+            if (cells.length > 0) grid.push(cells);
+        }
+        if (grid.length > 0) return grid;
+    }
+
+    // 3. 解析 TSV (Tab 分隔文本，ChatGPT、Excel、Google Sheets 划选复制标准格式)
+    if (text && text.includes("\t")) {
+        const rawLines = text.trim().split(/\r?\n/).filter(Boolean);
+        const grid = rawLines.map(line => line.split("\t").map(c => c.trim()));
+        if (grid.length > 0) return grid;
+    }
+
+    // 4. 解析多行普通文本 (以换行为多行单列)
+    if (text && text.includes("\n")) {
+        const rawLines = text.trim().split(/\r?\n/).filter(Boolean);
+        if (rawLines.length > 1) {
+            return rawLines.map(line => [line.trim()]);
+        }
+    }
+
+    // 5. 单个非空单元格文本
+    if (text && text.trim()) {
+        return [[text.trim()]];
+    }
+
+    return null;
+}
+
+function gridToFlowNotesTableHtml(grid) {
+    if (!grid || grid.length === 0) return "";
+    let html = '<table class="canvas-card-table"><thead><tr>';
+    const headerRow = grid[0];
+    headerRow.forEach((cell, idx) => {
+        html += `<th>${formatPastedTableCellContent(cell || `列 ${idx + 1}`)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    for (let r = 1; r < grid.length; r++) {
+        html += '<tr>';
+        const row = grid[r];
+        for (let c = 0; c < headerRow.length; c++) {
+            const val = c < row.length ? row[c] : "";
+            html += `<td>${formatPastedTableCellContent(val)}</td>`;
+        }
+        html += '</tr>';
+    }
+    html += '</tbody></table><br>';
+    return html;
+}
+
+function pasteGridIntoTable(table, activeCell, grid) {
+    if (!table || !grid || grid.length === 0) return false;
+    let allTrs = Array.from(table.querySelectorAll("tr"));
+    if (allTrs.length === 0) return false;
+
+    const activeTr = activeCell ? activeCell.closest("tr") : allTrs[0];
+    let startRow = activeTr ? allTrs.indexOf(activeTr) : 0;
+    let startCol = (activeCell && activeTr) ? Array.from(activeTr.children).indexOf(activeCell) : 0;
+    if (startRow < 0) startRow = 0;
+    if (startCol < 0) startCol = 0;
+
+    // 智能表头吸附：若用户在第一行数据行 (tbody 第一个 td) 处粘贴，但表头还是默认的占位符（列 1、列 2），且粘贴的数据行数与整表行数匹配
+    if (startRow === 1 && allTrs.length === grid.length) {
+        const ths = Array.from(allTrs[0].querySelectorAll("th"));
+        const isDefaultHeaders = ths.every((th, idx) => {
+            const txt = th.textContent.trim();
+            return !txt || txt === `列 ${idx + 1}` || txt === `列${idx + 1}` || txt === `Col ${idx + 1}`;
+        });
+        if (isDefaultHeaders) {
+            startRow = 0;
+        }
+    }
+
+    let tbody = table.querySelector("tbody");
+    if (!tbody) {
+        tbody = document.createElement("tbody");
+        table.appendChild(tbody);
+    }
+
+    // 填充数据并自适应扩展行列
+    for (let r = 0; r < grid.length; r++) {
+        const targetRowIdx = startRow + r;
+        // 行不足时自动向 tbody 扩充新行
+        while (targetRowIdx >= allTrs.length) {
+            const newTr = document.createElement("tr");
+            const currentCols = allTrs[0] ? allTrs[0].children.length : 2;
+            for (let c = 0; c < currentCols; c++) {
+                const td = document.createElement("td");
+                td.innerHTML = "<br>";
+                newTr.appendChild(td);
+            }
+            tbody.appendChild(newTr);
+            allTrs.push(newTr);
+        }
+
+        const targetTr = allTrs[targetRowIdx];
+        const rowData = grid[r];
+
+        // 列不足时自动向整表所有行扩充新列
+        for (let c = 0; c < rowData.length; c++) {
+            const targetColIdx = startCol + c;
+            while (targetColIdx >= targetTr.children.length) {
+                allTrs.forEach((rowEl, rIdx) => {
+                    const isHeader = rowEl.closest("thead") || rIdx === 0;
+                    const newCell = document.createElement(isHeader ? "th" : "td");
+                    newCell.innerHTML = isHeader ? `列 ${rowEl.children.length + 1}` : "<br>";
+                    rowEl.appendChild(newCell);
+                });
+            }
+            const targetCell = targetTr.children[targetColIdx];
+            if (targetCell) {
+                targetCell.innerHTML = formatPastedTableCellContent(rowData[c]);
+            }
+        }
+    }
+
+    return true;
+}
+
+function handleTablePasteEvent(e) {
+    const clipboardData = e.clipboardData || window.clipboardData;
+    if (!clipboardData) return;
+
+    // 定位当前聚焦的单元格或编辑器
+    const sel = window.getSelection();
+    let activeCell = null;
+    if (sel && sel.anchorNode) {
+        const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+        activeCell = el?.closest?.("td, th");
+    }
+    if (!activeCell && document.activeElement) {
+        activeCell = document.activeElement.closest?.("td, th");
+    }
+    if (!activeCell && window._lastActiveTableCell && document.body.contains(window._lastActiveTableCell)) {
+        const inActiveEditor = document.getElementById("rich-editor")?.contains(window._lastActiveTableCell);
+        const inActiveCard = document.querySelector(".canvas-note-card.is-selected")?.contains(window._lastActiveTableCell);
+        if (inActiveEditor || inActiveCard) {
+            activeCell = window._lastActiveTableCell;
+        }
+    }
+
+    const table = activeCell ? activeCell.closest("table") : null;
+    const richEditorEl = document.getElementById("rich-editor");
+    const inRichEditor = !!(richEditorEl && (richEditorEl.contains(document.activeElement) || (sel && sel.anchorNode && richEditorEl.contains(sel.anchorNode))));
+    const activeInlineBody = (sel && sel.anchorNode) ? (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest?.(".canvas-note-card-body") : null;
+
+    if (!table && !inRichEditor && !activeInlineBody) {
+        return;
+    }
+
+    const html = clipboardData.getData("text/html") || "";
+    const text = clipboardData.getData("text/plain") || "";
+    const hasHtmlTable = /<table[\s>]/i.test(html);
+    const hasTsv = text.includes("\t") && text.includes("\n");
+    const hasMdTable = text.includes("|") && /\|[ \t]*:?---+:?[ \t]*\|/.test(text);
+
+    // 场景 1: 光标在表格单元格内
+    if (table && activeCell) {
+        const grid = parseClipboardToTableGrid(clipboardData);
+        if (grid && grid.length > 0) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            pasteGridIntoTable(table, activeCell, grid);
+
+            // 依据所在容器触发数据持久化与双向同步
+            if (inRichEditor && selectedNode) {
+                selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
+                const mdEl = document.getElementById("md-textarea");
+                if (mdEl) mdEl.value = selectedNode.content;
+                scheduleSaveGraph(true);
+            } else if (activeInlineBody) {
+                const grp = activeInlineBody.closest(".node-group");
+                const d = grp ? d3.select(grp).datum() : selectedNode;
+                if (d) {
+                    const tableWrap = activeInlineBody.querySelector(".canvas-card-table-wrap") || activeInlineBody.querySelector("table.canvas-card-table");
+                    const tableNode = tableWrap ? (tableWrap.matches("table.canvas-card-table") ? tableWrap : (tableWrap.querySelector("table.canvas-card-table") || tableWrap)) : table;
+                    const tableMd = htmlToSafeMarkdown(tableNode.outerHTML || "");
+                    const titleRow = activeInlineBody.querySelector(".canvas-card-title-row");
+                    const titleText = titleRow ? titleRow.textContent.trim() : d.label;
+                    d.content = `# ${titleText}\n\n${tableMd}`;
+                    if (richEditorEl && selectedNode && selectedNode.id === d.id) {
+                        richEditorEl.innerHTML = renderMarkdownToHTML(d.content);
+                    }
+                    scheduleSaveGraph(true);
+                }
+            } else if (selectedNode) {
+                if (richEditorEl && richEditorEl.contains(table)) {
+                    selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
+                }
+                scheduleSaveGraph(true);
+            }
+
+            const maxCols = Math.max(...grid.map(r => r.length));
+            showToast(`📋 已成功将 ${grid.length} 行 ${maxCols} 列数据智能填入表格！`);
+            return;
+        }
+    }
+
+    // 场景 2: 光标在编辑器或卡片普通文本中，但复制的是完整的表格数据 (HTML / TSV / Markdown)
+    if (!table && (inRichEditor || activeInlineBody) && (hasHtmlTable || hasTsv || hasMdTable)) {
+        const grid = parseClipboardToTableGrid(clipboardData);
+        if (grid && grid.length >= 2 && grid[0].length >= 2) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+
+            const tableHtml = gridToFlowNotesTableHtml(grid);
+            document.execCommand("insertHTML", false, tableHtml);
+
+            if (inRichEditor && selectedNode) {
+                selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
+                const mdEl = document.getElementById("md-textarea");
+                if (mdEl) mdEl.value = selectedNode.content;
+                scheduleSaveGraph(true);
+            } else if (activeInlineBody) {
+                const grp = activeInlineBody.closest(".node-group");
+                const d = grp ? d3.select(grp).datum() : selectedNode;
+                if (d) {
+                    d.content = (d.content || "") + `\n\n${htmlToSafeMarkdown(tableHtml)}`;
+                    scheduleSaveGraph(true);
+                }
+            }
+            showToast(`▦ 已智能转换并插入 ${grid.length} 行 ${grid[0].length} 列标准表格！`);
+            return;
+        }
+    }
+}
+
+document.addEventListener("paste", handleTablePasteEvent, true);

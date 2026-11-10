@@ -1,8 +1,15 @@
-# Project State: FlowNotes (v3.9.10)
+# Project State: FlowNotes (v3.9.11)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.10`
+- **Current Version**: `v3.9.11`
 - **Latest Releases**:
+  - `v3.9.11`:
+    - **Smart Table Paste Engine & Lossless Tabular Matrix Ingestion (v3.9.11 OneNote/Excel 级智能多维表格粘贴引擎)**:
+      - **根除复制内容进表格单格倾倒缺陷**: 彻底解决复制多行多列表格（如 5 行 2 列）粘贴进表格时被挤入单个单元格的恶疾；
+      - **全源异构表格解析 (`parseClipboardToTableGrid`)**: 支持 HTML Table (ChatGPT/Word/网页)、TSV (Excel/Sheets)、Markdown 表格和多行列表；
+      - **智能矩阵填入与自适应行列扩展 (`pasteGridIntoTable`)**: 按单元格坐标智能填充，支持默认占位表头智能吸附与动态增行扩列；
+      - **普通文本段落粘贴自动建表**: 在非表格区域粘贴多维表格数据时自动生成合规 FlowNotes 表格；
+      - **双向无损序列化与持久化**: 即时更新 Markdown 表格数据并写入存储，提供实时 Toast 提示。
   - `v3.9.10`:
     - **Faux-Bold Rendering Engine & Robust Word Selection Bold Engine (v3.9.10 伪粗体渲染补偿引擎与智能选词加粗体系)**:
       - **根除 Chromium DirectWrite 自定义 TTF 单字重无法加粗缺陷**: 修复因在 `@font-face` 中声明 `font-weight: 100 900;` 导致 DirectWrite 放弃合成伪粗体的问题。修正为 `font-weight: normal;`，并为所有粗体元素（`b, strong, .is-bold, #rich-editor b/strong, #preview-panel b/strong, .canvas-note-card b/strong` 以及内联 `[style*="font-weight: bold / 700"]`）注入 `-webkit-text-stroke: 0.45px currentColor;`，中英文呈现高质量高对比度粗体；

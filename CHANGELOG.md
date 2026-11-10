@@ -2,6 +2,26 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.11] - 2026-11-09
+
+### ▦ OneNote / Excel 级智能多维表格粘贴引擎 (Smart Table Paste Engine & Lossless Tabular Matrix Ingestion)
+- **🌟 根除复制内容进表格结构损毁与单格倾倒缺陷 (Table Paste Ingestion Fix)**：
+  - **核心痛点定位**：用户在 ChatGPT、网页或 Excel 中复制多行多列数据（如 5 行 2 列的比较矩阵），尝试粘贴进 FlowNotes 已建好的 5 行 2 列表格时，浏览器默认行为会将全部 5 行数据生硬挤入单个聚焦的单元格中，或将整个嵌套 `<table>` 乱码式塞进 `<th>` / `<td>` 内部，导致表格布局彻底报废、其余行列依然空置。
+  - **深度根因挖掘**：原生 `contenteditable` 编辑器缺乏针对剪贴板多维矩阵（`text/html` 表格与 `text/plain` TSV / Markdown Table）向既有 `table` 结构投影的拦截映射机制，导致剪贴板数据被原生直接视作单一纯文本或普通 DOM 片段倾倒。
+- **🛡️ 纯净多维剪贴板解析与矩阵填入引擎 (`parseClipboardToTableGrid` & `pasteGridIntoTable`)**：
+  - **全源异构表格协议兼容**：
+    1. **富文本 HTML Table**：智能解析 ChatGPT、Word、网页、Excel 生成的 `<table><tr><th>/<td>`，无损抽取单元格富文本与排版；
+    2. **TSV (Tab-Separated Values)**：精准切分 Excel、Google Sheets 及文本划选复制的制表符分列与分行；
+    3. **Markdown 表格**：自动过滤 `| --- | --- |` 分隔线，精准抽取 `| col1 | col2 |` 数据单元；
+    4. **多行单列文本**：当用户在表格某一列粘贴多行清单时，自动沿该列纵向逐行填充。
+  - **自适应智能表头吸附 (Smart Header Alignment)**：
+    - 若用户聚焦在第一行数据行 (`tbody` 首个 `td`) 执行粘贴，但表头为默认占位符（`列 1`、`列 2`），且粘贴数据行数与整表行数相吻合时，系统自动识别并将首行数据吸附替换为表头，无需用户二次返工修改。
+  - **动态自适应行列扩展 (Auto Row/Col Expansion)**：
+    - 当粘贴数据的行数或列数超出当前表格容量时，系统会自动在 `tbody` 末尾追加新行，并在整表所有行扩充新列，保证数据无论多大多宽均能完整无裁切录入。
+  - **空表自动建表**：若光标位于普通文本段落中但粘贴了完整的表格数据，系统自动将其转换为符合 FlowNotes 视觉风格的标准 `<table class="canvas-card-table">` 并一键内嵌。
+- **🔄 全通道双向同步与数据落盘**：
+  - 粘贴完成后自动调用 `htmlToSafeMarkdown` 同步更新底层的 Markdown 表格模型，并驱动 `scheduleSaveGraph(true)` 安全存盘，附带实时状态 Toast 反馈（如 `📋 已成功将 5 行 2 列数据智能填入表格！`）。
+
 ## 🚀 [v3.9.10] - 2026-11-09
 
 ### 🔤 伪粗体渲染补偿引擎与智能选词加粗体系 (Faux-Bold Rendering Engine & Robust Word Selection Bold Engine)

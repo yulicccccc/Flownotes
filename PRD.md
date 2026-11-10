@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.10)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.11)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Smart Table Paste Engine & Lossless Tabular Matrix Ingestion (v3.9.11 OneNote/Excel 级智能多维表格粘贴引擎)**:
+  - **根除复制内容进表格单格倾倒与结构损毁缺陷**: 彻底解决从 ChatGPT、网页或 Excel 复制多行多列表格粘贴进 FlowNotes 表格时，全部文字被塞入单个单元格或破坏表格结构的问题；
+  - **全源异构表格数据解析 (`parseClipboardToTableGrid`)**: 兼容 HTML Table、TSV (制表符分隔)、Markdown 表格与多行文本，将其解析为二维统一矩阵；
+  - **智能矩阵填入与自适应行列扩展 (`pasteGridIntoTable`)**: 支持从聚焦单元格起按行列精准填充，当粘贴行数/列数超出表格尺寸时自动扩展行列，支持默认表头智能识别吸附；
+  - **段落直接粘贴智能建表**: 当在普通文本段落粘贴多行多列表格数据时，全自动转换为标准 `<table class="canvas-card-table">` 插入；
+  - **模型无损序列化与强同步**: 粘贴后实时通过 `htmlToSafeMarkdown` 刷新 Markdown 表格语法并保存，附带友好 Toast 提示。
 - **Faux-Bold Rendering Engine & Robust Word Selection Bold Engine (v3.9.10 伪粗体渲染补偿引擎与智能选词加粗体系)**:
   - **根除 Chromium DirectWrite 自定义 TTF 单字重无法加粗缺陷**: 修复因在 `@font-face` 中对静态单字重（400 Medium）字体 `TsangerXuanSanM-W03.ttf` 声明 `font-weight: 100 900;` 导致 DirectWrite 放弃合成伪粗体的问题。将其规范修正为 `font-weight: normal;`，并为所有粗体元素（`b, strong, .is-bold, #rich-editor b/strong, #preview-panel b/strong, .canvas-note-card b/strong` 以及内联 `[style*="font-weight: bold / 700"]`）注入 `-webkit-text-stroke: 0.45px currentColor;`，中英文均能呈现极具质感、高对比度的扎实粗体字形；
   - **智能单词选区扩展与防整卡误粗化清空架构 (`expandSelectionToWord`)**: 当用户未显式划选大块文本、仅将光标点击闪烁在某一单词内部（如 `Observation` 或 `benchmarks`）即按下 `Ctrl+B` 或点击 "B" 按钮时，系统自动识别词边界并扩展选中当前词，一键完成加粗；
