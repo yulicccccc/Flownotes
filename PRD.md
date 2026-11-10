@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.11)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.12)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Ironclad Node Isolation Engine & Zero Cross-Contamination Guard (v3.9.12 严格节点上下文隔离引擎与跨卡片防串台防污染装甲)**:
+  - **根除 A 节点编辑内容向 B 节点泄漏污染恶疾**: 彻底修复在 A 节点聚焦编辑复杂表格后点击画布切换到 B 节点时，因 SVG 元素不转移 DOM 焦点导致 `renderEditor()` 跳过 DOM 更新、进而将 A 节点残留内容覆写至 B 节点的重大缺陷；
+  - **显式承载节点 ID 跟踪 (`editorActiveNodeId`)**: 绑定编辑器当前物理承载节点 ID 全局状态，作为富文本与 Markdown 输入区域的单一真理源；
+  - **绑定校验提交防护 (`commitCurrentEditorToSelectedNode`)**: 严格比对 `editorActiveNodeId` 与底层节点，杜绝向任何不匹配的节点提交脏数据；
+  - **无条件切节点重绘与安全失焦 (`renderEditor`)**: 切换节点时先安全冲刷旧节点并失焦，随后无条件将目标节点的真实 HTML 渲染写入 `richEditor.innerHTML`；
+  - **防串台输入防护与全局表格引用重置**: 避免跨卡片表格串位粘贴与意外覆盖。
 - **Smart Table Paste Engine & Lossless Tabular Matrix Ingestion (v3.9.11 OneNote/Excel 级智能多维表格粘贴引擎)**:
   - **根除复制内容进表格单格倾倒与结构损毁缺陷**: 彻底解决从 ChatGPT、网页或 Excel 复制多行多列表格粘贴进 FlowNotes 表格时，全部文字被塞入单个单元格或破坏表格结构的问题；
   - **全源异构表格数据解析 (`parseClipboardToTableGrid`)**: 兼容 HTML Table、TSV (制表符分隔)、Markdown 表格与多行文本，将其解析为二维统一矩阵；

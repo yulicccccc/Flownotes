@@ -1,8 +1,15 @@
-# Project State: FlowNotes (v3.9.11)
+# Project State: FlowNotes (v3.9.12)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.11`
+- **Current Version**: `v3.9.12`
 - **Latest Releases**:
+  - `v3.9.12`:
+    - **Ironclad Node Isolation Engine & Zero Cross-Contamination Guard (v3.9.12 严格节点上下文隔离引擎与跨卡片防串台防污染装甲)**:
+      - **根除 A 节点编辑内容向 B 节点泄漏污染恶疾**: 修复在 A 节点聚焦编辑表格后点击画布切换到 B 节点时，因 SVG 元素不转移焦点导致 `renderEditor()` 跳过 DOM 更新、进而覆写 B 节点内容的恶性缺陷；
+      - **显式承载节点 ID 跟踪 (`editorActiveNodeId`)**: 绑定编辑器当前物理承载节点 ID 全局状态，作为富文本与 Markdown 输入区域的单一真理源；
+      - **绑定校验提交防护 (`commitCurrentEditorToSelectedNode`)**: 严格比对 `editorActiveNodeId` 与底层节点，杜绝向任何不匹配的节点提交脏数据；
+      - **无条件切节点重绘与安全失焦 (`renderEditor`)**: 切换节点时先安全冲刷旧节点并失焦，随后无条件将目标节点的真实 HTML 渲染写入 `richEditor.innerHTML`；
+      - **防串台输入防护与全局表格引用重置**: 避免跨卡片表格串位粘贴与意外覆盖。
   - `v3.9.11`:
     - **Smart Table Paste Engine & Lossless Tabular Matrix Ingestion (v3.9.11 OneNote/Excel 级智能多维表格粘贴引擎)**:
       - **根除复制内容进表格单格倾倒缺陷**: 彻底解决复制多行多列表格（如 5 行 2 列）粘贴进表格时被挤入单个单元格的恶疾；

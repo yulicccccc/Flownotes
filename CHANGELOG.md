@@ -2,6 +2,24 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.12] - 2026-11-09
+
+### 🛡️ 严格节点上下文隔离引擎与跨卡片防串台防污染装甲 (Ironclad Node Isolation Engine & Zero Cross-Contamination Guard)
+- **🌟 根除 A 节点编辑内容向 B 节点泄漏污染恶疾 (Cross-Node Content Leakage Fix)**：
+  - **核心痛点定位**：用户在 A 节点（如“稿子和具体改进方法”）中编辑或粘贴了一张 5x2 复杂表格后，点击切换到 B 节点（如“2. Surprisingly Popular Method”）时，发现 B 节点的内容或卡片被 A 节点的表格完全覆盖覆写，导致多节点内容混杂丢失。
+  - **深度根因挖掘**：
+    1. **DOM 焦点残留与 `renderEditor()` 渲染跳过**：用户在 A 节点聚焦编辑 `#rich-editor` 时，点击画布上的 B 节点（SVG `<g>` / `<rect>` / `<foreignObject>` 非焦点元素）并不会转移浏览器的 DOM 焦点，导致 `document.activeElement` 依然指向 `#rich-editor`。此时 `renderEditor()` 中执行的 `if (richEditor && !isRichFocused)` 判定为 false，静默跳过了将 B 节点真实内容灌入 `richEditor.innerHTML` 的过程，导致编辑器内仍残留着 A 节点的表格！
+    2. **盲目提交机制缺口 (`commitCurrentEditorToSelectedNode`)**：当用户在编辑器失焦、键入新字、粘贴或触发自动保存时，旧逻辑直接将当前编辑器内容写入当前全局的 `selectedNode`（此时已是 B 节点），直接将 A 节点残留内容覆写至 B 节点的 `selectedNode.content`。
+    3. **双击卡片/单元格未先冲刷保存旧节点**：用户在画布上直接点击进入新卡片原地编辑时，缺少对上一节点编辑器的强制落盘与失焦脱钩。
+- **🛡️ 纯净节点绑定与隔离装甲实现**：
+  - **显式承载节点 ID 跟踪 (`editorActiveNodeId`)**：建立编辑器当前物理承载节点 ID 全局状态，作为富文本与 Markdown 输入区域的单一真理源；
+  - **绑定校验提交防护 (`commitCurrentEditorToSelectedNode`)**：严格比对 `editorActiveNodeId` 与底层节点，严禁张冠李戴向任何不匹配的选中节点提交脏数据；
+  - **无条件切节点重绘与安全失焦 (`renderEditor`)**：引入 `isNodeSwitched = !editorActiveNodeId || editorActiveNodeId !== selectedNode.id`。当切换节点时，先冲刷旧节点数据并主动调用 `richEditor.blur()`、`titleInput.blur()`，随后**无条件将目标节点的真实 HTML 渲染写入 `richEditor.innerHTML`**，彻底粉碎焦点残留导致的渲染绕过；
+  - **防串台输入防护与全局表格引用重置**：`titleInput`、`mdTextarea`、`richEditor` 输入事件均附加一致性校验，并在节点切换时清空 `window._lastActiveTableCell`，杜绝表格跨节点串位粘贴。
+- **🔄 全自动 Playwright 端到端验证**：
+  - 自动化测试用例真实模拟在聚焦 A 节点富文本编辑器并编辑表格后，直接在画布上点击 B 节点卡片；
+  - 严格断言 B 节点编辑器与卡片不含 A 节点表格，并验证 B 节点后续编辑完全隔离互不串扰。
+
 ## 🚀 [v3.9.11] - 2026-11-09
 
 ### ▦ OneNote / Excel 级智能多维表格粘贴引擎 (Smart Table Paste Engine & Lossless Tabular Matrix Ingestion)

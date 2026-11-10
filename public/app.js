@@ -42,6 +42,7 @@ let inkLayer = null;
 let isInkDrawMode = false;
 let currentInkTool = "red"; // "red" | "green" | "highlighter" | "sky" | "eraser"
 let selectedNode = null;
+let editorActiveNodeId = null; // v3.9.12 核心防线：严格记录富文本/Markdown 编辑器当前实际承载绑定的节点 ID，杜绝跨节点数据污染与串台覆盖！
 let selectedNodeIds = new Set();
 let layoutMode = "free"; // 默认使用自由空间白板模式 ("free"，允许笔记放到一坨自由摆放)，按 M 键可一键整理为 XMind 树状结构
 let ghSyncTimer = null;
@@ -172,8 +173,11 @@ function scheduleSaveGraph(recordHistory = true, delayMs = 360) {
 
 // 页面关闭/刷新/切后台时立即冲刷尚未落盘的防抖修改，确保 0 丢失
 // v3.9.5 核心防线：将当前富文本/Markdown 编辑器内已编辑的最新内容强行提交沉淀到底层 selectedNode 数据中，杜绝一切由于切节点、关抽屉、切后台导致的笔记丢失！
+// v3.9.12 核心防线：严格根据当前富文本/Markdown 编辑器内实际承载绑定的节点 (editorActiveNodeId) 提交内容，杜绝跨节点数据污染与串台覆盖！
 function commitCurrentEditorToSelectedNode() {
-    if (!selectedNode) return;
+    if (!editorActiveNodeId) return;
+    const targetNode = nodes.find(n => n.id === editorActiveNodeId);
+    if (!targetNode) return;
     const richEditor = document.getElementById("rich-editor");
     const mdTextarea = document.getElementById("md-textarea");
     const titleInput = document.getElementById("title-input");
@@ -183,16 +187,16 @@ function commitCurrentEditorToSelectedNode() {
     if (titleInput && !titleInput.disabled) {
         const val = titleInput.value.trim();
         if (val) {
-            selectedNode.label = val;
+            targetNode.label = val;
         }
     }
 
     if (previewMode === "edit" && mdTextarea) {
-        selectedNode.content = mdTextarea.value;
+        targetNode.content = mdTextarea.value;
     } else if (richEditor && document.body.contains(richEditor)) {
         if (typeof htmlToSafeMarkdown === "function") {
             const md = htmlToSafeMarkdown(richEditor.innerHTML);
-            selectedNode.content = md;
+            targetNode.content = md;
             if (mdTextarea) mdTextarea.value = md;
         }
     }
@@ -315,7 +319,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
+    console.log("[FlowNotes] v3.9.12 loaded — Ironclad Node Isolation Engine & Zero Cross-Contamination Guard"); // console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -2240,6 +2244,13 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
 
     const bodyEl = bodyDiv.node();
     if (bodyEl.getAttribute("contenteditable") === "true") return;
+
+    // v3.9.12 核心防线：进入原地编辑前，先行冲刷提交并虚化右侧富文本编辑器，防止旧节点残余聚焦与跨卡片污染
+    commitCurrentEditorToSelectedNode();
+    const richEditorEl = document.getElementById("rich-editor");
+    if (richEditorEl && (document.activeElement === richEditorEl || richEditorEl.contains(document.activeElement))) {
+        richEditorEl.blur();
+    }
 
     selectedNode = d;
     selectedNodeIds = new Set([d.id]);
@@ -4345,7 +4356,7 @@ function initEvents() {
     });
 
     titleInput.addEventListener("input", (e) => {
-        if (!selectedNode) return;
+        if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
         selectedNode.label = titleInput.value.trim() || (selectedNode.isImage ? "图片" : "未命名");
         if (selectedNode.isImage && selectedNode.imageUrl) {
             const plainLabel = stripFormattingToPlainText(selectedNode.label) || "图片";
@@ -4388,7 +4399,7 @@ function initEvents() {
     });
 
     mdTextarea.addEventListener("input", (e) => {
-        if (!selectedNode) return;
+        if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
         selectedNode.content = mdTextarea.value;
         refreshNodeStyles();
         if (!e.isComposing && !isImeComposing) {
@@ -4404,7 +4415,7 @@ function initEvents() {
     });
 
     richEditor.addEventListener("input", (e) => {
-        if (!selectedNode) return;
+        if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
         if ((e.isComposing || isImeComposing) && e.inputType !== "insertFromPaste") return;
         selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
         if (mdTextarea) mdTextarea.value = selectedNode.content;
@@ -6114,6 +6125,30 @@ function renderEditor() {
     const focusBtn = document.getElementById("btn-toggle-focus");
 
     if (selectedNode) {
+        const isNodeSwitched = !editorActiveNodeId || editorActiveNodeId !== selectedNode.id;
+
+        // 1. 如果切到了新节点，先将上一个节点的富文本编辑器最新修改冲刷提交保存
+        if (isNodeSwitched && editorActiveNodeId) {
+            commitCurrentEditorToSelectedNode();
+            // 清理上一节点的活跃单元格引用，杜绝跨卡片/跨节点表格粘贴串位
+            window._lastActiveTableCell = null;
+            window._lastActiveTableTr = null;
+            window._lastActiveTable = null;
+            // 若焦点仍残留在 richEditor / titleInput / mdTextarea 中，主动失焦，断开旧卡片的光标输入链
+            if (richEditor && (document.activeElement === richEditor || richEditor.contains(document.activeElement))) {
+                richEditor.blur();
+            }
+            if (titleInput && document.activeElement === titleInput) {
+                titleInput.blur();
+            }
+            if (mdTextarea && document.activeElement === mdTextarea) {
+                mdTextarea.blur();
+            }
+        }
+
+        // 2. 绑定当前编辑器实际承载的节点 ID
+        editorActiveNodeId = selectedNode.id;
+
         // 自动净化清洗之前残留的 HTML 污染与残余标记
         let cleanContent = cleanHTMLSpill(selectedNode.content || "");
         
@@ -6129,16 +6164,18 @@ function renderEditor() {
         }
         selectedNode.content = cleanContent;
 
-        if (titleInput && document.activeElement !== titleInput) {
+        if (titleInput && (isNodeSwitched || document.activeElement !== titleInput)) {
             titleInput.value = stripFormattingToPlainText(selectedNode.label);
         }
         if (titleInput) titleInput.disabled = false;
-        if (mdTextarea && document.activeElement !== mdTextarea) {
+        if (mdTextarea && (isNodeSwitched || document.activeElement !== mdTextarea)) {
             mdTextarea.value = cleanContent;
         }
 
+        // v3.9.12 核心修复：当切换节点 (isNodeSwitched 为 true) 时，必须无条件把目标节点的最新渲染 HTML 灌入 richEditor！
+        // 唯有在编辑同一个节点且正聚焦输入时，才保持 DOM 不动以保留光标位置！
         const isRichFocused = richEditor && (document.activeElement === richEditor || richEditor.contains(document.activeElement));
-        if (richEditor && !isRichFocused) {
+        if (richEditor && (isNodeSwitched || !isRichFocused)) {
             let renderedHtml = renderMarkdownToHTML(cleanContent);
             if (renderedHtml.endsWith("</div>")) {
                 renderedHtml += "<div><br></div>";
@@ -6169,10 +6206,18 @@ function renderEditor() {
             focusBtn.classList.toggle("active", !!selectedNode.isFocus);
         }
     } else {
+        if (editorActiveNodeId) {
+            commitCurrentEditorToSelectedNode();
+        }
+        editorActiveNodeId = null;
+        window._lastActiveTableCell = null;
+        window._lastActiveTableTr = null;
+        window._lastActiveTable = null;
         titleInput.value = "未选择节点";
         titleInput.disabled = true;
         mdTextarea.value = "";
-        richEditor.innerHTML = "";
+        if (richEditor) richEditor.innerHTML = "";
+        if (previewPanel) previewPanel.innerHTML = "";
         if (focusBtn) {
             focusBtn.disabled = true;
             focusBtn.classList.remove("active");
@@ -12360,8 +12405,12 @@ function handleTablePasteEvent(e) {
     if (!activeCell && window._lastActiveTableCell && document.body.contains(window._lastActiveTableCell)) {
         const inActiveEditor = document.getElementById("rich-editor")?.contains(window._lastActiveTableCell);
         const inActiveCard = document.querySelector(".canvas-note-card.is-selected")?.contains(window._lastActiveTableCell);
-        if (inActiveEditor || inActiveCard) {
+        if (inActiveEditor && selectedNode && editorActiveNodeId === selectedNode.id) {
             activeCell = window._lastActiveTableCell;
+        } else if (inActiveCard) {
+            activeCell = window._lastActiveTableCell;
+        } else {
+            window._lastActiveTableCell = null;
         }
     }
 
@@ -12390,7 +12439,7 @@ function handleTablePasteEvent(e) {
             pasteGridIntoTable(table, activeCell, grid);
 
             // 依据所在容器触发数据持久化与双向同步
-            if (inRichEditor && selectedNode) {
+            if (inRichEditor && selectedNode && editorActiveNodeId === selectedNode.id) {
                 selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
                 const mdEl = document.getElementById("md-textarea");
                 if (mdEl) mdEl.value = selectedNode.content;
@@ -12405,12 +12454,12 @@ function handleTablePasteEvent(e) {
                     const titleRow = activeInlineBody.querySelector(".canvas-card-title-row");
                     const titleText = titleRow ? titleRow.textContent.trim() : d.label;
                     d.content = `# ${titleText}\n\n${tableMd}`;
-                    if (richEditorEl && selectedNode && selectedNode.id === d.id) {
+                    if (richEditorEl && selectedNode && selectedNode.id === d.id && editorActiveNodeId === d.id) {
                         richEditorEl.innerHTML = renderMarkdownToHTML(d.content);
                     }
                     scheduleSaveGraph(true);
                 }
-            } else if (selectedNode) {
+            } else if (selectedNode && editorActiveNodeId === selectedNode.id) {
                 if (richEditorEl && richEditorEl.contains(table)) {
                     selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
                 }
@@ -12433,7 +12482,7 @@ function handleTablePasteEvent(e) {
             const tableHtml = gridToFlowNotesTableHtml(grid);
             document.execCommand("insertHTML", false, tableHtml);
 
-            if (inRichEditor && selectedNode) {
+            if (inRichEditor && selectedNode && editorActiveNodeId === selectedNode.id) {
                 selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
                 const mdEl = document.getElementById("md-textarea");
                 if (mdEl) mdEl.value = selectedNode.content;
