@@ -2,6 +2,23 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v3.9.13] - 2026-11-09
+
+### ✍️ 永久手写体字形保持体系与标题纯文本防冲刷引擎 (Permanent Handwriting Typography & Anti-Title-Wipe Engine)
+- **🌟 根除变手写体失效与“过一会儿变回印刷体”恶疾 (Handwriting Reversion Fix)**：
+  - **核心痛点定位**：用户将卡片设置为灵感批注手写体后，发现只有局部几行变成了手写体（首行依然是印刷体），且过了一会儿（或切换卡片、点击笔记详情、触发自动保存后），卡片又自动回退成不是手写体的普通印刷字体。
+  - **深度根因挖掘**：
+    1. **标题纯文本盲目覆写 (`commitCurrentEditorToSelectedNode`)**：右侧顶部的 `#title-input` 属于单行纯文本 `<input>`，系统通过 `stripFormattingToPlainText` 将卡片标题剥除 HTML 标签后塞入输入框显示。然而，在自动保存或失焦时，旧逻辑**无条件将 `titleInput.value`（剥除了所有标签的纯文本）盲目写回 `targetNode.label`**！导致用户在卡片内设置的所有 `<span class="font-handwriting">`、颜色、高亮和下划线在 360ms 延迟保存后被瞬间抹杀洗净！
+    2. **局部划词格式化误判 (`applyFormatting`)**：当用户在画布卡片上点击切换手写体时，由于卡片处于编辑模式（`activeInlineBody` 为真），旧逻辑误将其视作局部划词格式化，且执行了 `expandSelectionToWord` 强行扩选单字，导致仅将光标所在部分文本包在 `<span>` 标签内，而从未设置卡片级属性 `d.fontStyle = "handwriting"`。
+    3. **富文本编辑器 CSS 继承缺失**：右侧 `#rich-editor` 缺少 `.is-handwriting` 的字体继承声明，无法呈现完整的手写体风貌。
+- **🛡️ 纯净防冲刷与整卡手写体保障架构**：
+  - **脏标记防护 (`isTitleInputDirty`)**：引入 `isTitleInputDirty` 状态追踪机制。只有当用户真正手动在 `#title-input` 中键入字符时才允许提交标题；在所有其他情况下（只读加载、编辑卡片、切节点、自动保存），`commitCurrentEditorToSelectedNode` 严禁碰触覆盖 `targetNode.label`，百分之百保留富文本标签；
+  - **整卡手写体一键切换 (`applyFormatting("handwriting")`)**：在画布卡片上未显式划选大块字词时，点击 ✍️ 或按 `Ctrl+Shift+W` 直接将整个卡片切换为 `d.fontStyle = "handwriting"`，赋予整卡 `.is-handwriting` 类名，首行、次行与所有内容均统一呈现手写体；
+  - **全工作区 CSS 样式覆盖**：在 `index.css` 中为 `#rich-editor.is-handwriting` 和 `#preview-panel.is-handwriting` 全面注入 `FlowNotesHandwriting` 字体规则，双工作区字体呈现绝对一致。
+- **🔄 全自动 Playwright 端到端闭环验证**：
+  - 自动化测试真实模拟包含多行文本的卡片一键切换手写体；
+  - 随后聚焦右侧编辑器、输入文本、触发全局自动落盘与失焦，等待 1.5 秒后严格断言卡片 `fontStyle` 依然为 `"handwriting"`，`.is-handwriting` 类名未发生任何回退丢失。
+
 ## 🚀 [v3.9.12] - 2026-11-09
 
 ### 🛡️ 严格节点上下文隔离引擎与跨卡片防串台防污染装甲 (Ironclad Node Isolation Engine & Zero Cross-Contamination Guard)

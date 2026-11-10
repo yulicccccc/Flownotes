@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.12)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.13)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Permanent Handwriting Typography & Anti-Title-Wipe Engine (v3.9.13 永久手写体字形保持体系与标题纯文本防冲刷引擎)**:
+  - **根除变手写体失效与“过一会儿变回印刷体”恶疾**: 彻底修复因 `commitCurrentEditorToSelectedNode()` 将 `#title-input` 中剥除格式后的无标签纯文本盲目写回卡片 `targetNode.label`，导致卡片手写体与富文本标签在 360ms 自动保存后被瞬间抹杀的恶疾；
+  - **脏标记防护 (`isTitleInputDirty`)**: 引入状态追踪，仅当用户手动在 `#title-input` 中键入时才允许更新 `targetNode.label`，其余情况绝对禁止冲刷富文本卡片；
+  - **整卡手写体一键切换 (`applyFormatting("handwriting")`)**: 未显式划选具体字词时，默认直接切换整张卡片 `d.fontStyle = "handwriting"`，首行及全卡内容均统一呈现手写体；
+  - **双工作区 CSS 样式补齐**: 在 `index.css` 中为 `#rich-editor.is-handwriting` 和 `#preview-panel.is-handwriting` 注入字体声明。
 - **Ironclad Node Isolation Engine & Zero Cross-Contamination Guard (v3.9.12 严格节点上下文隔离引擎与跨卡片防串台防污染装甲)**:
   - **根除 A 节点编辑内容向 B 节点泄漏污染恶疾**: 彻底修复在 A 节点聚焦编辑复杂表格后点击画布切换到 B 节点时，因 SVG 元素不转移 DOM 焦点导致 `renderEditor()` 跳过 DOM 更新、进而将 A 节点残留内容覆写至 B 节点的重大缺陷；
   - **显式承载节点 ID 跟踪 (`editorActiveNodeId`)**: 绑定编辑器当前物理承载节点 ID 全局状态，作为富文本与 Markdown 输入区域的单一真理源；

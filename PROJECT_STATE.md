@@ -1,8 +1,14 @@
-# Project State: FlowNotes (v3.9.12)
+# Project State: FlowNotes (v3.9.13)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.12`
+- **Current Version**: `v3.9.13`
 - **Latest Releases**:
+  - `v3.9.13`:
+    - **Permanent Handwriting Typography & Anti-Title-Wipe Engine (v3.9.13 永久手写体字形保持体系与标题纯文本防冲刷引擎)**:
+      - **根除变手写体失效与“过一会儿变回印刷体”恶疾**: 修复因 `commitCurrentEditorToSelectedNode()` 无条件将 `titleInput.value` 的剥除格式纯文本覆写回 `targetNode.label`，导致卡片富文本标签与手写体在自动保存时被冲刷洗净的严重缺陷；
+      - **脏标记防护 (`isTitleInputDirty`)**: 引入状态追踪，仅当用户手动在 `#title-input` 中键入时才允许更新 `targetNode.label`，其余情况绝对禁止冲刷富文本卡片；
+      - **整卡手写体一键切换 (`applyFormatting("handwriting")`)**: 未显式划选具体字词时，默认直接切换整张卡片 `d.fontStyle = "handwriting"`，首行及全卡内容均统一呈现手写体；
+      - **双工作区 CSS 样式补齐**: 在 `index.css` 中为 `#rich-editor.is-handwriting` 和 `#preview-panel.is-handwriting` 注入字体声明。
   - `v3.9.12`:
     - **Ironclad Node Isolation Engine & Zero Cross-Contamination Guard (v3.9.12 严格节点上下文隔离引擎与跨卡片防串台防污染装甲)**:
       - **根除 A 节点编辑内容向 B 节点泄漏污染恶疾**: 修复在 A 节点聚焦编辑表格后点击画布切换到 B 节点时，因 SVG 元素不转移焦点导致 `renderEditor()` 跳过 DOM 更新、进而覆写 B 节点内容的恶性缺陷；

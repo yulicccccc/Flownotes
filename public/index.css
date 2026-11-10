@@ -1987,7 +1987,9 @@ html[data-theme="light"] .mini-pill-text {
 .font-handwriting,
 .canvas-note-card.is-handwriting,
 .canvas-note-card.is-handwriting .canvas-note-card-body,
-.canvas-note-card .font-handwriting {
+.canvas-note-card .font-handwriting,
+#rich-editor.is-handwriting,
+#preview-panel.is-handwriting {
     font-family: 'FlowNotesHandwriting', '叶根友散墨手写', 'AaJiandaoshitoubu (Non-Commercial Use)', 'Aa剪刀石头布', 'Kaiti', 'STKaiti', cursive !important;
     letter-spacing: 0.6px;
 }

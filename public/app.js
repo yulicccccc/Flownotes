@@ -43,6 +43,7 @@ let isInkDrawMode = false;
 let currentInkTool = "red"; // "red" | "green" | "highlighter" | "sky" | "eraser"
 let selectedNode = null;
 let editorActiveNodeId = null; // v3.9.12 核心防线：严格记录富文本/Markdown 编辑器当前实际承载绑定的节点 ID，杜绝跨节点数据污染与串台覆盖！
+let isTitleInputDirty = false; // v3.9.13 核心防线：标记标题输入框是否被用户真正修改过，严禁无格式纯文本冲刷覆盖富文本卡片标题！
 let selectedNodeIds = new Set();
 let layoutMode = "free"; // 默认使用自由空间白板模式 ("free"，允许笔记放到一坨自由摆放)，按 M 键可一键整理为 XMind 树状结构
 let ghSyncTimer = null;
@@ -184,11 +185,14 @@ function commitCurrentEditorToSelectedNode() {
     const noteWorkspace = document.getElementById("note-workspace");
     const previewMode = noteWorkspace ? noteWorkspace.dataset.previewMode : "live";
 
-    if (titleInput && !titleInput.disabled) {
+    // v3.9.13 核心防线：唯有当用户明确在标题输入框中键入了新字符 (isTitleInputDirty) 时，才更新 targetNode.label！
+    // 严禁将 titleInput 中被 stripFormattingToPlainText 剥除格式后的纯文本覆写卡片，彻底终结手写体、高亮、下划线被冲刷抹平的缺陷！
+    if (titleInput && !titleInput.disabled && isTitleInputDirty) {
         const val = titleInput.value.trim();
         if (val) {
             targetNode.label = val;
         }
+        isTitleInputDirty = false;
     }
 
     if (previewMode === "edit" && mdTextarea) {
@@ -319,7 +323,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.12 loaded — Ironclad Node Isolation Engine & Zero Cross-Contamination Guard"); // console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
+    console.log("[FlowNotes] v3.9.13 loaded — Permanent Handwriting Typography & Anti-Title-Wipe Engine"); // console.log("[FlowNotes] v3.9.12 loaded — Ironclad Node Isolation Engine & Zero Cross-Contamination Guard"); // console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -4356,6 +4360,7 @@ function initEvents() {
     });
 
     titleInput.addEventListener("input", (e) => {
+        isTitleInputDirty = true;
         if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
         selectedNode.label = titleInput.value.trim() || (selectedNode.isImage ? "图片" : "未命名");
         if (selectedNode.isImage && selectedNode.imageUrl) {
@@ -5293,8 +5298,9 @@ function applyFormatting(format, customVal = "") {
         : null;
     const inRichEditor = !!(richEditor && (previewMode === "live") && sel && sel.anchorNode && richEditor.contains(sel.anchorNode));
 
-    // v3.9.10: 若在编辑区内且光标单点折叠，智能扩展到光标所在单词，防止误触发卡片级加粗与重绘清空
-    if ((activeInlineBody || inRichEditor) && sel && sel.rangeCount > 0 && sel.isCollapsed) {
+    // v3.9.10 / v3.9.13: 仅在执行粗体操作 (format === "bold") 且光标单点折叠时，才智能扩展当前单词；
+    // 严禁对手写体 (handwriting) 等整体卡片格式误扩选单字，防止将卡片手写体降级为单字局部手写体！
+    if ((activeInlineBody || inRichEditor) && sel && sel.rangeCount > 0 && sel.isCollapsed && format === "bold") {
         expandSelectionToWord(sel);
     }
 
@@ -5377,7 +5383,24 @@ function applyFormatting(format, customVal = "") {
     // 分支 1：划词局部格式化 —— 仅改变被选中的具体字词 (v3.6.1 支持全部 6 色字体颜色与多色荧光高亮笔)
     if (isInlineWordFormatting) {
         switch (format) {
-            case "handwriting":
+            case "handwriting": {
+                // v3.9.13 核心修复：若在画布卡片上未显式划选大块具体字词，用户意图为直接将整张卡片切换为灵感批注手写体！
+                if (!hasTextRange && (activeInlineBody || selectedNode)) {
+                    const grp = activeInlineBody ? activeInlineBody.closest(".node-group") : null;
+                    const d = grp ? d3.select(grp).datum() : selectedNode;
+                    if (d) {
+                        d.fontStyle = (d.fontStyle === "handwriting" ? "" : "handwriting");
+                        const cardDiv = grp ? d3.select(grp).select(".canvas-note-card") : null;
+                        if (cardDiv && !cardDiv.empty()) {
+                            cardDiv.classed("is-handwriting", d.fontStyle === "handwriting");
+                        }
+                        refreshNodeStyles();
+                        renderEditor();
+                        scheduleSaveGraph(true);
+                        showToast(d.fontStyle === "handwriting" ? "✍️ 已将卡片切换为灵感批注手写体" : "已恢复默认印刷字体");
+                    }
+                    return;
+                }
                 const range = sel.getRangeAt(0);
                 let container = range.commonAncestorContainer;
                 if (container.nodeType === 3) container = container.parentElement;
@@ -5400,6 +5423,7 @@ function applyFormatting(format, customVal = "") {
                     }
                 }
                 break;
+            }
             case "bold": {
                 const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
                 if (range && activeInlineBody && activeInlineBody.getAttribute("contenteditable") !== "true") {
@@ -6166,6 +6190,7 @@ function renderEditor() {
 
         if (titleInput && (isNodeSwitched || document.activeElement !== titleInput)) {
             titleInput.value = stripFormattingToPlainText(selectedNode.label);
+            isTitleInputDirty = false;
         }
         if (titleInput) titleInput.disabled = false;
         if (mdTextarea && (isNodeSwitched || document.activeElement !== mdTextarea)) {
