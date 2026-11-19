@@ -20,6 +20,13 @@ echo [1/2] Connecting to Cloudflare...
 set PATH=%~dp0node;%PATH%
 set CLOUDFLARE_ACCOUNT_ID=c7507f82f5078e81f58c2fcc1e7bfbdb
 
+:: Ensure Wrangler OAuth token exists locally before deploying
+if not exist "%APPDATA%\xdg.config\.wrangler\config\default.toml" (
+    echo [INFO] First-time Cloudflare login on this PC...
+    call .\node\npx.cmd --yes wrangler login
+)
+
+echo [2/2] Deploying public/ to Cloudflare Pages...
 :: Run wrangler deploy
 call .\node\npx.cmd --yes wrangler pages deploy public --project-name flownotes --branch main
 
