@@ -1,4 +1,5 @@
 node/
+.wrangler/
 *.log
 .DS_Store
 scratch/
