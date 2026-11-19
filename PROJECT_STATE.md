@@ -1,8 +1,16 @@
-# Project State: FlowNotes (v3.9.13)
+# Project State: FlowNotes (v4.0.0)
 
 ## Current Version & Status
-- **Current Version**: `v3.9.13`
+- **Current Version**: `v4.0.0`
+- **Permanent Quality Gate**: `python -u tests/fortress_regression.py` (30/30 Playwright Chromium tests passing, enforced via `AGENTS.md`)
 - **Latest Releases**:
+  - `v4.0.0`:
+    - **Core Integrity Fortress Architecture (四大核心引擎全链路加固与 30 场景自动化回归堡垒)**:
+      - **Title/Node Isolation**: 修复 `sanitizeGraph` 正文劫持标题、表格/图片编辑删光 `# H1-H4` 标题、多行标题捏造幽灵正文、复选框 DOM 抖动吞点击与双重触发；
+      - **Note Details Fortress**: 全通道脏标记 (`isTitleInputDirty` / `isRichEditorDirty` / `isMdTextareaDirty`)、纯只读 `renderEditor`、Live↔Markdown 切换提交同步、跨节点表格工具栏隔离、多图谱切换与 Undo/Redo 活体节点重绑及独立历史栈、IME 作用域隔离；
+      - **Arrows/Links Fortress**: `getLinkCoords` 实时活体解析、D3 子交互元素全量活体引用重绑、`reverseSelectedLink` 树状与关系箭头全支持且保留线型/关系词、点卡片清除选中态、隐藏节点防吸附、`isNodeDescendantOf` 防环路守卫；
+      - **Formatting Fortress**: Base64 `==` 图片免疫保护、`<mark>` 多色荧光高亮无损往返零膨胀、单行内联正则防 `*` 撕裂表格、复合样式无损叠加、表格单元格 `<br>` 软换行保留、`blockquote` 双向解析、画布未划词格式化智能回落整卡、表格单元格内格式化持久化；
+      - **Automated Regression Gate**: 建立 `tests/fortress_regression.py` (30 tests) 与 `AGENTS.md` 硬门禁。
   - `v3.9.13`:
     - **Permanent Handwriting Typography & Anti-Title-Wipe Engine (v3.9.13 永久手写体字形保持体系与标题纯文本防冲刷引擎)**:
       - **根除变手写体失效与“过一会儿变回印刷体”恶疾**: 修复因 `commitCurrentEditorToSelectedNode()` 无条件将 `titleInput.value` 的剥除格式纯文本覆写回 `targetNode.label`，导致卡片富文本标签与手写体在自动保存时被冲刷洗净的严重缺陷；

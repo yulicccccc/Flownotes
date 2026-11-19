@@ -1,4 +1,4 @@
-const CACHE_NAME = "flownotes-cache-v3.9.13";
+const CACHE_NAME = "flownotes-cache-v4.0.0";
 const CORE_ASSETS = [
   "/",
   "/index.html",

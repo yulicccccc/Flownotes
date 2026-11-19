@@ -2,6 +2,35 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v4.0.0] - 2026-11-19
+
+### 🏰 核心数据契约重构、四大引擎全链路加固与 30 场景自动化回归堡垒 (Core Integrity Fortress Architecture)
+针对历史反复出现“标题/节点、笔记详情、箭头连线、富文本格式按下葫芦浮起瓢”的顽疾，开展全代码库深度地毯式审计，一次性根除 **29 处深层结构性缺陷**，并建立永久性自动化回归测试门禁 (`tests/fortress_regression.py` + `AGENTS.md`)：
+
+#### 1. 标题 / 节点绝对解耦 (Title & Node Isolation)
+- **彻底封杀标题被正文劫持 (`sanitizeGraph`)**：修复加载/切换图谱时只要正文首行以标题开头（如标题 `Observation`，正文首行 `Observation: ...`）就把整段正文覆写进标题的缺陷；仅对历史 `...` 截断标题执行恢复。
+- **彻底废除标题/表格/图片编辑删光正文标题 (`replaceTableInNoteContent` & `updateImageAltInNoteContent`)**：清除 4 处暴力正则 `.replace(/^#{1,4}\s+[^\n]*/gm, "")` 与重命名篡改正文首行 `# H1` 的毁灭性代码；画布原地编辑表格、粘贴表格、点击 `[➕行]`/`[➖行]` 或修改图片标题时，100% 保留笔记内所有 `#`/`##`/`###` 标题与前后正文。
+- **消除画布多行标题捏造幽灵正文 & 复选框 DOM 抖动吞点击**：`syncFromInlineCard` 不再把多行纯标题复制进空 `content`；`refreshNodeStyles` 改为缓存 `_lastRenderedTargetHTML` 比对，彻底根除从右侧编辑器直接点击画布 To-Do 复选框时因 `focusout` 重建 DOM 导致点击失效的隐蔽缺陷，并消除 `click`+`change` 双重触发。
+
+#### 2. 笔记详情零丢失、零串台与双模式同步 (Note Details Fortress)
+- **全通道脏标记守门 (`isTitleInputDirty` / `isRichEditorDirty` / `isMdTextareaDirty`)**：`commitCurrentEditorToSelectedNode()` 仅提交真正被用户编辑过的控件，严禁未编辑 DOM 反向覆盖画布更新后的最新数据；`renderEditor()` 回归纯函数只读投影，不再在渲染阶段暗中删改 `selectedNode.content`。
+- **修复「所见即所得」↔「Markdown 原码」切换丢修改**：切换模式前先提交当前修改，切换后立即无损刷新目标视图。
+- **修复跨节点表格工具栏串台 (`syncEditorDOMFromModel`)**：选中节点 A 时点击节点 B 卡片上的 `[➕行]`/`[➖行]` 绝不再污染节点 A 的编辑器。
+- **修复同 ID 多图谱切换 (`root_1`)、云端恢复与 Undo/Redo 错乱 (`resetEditorBindingState`)**：切图谱时重置编辑器绑定态与图谱专属 `historyStack`（杜绝在图谱 B 按 `Ctrl+Z` 还原出图谱 A）；Undo/Redo 精准重绑活体 `selectedNode` 并刷新编辑器；中文输入法 `compositionend` 严格限定仅在右侧面板触发，绝不干扰画布打字。
+
+#### 3. 箭头 / 连线零脱离、全方向反转与防死循环 (Arrows & Links Fortress)
+- **活体节点实时坐标解析 (`getLinkCoords`) & 历史栈纯净存储 (`pushHistory`)**：无论传入字符串 ID 还是 Undo/Redo 恢复，箭头两端始终锚定活体节点边缘，彻底消除箭头飞向 `(0,0)` 或脱离卡片的问题。
+- **全量重绑 D3 子交互元素活体引用 (`refreshNodeStyles`)**：将最新节点引用重新绑定至 `cardDiv`、`.node-connect-port`、`.node-fold-badge`、`.node-quick-add-btn`、`.card-resize-handle`，根除 Undo/云同步后拉线、折叠、加子卡失效。
+- **完善箭头反转、删除、插卡与防环路**：`reverseSelectedLink()` 完整支持树状箭头（无损迁移 `arrowStyle` 与 `edgeLabel`）与关系箭头（`linkDataKey` 升级为有向 `relation:s->t`）；`deleteSelectedLink()` 清理残留 `edgeLabel`/`arrowStyle`；点卡片即时清除箭头蓝色选中态；`endPortConnectDrag()` 严格过滤隐藏折叠节点；`insertNodeOnSelectedLink()` 初始化纯净空正文并继承线型；`isNodeDescendantOf()` 增设 `visited` 防死循环锁。
+
+#### 4. 富文本格式全链路无损往返 (Formatting Fortress)
+- **根除两张 Base64 图片末尾 `==` 触发高亮正则炸毁笔记**：`renderMarkdownToHTML` 优先抽离保护所有 `![alt](src)` 图片占位符后再解析内联语法，100% 免疫任何符号干扰。
+- **消除高亮 `==text==` 无限嵌套 `<span style="color:rgb(133, 77, 14)">` 膨胀 & 恢复真 6 色荧光笔**：移除 `index.css` 中 `mark` 的 `!important` 霸权，保留 `<mark style="background-color:#hex">` 真实色值；内联 `*`/`**`/`==`/`~~`/`` ` `` 严格限制单行匹配，防止零星乘号 `p * 0.05` 跨段落撕裂表格。
+- **复合格式叠加、表格软换行、引用与智能行内/整卡分流**：`serializeCardLabelFromHTML` 全面支持粗体+颜色/手写体/高亮任意组合叠加；表格单元格内 `<br>` 软换行保存不坍塌；补齐 `blockquote` 双向解析；画布卡片光标未划词时点击标色/粗体/手写体直接生效于整卡（不再插入空 `<span></span>`）；画布卡片表格单元格内划词加粗/标色与 TSV 粘贴均 100% 同步保存且保留全部笔记正文；行内清除格式同步剥离手写体与 `<mark>`。
+
+#### 5. 永久自动化回归门禁 (`tests/fortress_regression.py` + `AGENTS.md`)
+- 内置 **30 项端到端 Playwright 自动化回归断言**，覆盖全部四大核心支柱，任何后续改动必须 **30/30 全绿通过**方可提交上线。
+
 ## 🚀 [v3.9.13] - 2026-11-09
 
 ### ✍️ 永久手写体字形保持体系与标题纯文本防冲刷引擎 (Permanent Handwriting Typography & Anti-Title-Wipe Engine)

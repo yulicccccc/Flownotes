@@ -44,6 +44,94 @@ let currentInkTool = "red"; // "red" | "green" | "highlighter" | "sky" | "eraser
 let selectedNode = null;
 let editorActiveNodeId = null; // v3.9.12 核心防线：严格记录富文本/Markdown 编辑器当前实际承载绑定的节点 ID，杜绝跨节点数据污染与串台覆盖！
 let isTitleInputDirty = false; // v3.9.13 核心防线：标记标题输入框是否被用户真正修改过，严禁无格式纯文本冲刷覆盖富文本卡片标题！
+let isRichEditorDirty = false; // v4.0.0 核心防线：标记右侧富文本编辑器是否有未提交修改，严禁未编辑 DOM 反向冲刷底层数据！
+let isMdTextareaDirty = false; // v4.0.0 核心防线：标记 Markdown 原码框是否有未提交修改，严禁静默覆盖！
+
+// v4.0.0 核心状态契约辅助器：统一重置编辑器绑定态与脏标记
+function resetEditorBindingState() {
+    editorActiveNodeId = null;
+    isTitleInputDirty = false;
+    isRichEditorDirty = false;
+    isMdTextareaDirty = false;
+    window._lastActiveTableCell = null;
+    window._lastActiveTableTr = null;
+    window._lastActiveTable = null;
+}
+
+// v4.0.0 精准表格局部替换器：仅替换笔记中的 Markdown 表格块，100% 保留表格前后的所有标题 (#/##/###) 与正文！
+function replaceTableInNoteContent(existingContent, newTableMd) {
+    const cleanNew = (newTableMd || "").trim();
+    const lines = String(existingContent || "").replace(/\r\n/g, "\n").split("\n");
+    let startIdx = -1;
+    let endIdx = -1;
+    for (let i = 0; i < lines.length - 1; i++) {
+        const l1 = lines[i];
+        const l2 = lines[i + 1];
+        if (l1.includes("|") && !l1.trim().startsWith("#") && /^\|?(\s*:?-+:?\s*\|?)+\s*$/.test(l2.trim()) && l2.includes("-")) {
+            startIdx = i;
+            let j = i + 2;
+            while (j < lines.length && lines[j].trim() && lines[j].includes("|") && !/^#{1,6}\s/.test(lines[j].trim())) {
+                j++;
+            }
+            endIdx = j;
+            break;
+        }
+    }
+    if (startIdx !== -1) {
+        const before = lines.slice(0, startIdx).join("\n").trimEnd();
+        const after = lines.slice(endIdx).join("\n").trimStart();
+        const parts = [];
+        if (before) parts.push(before);
+        if (cleanNew) parts.push(cleanNew);
+        if (after) parts.push(after);
+        return parts.join("\n\n").trim();
+    }
+    const base = String(existingContent || "").trim();
+    if (!cleanNew) return base;
+    return base ? `${base}\n\n${cleanNew}` : cleanNew;
+}
+
+// v4.0.0 精准图片标题替换器：仅原地更新图片 Markdown 的 alt 描述，绝不破坏笔记中的任何标题与正文！
+function updateImageAltInNoteContent(existingContent, imageUrl, newPlainLabel) {
+    const safeAlt = (newPlainLabel || "图片").replace(/[\[\]]/g, "");
+    const raw = String(existingContent || "");
+    if (!imageUrl) return raw;
+    const escapedUrl = imageUrl.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const imgRegex = new RegExp(`!\\[[^\\]]*\\]\\(\\s*${escapedUrl}\\s*\\)`);
+    if (imgRegex.test(raw)) {
+        return raw.replace(imgRegex, `![${safeAlt}](${imageUrl})`);
+    }
+    const trimmed = raw.trim();
+    return trimmed ? `![${safeAlt}](${imageUrl})\n\n${trimmed}` : `![${safeAlt}](${imageUrl})`;
+}
+
+// v4.0.0 安全单向投影：仅当编辑器正绑定目标节点时，将底层模型同步刷新到编辑器 DOM，绝不跨节点串台！
+function syncEditorDOMFromModel(node) {
+    if (!node || !selectedNode || selectedNode.id !== node.id || editorActiveNodeId !== node.id) return;
+    const titleInput = document.getElementById("title-input");
+    const mdTextarea = document.getElementById("md-textarea");
+    const richEditor = document.getElementById("rich-editor");
+    const previewPanel = document.getElementById("preview-panel");
+    const content = node.content || "";
+    if (titleInput && document.activeElement !== titleInput) {
+        titleInput.value = stripFormattingToPlainText(node.label);
+        isTitleInputDirty = false;
+    }
+    if (mdTextarea && document.activeElement !== mdTextarea) {
+        mdTextarea.value = content;
+        isMdTextareaDirty = false;
+    }
+    const isRichFocused = richEditor && (document.activeElement === richEditor || richEditor.contains(document.activeElement));
+    if (richEditor && !isRichFocused) {
+        let renderedHtml = renderMarkdownToHTML(content);
+        if (renderedHtml.endsWith("</div>")) renderedHtml += "<div><br></div>";
+        richEditor.innerHTML = renderedHtml;
+        isRichEditorDirty = false;
+    }
+    if (previewPanel) {
+        previewPanel.innerHTML = renderMarkdownToHTML(content);
+    }
+}
 let selectedNodeIds = new Set();
 let layoutMode = "free"; // 默认使用自由空间白板模式 ("free"，允许笔记放到一坨自由摆放)，按 M 键可一键整理为 XMind 树状结构
 let ghSyncTimer = null;
@@ -195,14 +283,17 @@ function commitCurrentEditorToSelectedNode() {
         isTitleInputDirty = false;
     }
 
-    if (previewMode === "edit" && mdTextarea) {
+    // v4.0.0 脏标记守门：唯有用户在编辑器中真正修改过内容 (isMdTextareaDirty / isRichEditorDirty) 时才提交，严禁未编辑 DOM 反向覆盖画布/模型最新数据！
+    if (previewMode === "edit" && mdTextarea && isMdTextareaDirty) {
         targetNode.content = mdTextarea.value;
-    } else if (richEditor && document.body.contains(richEditor)) {
+        isMdTextareaDirty = false;
+    } else if (previewMode !== "edit" && richEditor && document.body.contains(richEditor) && isRichEditorDirty) {
         if (typeof htmlToSafeMarkdown === "function") {
             const md = htmlToSafeMarkdown(richEditor.innerHTML);
             targetNode.content = md;
             if (mdTextarea) mdTextarea.value = md;
         }
+        isRichEditorDirty = false;
     }
 }
 
@@ -269,7 +360,8 @@ let historyRedoStack = [];
 const MAX_HISTORY = 50;
 
 function pushHistory() {
-    const snapshot = JSON.stringify({ nodes, links, inkStrokes });
+    const cleanSnapshotLinks = (typeof cleanLinks === "function") ? cleanLinks() : links;
+    const snapshot = JSON.stringify({ nodes, links: cleanSnapshotLinks, inkStrokes });
     if (historyStack.length === 0 || historyStack[historyStack.length - 1] !== snapshot) {
         historyStack.push(snapshot);
         if (historyStack.length > MAX_HISTORY) historyStack.shift();
@@ -302,15 +394,25 @@ function redo() {
 
 function restoreSnapshot(snapshotStr) {
     try {
+        const prevSelectedId = selectedNode ? selectedNode.id : null;
+        resetEditorBindingState();
+        selectedLink = null;
         const data = JSON.parse(snapshotStr);
         nodes = data.nodes || [];
         links = data.links || [];
         inkStrokes = Array.isArray(data.inkStrokes) ? data.inkStrokes : [];
+        sanitizeGraph();
+        selectedNode = (prevSelectedId && nodes.find(n => n.id === prevSelectedId)) || nodes[0] || null;
+        selectedNodeIds = selectedNode ? new Set([selectedNode.id]) : new Set();
         saveGraphToStorage(false);
         if (layoutMode === "tree") tidyLayout();
         else updateD3Graph();
+        renderPositions();
         renderEditor();
-    } catch (e) {}
+        updateFloatingActionBarsPosition();
+    } catch (e) {
+        console.error("[FlowNotes] restoreSnapshot failed:", e);
+    }
 }
 
 // 安全解析 Link 坐标
@@ -323,7 +425,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v3.9.13 loaded — Permanent Handwriting Typography & Anti-Title-Wipe Engine"); // console.log("[FlowNotes] v3.9.12 loaded — Ironclad Node Isolation Engine & Zero Cross-Contamination Guard"); // console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
+    console.log("[FlowNotes] v4.0.0 loaded — Core Integrity Fortress Engine (Atomic Title/Note Isolation, Live Arrow Engine & Lossless Formatting)"); // console.log("[FlowNotes] v3.9.12 loaded — Ironclad Node Isolation Engine & Zero Cross-Contamination Guard"); // console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -553,6 +655,8 @@ function initStorage() {
 
 
 function loadMapData(mapId) {
+    resetEditorBindingState();
+    selectedLink = null;
     activeMapId = mapId;
     safeLocalStorageSet("flownotes_active_map_id", activeMapId);
 
@@ -644,7 +748,7 @@ function linkDataKey(link) {
     const s = cleanNodeId(link.source);
     const t = cleanNodeId(link.target);
     return link.type === "relation"
-        ? `relation:${[s, t].sort().join("::")}`
+        ? `relation:${s}->${t}`
         : `tree:${s}->${t}`;
 }
 
@@ -724,15 +828,18 @@ function sanitizeGraph() {
             delete n.customHeight;
         }
 
-        // v3.8.6 自动无损修复旧版被截断的标题：仅当 label 没有任何行内富文本样式且未被用户单独修改时才从 content 恢复更长标题，绝对杜绝用无格式 content 冲掉 label 的行内标色与划词格式
+        // v4.0.0 严格标题隔离：仅针对历史遗留以 "..." 截断的旧标题执行自愈恢复，绝不将正常简短标题（如 Observation）替换为正文首段！
         if (n.content && typeof n.content === "string") {
             const fullFirstLine = n.content.split("\n")[0].replace(/^#{1,4}\s+/, "").trim();
             const rawLabel = n.label || "";
             const labelHasStyle = rawLabel.includes("<span") || rawLabel.includes("<font") || rawLabel.includes("<mark") || rawLabel.includes("==") || rawLabel.includes("**");
             const plainLabel = stripFormattingToPlainText(rawLabel);
-            const plainFirst = stripFormattingToPlainText(fullFirstLine);
-            if (!labelHasStyle && plainLabel && plainFirst.startsWith(plainLabel) && plainFirst.length > plainLabel.length) {
-                n.label = fullFirstLine;
+            if (!labelHasStyle && plainLabel && plainLabel.endsWith("...") && fullFirstLine && !fullFirstLine.startsWith("![") && !fullFirstLine.startsWith("|")) {
+                const stem = plainLabel.slice(0, -3).trim();
+                const plainFirst = stripFormattingToPlainText(fullFirstLine);
+                if (stem && plainFirst.startsWith(stem) && plainFirst.length > plainLabel.length) {
+                    n.label = fullFirstLine;
+                }
             }
         }
 
@@ -1541,10 +1648,15 @@ function getRectEdgePoint(cx, cy, halfW, halfH, dx, dy) {
 
 // 计算连接线两端坐标：精确从父卡片边缘出发，在子卡片外边缘收尾，保证有向箭头 100% 显式可见且随拖动自动伸缩
 function getLinkCoords(d) {
-    const sxCenter = Number.isFinite(d.source.x) ? d.source.x : 0;
-    const syCenter = Number.isFinite(d.source.y) ? d.source.y : 0;
-    const txCenter = Number.isFinite(d.target.x) ? d.target.x : 0;
-    const tyCenter = Number.isFinite(d.target.y) ? d.target.y : 0;
+    const sId = cleanNodeId(d.source);
+    const tId = cleanNodeId(d.target);
+    const srcNode = (Array.isArray(nodes) && nodes.find(n => n.id === sId)) || (typeof d.source === "object" ? d.source : null);
+    const tgtNode = (Array.isArray(nodes) && nodes.find(n => n.id === tId)) || (typeof d.target === "object" ? d.target : null);
+
+    const sxCenter = (srcNode && Number.isFinite(srcNode.x)) ? srcNode.x : 0;
+    const syCenter = (srcNode && Number.isFinite(srcNode.y)) ? srcNode.y : 0;
+    const txCenter = (tgtNode && Number.isFinite(tgtNode.x)) ? tgtNode.x : 0;
+    const tyCenter = (tgtNode && Number.isFinite(tgtNode.y)) ? tgtNode.y : 0;
 
     const dx = txCenter - sxCenter;
     const dy = tyCenter - syCenter;
@@ -1554,10 +1666,10 @@ function getLinkCoords(d) {
     }
 
     const isBidi = d.arrowStyle === "bidirectional";
-    const sHalfW = ((d.source && d.source._cardW) ? d.source._cardW : 120) / 2 + (isBidi ? 7 : 2);
-    const sHalfH = ((d.source && d.source._cardH) ? d.source._cardH : 40) / 2 + (isBidi ? 7 : 2);
-    const tHalfW = ((d.target && d.target._cardW) ? d.target._cardW : 120) / 2 + 7;
-    const tHalfH = ((d.target && d.target._cardH) ? d.target._cardH : 40) / 2 + 7;
+    const sHalfW = ((srcNode && srcNode._cardW) ? srcNode._cardW : 120) / 2 + (isBidi ? 7 : 2);
+    const sHalfH = ((srcNode && srcNode._cardH) ? srcNode._cardH : 40) / 2 + (isBidi ? 7 : 2);
+    const tHalfW = ((tgtNode && tgtNode._cardW) ? tgtNode._cardW : 120) / 2 + 7;
+    const tHalfH = ((tgtNode && tgtNode._cardH) ? tgtNode._cardH : 40) / 2 + 7;
 
     const startPt = getRectEdgePoint(sxCenter, syCenter, sHalfW, sHalfH, dx, dy);
     const endPt = getRectEdgePoint(txCenter, tyCenter, tHalfW, tHalfH, -dx, -dy);
@@ -1646,52 +1758,56 @@ function serializeCardLabelFromHTML(html) {
             const isUnderlineNode = tag === "u" || (node.style && node.style.textDecoration && node.style.textDecoration.includes("underline"));
             const isStrikeNode = tag === "s" || tag === "del" || tag === "strike" || (node.style && node.style.textDecoration && node.style.textDecoration.includes("line-through"));
 
+            // v4.0.0 全复合样式无损叠加：绝不提前 return，完美保留 粗体+颜色 / 粗体+手写体 / 荧光高亮+颜色 等任意组合！
             let formatted = inner;
+            if (tag === "code") formatted = `\`${formatted}\``;
             if (isBoldNode) formatted = `**${formatted}**`;
             if (isItalicNode) formatted = `*${formatted}*`;
             if (isUnderlineNode) formatted = `<u>${formatted}</u>`;
             if (isStrikeNode) formatted = `~~${formatted}~~`;
-            if (tag === "code") formatted = `\`${formatted}\``;
-            if (isBoldNode || isItalicNode || isUnderlineNode || isStrikeNode || tag === "code") return formatted;
-
-            // 背景荧光高亮 (hiliteColor / backColor / mark)
-            if (node.style && node.style.backgroundColor) {
-                const bg = node.style.backgroundColor.toLowerCase();
-                if (bg && bg !== "transparent" && bg !== "inherit" && !bg.includes("rgba(0, 0, 0, 0)")) {
-                    const bgHex = rgbToHex(bg);
-                    return `<mark style="background-color:${bgHex}">${inner}</mark>`;
-                }
-            }
-            if (tag === "mark") {
-                if (node.style && node.style.backgroundColor) {
-                    const bgHex = rgbToHex(node.style.backgroundColor);
-                    return `<mark style="background-color:${bgHex}">${inner}</mark>`;
-                }
-                return `==${inner}==`;
-            }
 
             // 字体标色
             let color = "";
             if (tag === "font" && node.color) {
                 color = node.color;
             } else if (node.style && node.style.color) {
-                color = node.style.color;
+                const cLower = node.style.color.trim().toLowerCase();
+                if (cLower && !["inherit", "initial", "transparent", "currentcolor"].includes(cLower)) {
+                    const hexC = rgbToHex(node.style.color);
+                    // 跳过默认 <mark> 的自动深色字色，仅保留用户显式文字染色
+                    if (!(tag === "mark" && (hexC === "#0f172a" || hexC === "#854d0e"))) {
+                        color = hexC;
+                    }
+                }
             }
             if (color) {
-                const hexColor = rgbToHex(color);
-                return `<span style="color:${hexColor}">${inner}</span>`;
+                formatted = `<span style="color:${rgbToHex(color)}">${formatted}</span>`;
+            }
+
+            // 背景荧光高亮 (hiliteColor / backColor / mark)
+            let appliedHighlight = false;
+            if (node.style && node.style.backgroundColor) {
+                const bg = node.style.backgroundColor.trim().toLowerCase();
+                if (bg && bg !== "transparent" && bg !== "inherit" && bg !== "initial" && !bg.includes("rgba(0, 0, 0, 0)")) {
+                    const bgHex = rgbToHex(bg);
+                    formatted = `<mark style="background-color:${bgHex}">${formatted}</mark>`;
+                    appliedHighlight = true;
+                }
+            }
+            if (!appliedHighlight && tag === "mark") {
+                formatted = `==${formatted}==`;
             }
 
             // 手写批注字体
             if (tag === "span" && node.classList && node.classList.contains("font-handwriting")) {
-                return `<span class="font-handwriting">${inner}</span>`;
+                formatted = `<span class="font-handwriting">${formatted}</span>`;
             }
 
             if (tag === "div" || tag === "p") {
-                return "\n" + inner;
+                return "\n" + formatted;
             }
 
-            return inner;
+            return formatted;
         }
         return "";
     }
@@ -1710,11 +1826,11 @@ function renderCardLabelHTML(text) {
     let cleaned = cleanHTMLSpill(text);
 
     let protectedText = cleaned
-        .replace(/<mark style=["']background-color:\s*([^"'>]+)["']?>/gi, '___MARK_START_$1___')
+        .replace(/<mark style=["']background-color:\s*([^"'>;]+);?["']?>/gi, '___MARK_START_$1___')
         .replace(/<mark>/gi, '___MARK_DEFAULT___')
         .replace(/<\/mark>/gi, '___MARK_END___')
         .replace(/<span class=["']font-handwriting["']>/gi, '___HANDWRITING_START___')
-        .replace(/<span style=["']color:\s*([^"'>]+)["']?>/gi, '___SPAN_START_$1___')
+        .replace(/<span style=["']color:\s*([^"'>;]+);?["']?>/gi, '___SPAN_START_$1___')
         .replace(/<\/span>/gi, '___SPAN_END___')
         .replace(/<u>/gi, '___U_START___')
         .replace(/<\/u>/gi, '___U_END___');
@@ -1939,23 +2055,9 @@ function executeTableAction(act, targetNode, targetTable, targetCell, isFromEdit
             tableMd = htmlToSafeMarkdown(table.outerHTML).trim();
         }
 
-        const otherNotes = (targetNode.content || "")
-            .replace(/^\|[^\n]+\|\s*$/gm, "")
-            .replace(/^[ \t]*\|?(\s*:?-+:?\s*\|?)+\s*$/gm, "")
-            .replace(/^#{1,4}\s+[^\n]*/gm, "")
-            .trim();
-
-        const cleanTitle = stripFormattingToPlainText(targetNode.label || "未命名");
-        if (tableMd) {
-            targetNode.content = `# ${cleanTitle}\n\n${tableMd}` + (otherNotes ? `\n\n${otherNotes}` : "");
-        } else {
-            targetNode.content = `# ${cleanTitle}` + (otherNotes ? `\n\n${otherNotes}` : "");
-        }
-
-        if (mdTextarea) mdTextarea.value = targetNode.content;
-        if (richEditorEl && document.activeElement !== richEditorEl) {
-            richEditorEl.innerHTML = renderMarkdownToHTML(targetNode.content);
-        }
+        // v4.0.0 精准局部替换表格块，100% 保留笔记内所有 H1-H6 标题与前后正文，绝不跨节点污染编辑器！
+        targetNode.content = replaceTableInNoteContent(targetNode.content, tableMd);
+        syncEditorDOMFromModel(targetNode);
     }
 
     // 5. 立即刷新卡片视图并保存 (若当前卡片正在画布原地编辑，避免 updateD3Graph 强行打断破坏编辑上下文)
@@ -2083,8 +2185,9 @@ function refreshNodeStyles() {
                 };
                 const qTagHTML = (d.quickTag && quickTagMap[d.quickTag]) ? quickTagMap[d.quickTag] : "";
                 const targetHTML = (isFocus ? '<span class="card-focus-star">⭐ </span>' : '') + qTagHTML + getCardDisplayHTML(d);
-                if (bodyNode.innerHTML !== targetHTML) {
+                if (bodyNode._lastRenderedTargetHTML !== targetHTML) {
                     bodyNode.innerHTML = targetHTML;
+                    bodyNode._lastRenderedTargetHTML = targetHTML;
                 }
             }
 
@@ -2093,8 +2196,12 @@ function refreshNodeStyles() {
             const hasCustomH = (!!d._userResized || !!d.isImage || !!d._manualHeight) && typeof d.customHeight === "number" && Number.isFinite(d.customHeight) && d.customHeight >= 24;
             const hasCustomFont = typeof d.customFontSize === "number" && Number.isFinite(d.customFontSize) && d.customFontSize >= 8;
 
-            // 关键修复 1：确保所有 8 向缩放手柄 (.card-resize-handle) 实时绑定当前最新的节点数据引用 d，杜绝 IDB 恢复或撤销后引用脱离导致拉动失效！
+            // v4.0.0 关键修复：全量将最新活体节点引用 d 重新绑定到所有子交互元素，彻底终结 Undo/Redo/云同步后拉线、折叠、加子卡、复选框脱离实体的幽灵 Bug！
+            cardDiv.datum(d);
             cardDiv.selectAll(".card-resize-handle").datum(d);
+            group.select(".node-fold-badge").datum(d);
+            group.select(".node-quick-add-btn").datum(d);
+            group.select(".node-connect-port").datum(d);
 
             // 关键修复 2：先放开 foreignObject 容器宽度，避免旧窄宽度锁死内部 inline-block 卡片的扩展与重排测量
             fo.attr("width", hasCustomW ? Math.max(120, d.customWidth + 32) : 980)
@@ -2377,13 +2484,8 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
             const tableNode = tableWrap.matches("table.canvas-card-table") ? tableWrap : (tableWrap.querySelector("table.canvas-card-table") || tableWrap);
             const tableMd = htmlToSafeMarkdown(tableNode.outerHTML || tableWrap.innerHTML || "");
             
-            // 保留原有除表格外的长篇详细笔记 (v3.9.5 严禁机械替换 |，仅剔除真实表格行)
-            const otherNotes = (d.content || "")
-                .replace(/^\|[^\n]+\|\s*$/gm, "")
-                .replace(/^[ \t]*\|?(\s*:?-+:?\s*\|?)+\s*$/gm, "")
-                .replace(/^#{1,4}\s+[^\n]*/gm, "")
-                .trim();
-            d.content = `# ${stripFormattingToPlainText(d.label)}\n\n${tableMd}` + (otherNotes ? `\n\n${otherNotes}` : "");
+            // v4.0.0 精准局部替换表格，100% 保留所有前后正文与各级标题！
+            d.content = replaceTableInNoteContent(d.content, tableMd);
         } else if (imgWrap && d.imageUrl) {
             let titleSourceHtml = "";
             if (titleRow) {
@@ -2398,37 +2500,14 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
                 d.label = "图片";
             }
             const plainLabel = stripFormattingToPlainText(d.label) || "图片";
-            const otherNotes = (d.content || "")
-                .replace(/!\[.*?\]\(.*?\)/g, "")
-                .replace(/^#{1,4}\s+[^\n]*/gm, "")
-                .trim();
-            d.content = `![${plainLabel}](${d.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
+            // v4.0.0 原地更新图片 alt，100% 保留笔记中的各级标题与正文！
+            d.content = updateImageAltInNoteContent(d.content, d.imageUrl, plainLabel);
         } else {
+            // v4.0.0 原子级解耦：画布原地编辑纯文字卡片只更新 d.label，绝不篡改 d.content 的首行 # 标题，也不向空正文捏造重复内容！
             d.label = serializeCardLabelFromHTML(bodyEl.innerHTML);
-            // v3.9.3 核心修复：画布原地编辑只更新卡片标题 d.label，绝不覆盖冲刷用户右侧详细笔记！
-            if (d.content && typeof d.content === "string") {
-                if (/^#{1,2}\s+/.test(d.content)) {
-                    const cLines = d.content.split("\n");
-                    cLines[0] = `# ${stripFormattingToPlainText(d.label)}`;
-                    d.content = cLines.join("\n");
-                }
-            } else if (/\[([ xX])\]/.test(d.label) || d.label.includes("<br>")) {
-                d.content = d.label.replace(/<br\s*\/?>/gi, "\n");
-            }
         }
 
-        const titleInput = document.getElementById("title-input");
-        const mdTextarea = document.getElementById("md-textarea");
-        const richEditor = document.getElementById("rich-editor");
-        if (selectedNode && selectedNode.id === d.id) {
-            if (titleInput) titleInput.value = stripFormattingToPlainText(d.label);
-            if (tableWrap || (imgWrap && d.imageUrl)) {
-                if (mdTextarea) mdTextarea.value = d.content;
-                if (richEditor && document.activeElement !== richEditor) {
-                    richEditor.innerHTML = renderMarkdownToHTML(d.content);
-                }
-            }
-        }
+        syncEditorDOMFromModel(d);
         // 更新卡片自适应宽高与连线端点，并在输入增长触碰邻卡时按 OneNote 直觉自动轻微避让
         const cardEl = cardDiv.node();
         if (cardEl) {
@@ -2765,6 +2844,7 @@ function startInlineCardEdit(d, groupEl, selectAll = false, cursorAtEnd = false,
         bodyEl.removeEventListener("blur", onBlur);
         bodyEl.setAttribute("contenteditable", "false");
         cardDiv.classed("is-editing", false);
+        bodyEl._lastRenderedTargetHTML = null;
         bodyEl.scrollLeft = 0;
         bodyEl.scrollTop = 0;
         syncFromInlineCard();
@@ -2782,7 +2862,9 @@ let connectSourceNode = null;
 
 function startPortConnectDrag(event, d) {
     event.sourceEvent.stopPropagation();
-    connectSourceNode = d;
+    connectSourceNode = resolveAuthoritativeNode(d, this);
+    if (!connectSourceNode) return;
+    d = connectSourceNode;
     const coords = d3.pointer(event.sourceEvent, zoomContainer.node());
     if (!tempConnectLine) {
         tempConnectLine = zoomContainer.append("line")
@@ -2812,8 +2894,10 @@ function endPortConnectDrag(event, d) {
     if (!connectSourceNode) return;
 
     const coords = d3.pointer(event.sourceEvent, zoomContainer.node());
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
     const targetNode = nodes.find(n => {
         if (n.id === connectSourceNode.id) return false;
+        if (!isNodeVisible(n, nodeMap)) return false;
         const hw = (n._cardW || 120) / 2 + 16;
         const hh = (n._cardH || 40) / 2 + 16;
         return Math.abs(coords[0] - n.x) <= hw && Math.abs(coords[1] - n.y) <= hh;
@@ -2934,31 +3018,38 @@ function updateD3Graph() {
         .on("click", (event, d) => {
             event.stopPropagation();
             hideCanvasContextMenu();
+            commitCurrentEditorToSelectedNode();
             selectedLink = d;
             selectedNodeIds.clear();
             selectedNode = null;
             refreshNodeStyles();
             updateD3Graph();
+            renderEditor();
             updateFloatingActionBarsPosition();
         })
         .on("dblclick", (event, d) => {
             event.stopPropagation();
             hideCanvasContextMenu();
+            commitCurrentEditorToSelectedNode();
             selectedLink = d;
             selectedNodeIds.clear();
             selectedNode = null;
             refreshNodeStyles();
             updateD3Graph();
+            renderEditor();
             updateFloatingActionBarsPosition();
             promptEditSelectedLinkLabel();
         })
         .on("contextmenu", (event, d) => {
             event.preventDefault();
             event.stopPropagation();
+            commitCurrentEditorToSelectedNode();
             selectedLink = d;
             selectedNodeIds.clear();
+            selectedNode = null;
             refreshNodeStyles();
             updateD3Graph();
+            renderEditor();
             updateFloatingActionBarsPosition();
         });
 
@@ -2972,11 +3063,13 @@ function updateD3Graph() {
                     .on("click", (event, d) => {
                         event.stopPropagation();
                         hideCanvasContextMenu();
+                        commitCurrentEditorToSelectedNode();
                         selectedLink = d;
                         selectedNodeIds.clear();
                         selectedNode = null;
                         refreshNodeStyles();
                         updateD3Graph();
+                        renderEditor();
                         updateFloatingActionBarsPosition();
                     })
                     .on("dblclick", (event, d) => {
@@ -3037,7 +3130,12 @@ function updateD3Graph() {
                     if (event.target.closest && event.target.closest('[contenteditable="true"]')) return;
                     if (d._dragMoved) return; // 刚刚发生过拖拽位移，不当作点击处理
 
+                    const hadSelectedLink = !!selectedLink;
                     selectedLink = null;
+                    if (hadSelectedLink) {
+                        if (linkElements) linkElements.classed("link-selected", false).style("stroke", l => getLinkColor(l));
+                        if (linkLabelElements) linkLabelElements.classed("is-selected", false);
+                    }
 
                     // 支持 Shift+Click、Ctrl/Cmd+Click 或开启“☑️多选”按钮模式点选多个节点
                     if (event.shiftKey || event.ctrlKey || event.metaKey || isTouchMultiSelectMode) {
@@ -3107,19 +3205,18 @@ function updateD3Graph() {
             const cardDiv = fo.append("xhtml:div")
                 .attr("xmlns", "http://www.w3.org/1999/xhtml")
                 .attr("class", "canvas-note-card")
-                .on("click.todoToggle", function(event, d) {
+                .on("click.todoToggle", function(event) {
                     const cb = event.target && event.target.closest ? event.target.closest(".canvas-todo-checkbox") : null;
                     if (!cb) return;
-                    event.stopPropagation();
-                    const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
-                    toggleNthTaskCheckboxInNode(d, idx, cb.checked);
+                    event.stopPropagation(); // 仅阻止冒泡到卡片编辑，状态切换由 change.todoToggle 单次原子执行
                 })
                 .on("change.todoToggle", function(event, d) {
                     const cb = event.target && event.target.closest ? event.target.closest(".canvas-todo-checkbox") : null;
                     if (!cb) return;
                     event.stopPropagation();
+                    const liveD = resolveAuthoritativeNode(d, this);
                     const idx = parseInt(cb.getAttribute("data-task-index") || "0", 10);
-                    toggleNthTaskCheckboxInNode(d, idx, cb.checked);
+                    toggleNthTaskCheckboxInNode(liveD, idx, cb.checked);
                 });
 
             cardDiv.on("click.noteBadge", function(event, d) {
@@ -3127,6 +3224,8 @@ function updateD3Graph() {
                     if (!badge) return;
                     event.stopPropagation();
                     commitCurrentEditorToSelectedNode();
+                    d = resolveAuthoritativeNode(d, this);
+                    if (!d) return;
                     selectedNode = d;
                     selectedNodeIds = new Set([d.id]);
                     setEditorPanelCollapsed(false);
@@ -3177,9 +3276,9 @@ function updateD3Graph() {
             // 节点折叠 / 展开徽章点按 Badge
             const badge = g.append("g").attr("class", "node-fold-badge")
                 .style("cursor", "pointer")
-                .on("click", (event, d) => {
+                .on("click", function(event, d) {
                     event.stopPropagation();
-                    toggleNodeFold(d);
+                    toggleNodeFold(resolveAuthoritativeNode(d, this));
                 });
             badge.append("circle").attr("class", "fold-circle");
             badge.append("text").attr("class", "fold-text").attr("text-anchor", "middle").attr("dy", "3.5px");
@@ -3187,10 +3286,13 @@ function updateD3Graph() {
             // 右侧一键衍生子卡片按钮 (.node-quick-add-btn)
             const quickAdd = g.append("g").attr("class", "node-quick-add-btn")
                 .attr("title", "点击直接衍生带箭头的子卡片 (等同 Tab 键)")
-                .on("click", (event, d) => {
+                .on("click", function(event, d) {
                     event.stopPropagation();
-                    selectedNode = d;
-                    selectedNodeIds = new Set([d.id]);
+                    commitCurrentEditorToSelectedNode();
+                    const liveD = resolveAuthoritativeNode(d, this);
+                    if (!liveD) return;
+                    selectedNode = liveD;
+                    selectedNodeIds = new Set([liveD.id]);
                     createChildNode();
                 });
             quickAdd.append("circle")
@@ -3249,9 +3351,12 @@ let dropCandidateTargetNode = null;
 function isNodeDescendantOf(nodeId, ancestorId) {
     if (!nodeId || !ancestorId || nodeId === ancestorId) return true;
     const nodeById = new Map(nodes.map(n => [n.id, n]));
+    const visited = new Set([nodeId]);
     let curr = nodeById.get(nodeId);
     while (curr && curr.parentId) {
         if (curr.parentId === ancestorId) return true;
+        if (visited.has(curr.parentId)) return false;
+        visited.add(curr.parentId);
         curr = nodeById.get(curr.parentId);
     }
     return false;
@@ -3310,9 +3415,14 @@ function dragstarted(event, d) {
     } else if (selectedNodeIds.has(d.id) && selectedNodeIds.size > 1) {
         selectedNodeIds.forEach(id => baseDragIds.add(id));
     } else {
+        const hadLink = !!selectedLink;
         selectedNode = d;
         selectedNodeIds = new Set([d.id]);
         selectedLink = null;
+        if (hadLink) {
+            if (linkElements) linkElements.classed("link-selected", false).style("stroke", l => getLinkColor(l));
+            if (linkLabelElements) linkLabelElements.classed("is-selected", false);
+        }
         refreshNodeStyles();
         renderEditor();
         updateFloatingActionBarsPosition();
@@ -3459,9 +3569,12 @@ function dragended(event, d) {
         const btnLayout = document.getElementById("btn-layout");
         if (btnLayout) btnLayout.dataset.active = "false";
     }
+    const didReparent = !!dropCandidateTargetNode;
     clearDropCandidateHighlight();
     dragStartPositions.clear();
-    scheduleSaveGraph(true);
+    if (d._dragMoved || didReparent) {
+        scheduleSaveGraph(true);
+    }
 }
 
 // --- XMind 树状布局模式 (Tidy Layout Engine) ---
@@ -3744,6 +3857,7 @@ function foldNodeBranch(targetNode) {
     if (!targetNode || typeof targetNode !== "object" || !targetNode.id) {
         targetNode = selectedNode;
     }
+    targetNode = resolveAuthoritativeNode(targetNode);
     if (!targetNode) return;
 
     const descCount = getDescendantCount(targetNode.id);
@@ -3770,6 +3884,7 @@ function unfoldNodeBranch(targetNode) {
     if (!targetNode || typeof targetNode !== "object" || !targetNode.id) {
         targetNode = selectedNode;
     }
+    targetNode = resolveAuthoritativeNode(targetNode);
     if (!targetNode) return;
 
     targetNode.collapsed = false;
@@ -3783,6 +3898,7 @@ function toggleNodeFold(targetNode) {
     if (!targetNode || typeof targetNode !== "object" || !targetNode.id) {
         targetNode = selectedNode;
     }
+    targetNode = resolveAuthoritativeNode(targetNode);
     if (!targetNode) return;
     if (targetNode.collapsed) unfoldNodeBranch(targetNode);
     else foldNodeBranch(targetNode);
@@ -4348,11 +4464,18 @@ function initEvents() {
     const mdTextarea = document.getElementById("md-textarea");
     const richEditor = document.getElementById("rich-editor");
 
-    // 全局中文输入法 (IME) 组合状态守卫，彻底解决中文拼音打字与手写输入卡顿
+    // 全局中文输入法 (IME) 组合状态守卫：严格仅当输入目标在右侧笔记面板内时才提交编辑器，绝不干扰画布卡片原地打字！
     document.addEventListener("compositionstart", () => { isImeComposing = true; });
-    document.addEventListener("compositionend", () => {
+    document.addEventListener("compositionend", (e) => {
         isImeComposing = false;
-        if (selectedNode) {
+        const tgt = e.target;
+        const inTitle = !!(titleInput && tgt === titleInput);
+        const inMd = !!(mdTextarea && tgt === mdTextarea);
+        const inRich = !!(richEditor && (tgt === richEditor || richEditor.contains(tgt)));
+        if (selectedNode && (inTitle || inMd || inRich)) {
+            if (inTitle) isTitleInputDirty = true;
+            if (inMd) isMdTextareaDirty = true;
+            if (inRich) isRichEditorDirty = true;
             commitCurrentEditorToSelectedNode();
             refreshNodeStyles();
             scheduleSaveGraph(true);
@@ -4360,35 +4483,29 @@ function initEvents() {
     });
 
     titleInput.addEventListener("input", (e) => {
-        isTitleInputDirty = true;
         if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
+        isTitleInputDirty = true;
         selectedNode.label = titleInput.value.trim() || (selectedNode.isImage ? "图片" : "未命名");
         if (selectedNode.isImage && selectedNode.imageUrl) {
             const plainLabel = stripFormattingToPlainText(selectedNode.label) || "图片";
-            const otherNotes = (selectedNode.content || "")
-                .replace(/!\[.*?\]\(.*?\)/g, "")
-                .replace(/^#{1,4}\s+[^\n]*/gm, "")
-                .trim();
-            selectedNode.content = `![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
-        } else if (selectedNode.content && typeof selectedNode.content === "string") {
-            // v3.9.3 严格隔离：仅当详细笔记显式以 Markdown H1/H2 标题开头时，才同步更新首行 H1 标题；绝不覆盖冲刷用户自写笔记正文！
-            if (/^#{1,2}\s+/.test(selectedNode.content)) {
-                const cLines = selectedNode.content.split("\n");
-                cLines[0] = `# ${stripFormattingToPlainText(selectedNode.label)}`;
-                selectedNode.content = cLines.join("\n");
-            }
+            selectedNode.content = updateImageAltInNoteContent(selectedNode.content, selectedNode.imageUrl, plainLabel);
+            syncEditorDOMFromModel(selectedNode);
         }
+        // v4.0.0 绝对隔离：修改卡片标题绝不篡改或覆盖笔记正文中的任何 # H1/H2 标题与正文内容！
         refreshNodeStyles();
         if (!e.isComposing && !isImeComposing) {
+            isTitleInputDirty = false;
             scheduleSaveGraph(true);
         }
     });
 
     titleInput.addEventListener("blur", () => {
         isImeComposing = false;
-        commitCurrentEditorToSelectedNode();
-        refreshNodeStyles();
-        scheduleSaveGraph(true);
+        if (isTitleInputDirty) {
+            commitCurrentEditorToSelectedNode();
+            refreshNodeStyles();
+            scheduleSaveGraph(true);
+        }
     });
 
     // XMind 风格：标题输入框中 Tab=子节点，Enter=姊妹节点
@@ -4405,39 +4522,50 @@ function initEvents() {
 
     mdTextarea.addEventListener("input", (e) => {
         if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
+        isMdTextareaDirty = true;
         selectedNode.content = mdTextarea.value;
         refreshNodeStyles();
         if (!e.isComposing && !isImeComposing) {
+            isMdTextareaDirty = false;
             scheduleSaveGraph(true);
         }
     });
 
     mdTextarea.addEventListener("blur", () => {
         isImeComposing = false;
-        commitCurrentEditorToSelectedNode();
-        refreshNodeStyles();
-        scheduleSaveGraph(true);
+        if (isMdTextareaDirty) {
+            commitCurrentEditorToSelectedNode();
+            refreshNodeStyles();
+            scheduleSaveGraph(true);
+        }
     });
 
     richEditor.addEventListener("input", (e) => {
         if (!selectedNode || !editorActiveNodeId || selectedNode.id !== editorActiveNodeId) return;
+        isRichEditorDirty = true;
         if ((e.isComposing || isImeComposing) && e.inputType !== "insertFromPaste") return;
         selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
         if (mdTextarea) mdTextarea.value = selectedNode.content;
+        isRichEditorDirty = false;
         refreshNodeStyles();
         scheduleSaveGraph(true);
     });
 
     richEditor.addEventListener("blur", () => {
         isImeComposing = false;
-        commitCurrentEditorToSelectedNode();
-        refreshNodeStyles();
-        scheduleSaveGraph(true);
+        if (isRichEditorDirty) {
+            commitCurrentEditorToSelectedNode();
+            refreshNodeStyles();
+            scheduleSaveGraph(true);
+        }
     });
 
     richEditor.addEventListener("paste", () => {
         isImeComposing = false;
+        const pasteNodeId = editorActiveNodeId;
+        isRichEditorDirty = true;
         setTimeout(() => {
+            if (!pasteNodeId || editorActiveNodeId !== pasteNodeId) return;
             commitCurrentEditorToSelectedNode();
             refreshNodeStyles();
             scheduleSaveGraph(true);
@@ -4448,9 +4576,11 @@ function initEvents() {
         edPanel.addEventListener("focusout", (e) => {
             if (!edPanel.contains(e.relatedTarget)) {
                 isImeComposing = false;
-                commitCurrentEditorToSelectedNode();
-                refreshNodeStyles();
-                scheduleSaveGraph(true);
+                if (isTitleInputDirty || isRichEditorDirty || isMdTextareaDirty) {
+                    commitCurrentEditorToSelectedNode();
+                    refreshNodeStyles();
+                    scheduleSaveGraph(true);
+                }
             }
         });
     }
@@ -4596,8 +4726,29 @@ function initEvents() {
     // 格式化按钮
     document.querySelectorAll(".format-btn[data-preview-mode]").forEach(btn => {
         btn.addEventListener("click", () => {
-            const previewMode = btn.dataset.previewMode;
-            document.getElementById("note-workspace").dataset.previewMode = previewMode;
+            // v4.0.0 切换 所见即所得 <-> Markdown 原码 前先提交当前模式修改，切换后立刻同步刷新目标视图！
+            commitCurrentEditorToSelectedNode();
+            const nextMode = btn.dataset.previewMode;
+            const ws = document.getElementById("note-workspace");
+            if (ws) ws.dataset.previewMode = nextMode;
+            document.querySelectorAll(".format-btn[data-preview-mode]").forEach(b => {
+                b.classList.toggle("active", b.dataset.previewMode === nextMode);
+            });
+            if (selectedNode && editorActiveNodeId === selectedNode.id) {
+                const content = selectedNode.content || "";
+                if (mdTextarea) {
+                    mdTextarea.value = content;
+                    isMdTextareaDirty = false;
+                }
+                if (richEditor) {
+                    let renderedHtml = renderMarkdownToHTML(content);
+                    if (renderedHtml.endsWith("</div>")) renderedHtml += "<div><br></div>";
+                    richEditor.innerHTML = renderedHtml;
+                    isRichEditorDirty = false;
+                }
+                const prevEl = document.getElementById("preview-panel");
+                if (prevEl) prevEl.innerHTML = renderMarkdownToHTML(content);
+            }
         });
     });
 
@@ -5298,15 +5449,28 @@ function applyFormatting(format, customVal = "") {
         : null;
     const inRichEditor = !!(richEditor && (previewMode === "live") && sel && sel.anchorNode && richEditor.contains(sel.anchorNode));
 
-    // v3.9.10 / v3.9.13: 仅在执行粗体操作 (format === "bold") 且光标单点折叠时，才智能扩展当前单词；
-    // 严禁对手写体 (handwriting) 等整体卡片格式误扩选单字，防止将卡片手写体降级为单字局部手写体！
-    if ((activeInlineBody || inRichEditor) && sel && sel.rangeCount > 0 && sel.isCollapsed && format === "bold") {
+    // v4.0.0 智能行内 vs 整卡分流：
+    // 1. 在右侧长笔记 (#rich-editor) 内：点击加粗/斜体/下划线/删除线/标色/高亮时，若光标折叠则自动扩选当前单词，绝不误触发整卡重绘；
+    // 2. 在画布卡片原地编辑 (.canvas-note-card-body) 内：若用户显式划选了字词 (hasTextRange)，则做局部划词格式；若未划选文字（仅光标闪烁），对颜色/粗体/手写体/高亮/清除等整卡视觉属性直接优雅转交整卡分支，彻底消灭插入空 <span></span> 失效的问题！
+    const wordExpandableFormats = new Set([
+        "bold", "italic", "underline", "strike",
+        "highlight", "highlight-color",
+        "color", "color-custom", "color-red", "color-orange", "color-yellow", "color-green", "color-blue", "color-purple"
+    ]);
+    const cardLevelFallthroughFormats = new Set([
+        "bold", "italic", "underline", "strike", "handwriting",
+        "highlight", "highlight-color",
+        "color", "color-custom", "color-red", "color-orange", "color-yellow", "color-green", "color-blue", "color-purple", "clear"
+    ]);
+
+    if (inRichEditor && sel && sel.rangeCount > 0 && sel.isCollapsed && wordExpandableFormats.has(format)) {
         expandSelectionToWord(sel);
     }
 
-    // 核心判定：只要处于富文本编辑区或卡片行内编辑区，全部作为行内/词级格式化处理，绝不回退至整卡破坏性重绘分支
     const hasTextRange = !!(sel && sel.rangeCount > 0 && !sel.isCollapsed && sel.toString().trim().length > 0);
-    const isInlineWordFormatting = !!(activeInlineBody || inRichEditor);
+    const isInlineWordFormatting = inRichEditor
+        ? true
+        : (activeInlineBody ? (hasTextRange || !cardLevelFallthroughFormats.has(format)) : false);
 
     // OneNote 经典待办：若光标位于卡片原地编辑区内，仅在当前行（或所划选的行）切换待办，绝不污染其它行和空行
     if (format === "todo" && activeInlineBody) {
@@ -5460,7 +5624,7 @@ function applyFormatting(format, customVal = "") {
             case "highlight-color": {
                 const customHl = customVal || "#fef08a";
                 const range = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0) : null;
-                if (range && activeInlineBody) {
+                if (range && !range.collapsed) {
                     const mark = document.createElement("mark");
                     mark.style.backgroundColor = customHl;
                     try {
@@ -5471,6 +5635,7 @@ function applyFormatting(format, customVal = "") {
                         range.insertNode(mark);
                     }
                 } else {
+                    if (inRichEditor && richEditor) richEditor.focus();
                     try {
                         if (!document.execCommand("hiliteColor", false, customHl)) {
                             document.execCommand("backColor", false, customHl);
@@ -5518,19 +5683,43 @@ function applyFormatting(format, customVal = "") {
                 }
                 break;
             }
-            case "code":
-                const cRange = sel.getRangeAt(0);
-                const codeEl = document.createElement("code");
-                codeEl.style.cssText = "background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;";
-                cRange.surroundContents(codeEl);
+            case "code": {
+                const cRange = sel && sel.rangeCount > 0 ? sel.getRangeAt(0) : null;
+                if (cRange) {
+                    const codeEl = document.createElement("code");
+                    codeEl.className = "note-inline-code";
+                    try {
+                        cRange.surroundContents(codeEl);
+                    } catch (err) {
+                        const frag = cRange.extractContents();
+                        codeEl.appendChild(frag);
+                        cRange.insertNode(codeEl);
+                    }
+                }
                 break;
+            }
             case "heading": document.execCommand("formatBlock", false, "h1"); break;
             case "quote": document.execCommand("formatBlock", false, "blockquote"); break;
             case "bullet": document.execCommand("insertUnorderedList"); break;
             case "ordered": document.execCommand("insertOrderedList"); break;
-            case "clear":
+            case "clear": {
                 document.execCommand("removeFormat");
+                // 同时清理 execCommand 无法移除的 <span class="font-handwriting"> 与 <mark>
+                if (sel && sel.rangeCount > 0) {
+                    let node = sel.getRangeAt(0).commonAncestorContainer;
+                    if (node && node.nodeType === 3) node = node.parentElement;
+                    const unwrapTags = ["mark", ".font-handwriting"];
+                    unwrapTags.forEach(selector => {
+                        const hit = node && node.closest ? node.closest(selector) : null;
+                        if (hit && ((richEditor && richEditor.contains(hit)) || (activeInlineBody && activeInlineBody.contains(hit)))) {
+                            const p = hit.parentNode;
+                            while (hit.firstChild) p.insertBefore(hit.firstChild, hit);
+                            p.removeChild(hit);
+                        }
+                    });
+                }
                 break;
+            }
             case "link":
                 const url = prompt("请输入链接 URL:", "https://");
                 if (url) document.execCommand("createLink", false, url);
@@ -5571,27 +5760,28 @@ function applyFormatting(format, customVal = "") {
                     }
                 }
                 selectedNode.label = serializeCardLabelFromHTML(titleSourceHtml);
-                if (selectedNode.isImage && selectedNode.imageUrl) {
+                if (tableWrap) {
+                    // v4.0.0: 在画布卡片表格单元格内划词加粗/标色时，同时将更新后的表格无损写回 content！
+                    const tableNode = tableWrap.matches("table.canvas-card-table") ? tableWrap : (tableWrap.querySelector("table.canvas-card-table") || tableWrap);
+                    const tableMd = htmlToSafeMarkdown(tableNode.outerHTML || tableWrap.innerHTML || "");
+                    selectedNode.content = replaceTableInNoteContent(selectedNode.content, tableMd);
+                } else if (selectedNode.isImage && selectedNode.imageUrl) {
                     const plainLabel = stripFormattingToPlainText(selectedNode.label) || "图片";
-                    const otherNotes = (selectedNode.content || "")
-                        .replace(/!\[.*?\]\(.*?\)/g, "")
-                        .replace(/^#{1,4}\s+[^\n]*/gm, "")
-                        .trim();
-                    selectedNode.content = `![${plainLabel}](${selectedNode.imageUrl})` + (otherNotes ? `\n\n${otherNotes}` : "");
-                } else if (selectedNode.content && typeof selectedNode.content === "string") {
-                    if (/^#{1,2}\s+/.test(selectedNode.content)) {
-                        const cLines = selectedNode.content.split("\n");
-                        cLines[0] = `# ${stripFormattingToPlainText(selectedNode.label)}`;
-                        selectedNode.content = cLines.join("\n");
-                    }
+                    selectedNode.content = updateImageAltInNoteContent(selectedNode.content, selectedNode.imageUrl, plainLabel);
                 }
-                if (richEditor) richEditor.innerHTML = renderMarkdownToHTML(selectedNode.content);
+                if (activeInlineBody) activeInlineBody._lastRenderedTargetHTML = null;
+                syncEditorDOMFromModel(selectedNode);
                 refreshNodeStyles();
-            } else if (richEditor) {
+            } else if (richEditor && editorActiveNodeId === selectedNode.id) {
                 selectedNode.content = htmlToSafeMarkdown(richEditor.innerHTML);
+                isRichEditorDirty = false;
+                const mdEl = document.getElementById("md-textarea");
+                if (mdEl) {
+                    mdEl.value = selectedNode.content;
+                    isMdTextareaDirty = false;
+                }
+                refreshNodeStyles();
             }
-            const mdEl = document.getElementById("md-textarea");
-            if (mdEl) mdEl.value = selectedNode.content;
             scheduleSaveGraph(true);
         }
         return;
@@ -5726,6 +5916,8 @@ function applyFormatting(format, customVal = "") {
                 n.isItalic = false;
                 n.isUnderline = false;
                 n.isStrike = false;
+                n.isHighlight = false;
+                delete n.highlightColor;
                 n.fontStyle = "";
                 n.textColor = "";
                 delete n.cardBgColor;
@@ -5746,6 +5938,15 @@ function applyFormatting(format, customVal = "") {
         activeInlineBody.style.fontStyle = selectedNode.isItalic ? "italic" : "";
         activeInlineBody.style.textDecoration = selectedNode.isUnderline ? "underline" : (selectedNode.isStrike ? "line-through" : "");
         activeInlineBody.style.color = selectedNode.textColor || "";
+        const cardEl = activeInlineBody.closest(".canvas-note-card");
+        if (cardEl) {
+            cardEl.classList.toggle("is-handwriting", selectedNode.fontStyle === "handwriting");
+            cardEl.classList.toggle("is-card-bold", !!selectedNode.isBold);
+            cardEl.classList.toggle("is-card-italic", !!selectedNode.isItalic);
+            cardEl.classList.toggle("is-card-underline", !!selectedNode.isUnderline);
+            cardEl.classList.toggle("is-card-strike", !!selectedNode.isStrike);
+            cardEl.classList.toggle("is-card-highlight", !!selectedNode.isHighlight);
+        }
     }
     renderEditor();
     scheduleSaveGraph(true);
@@ -5808,8 +6009,10 @@ function htmlToSafeMarkdown(html) {
                     
                     const isThRow = cells.some(c => c.tagName.toLowerCase() === "th") || rIdx === 0;
                     const cellTexts = cells.map(cell => {
-                        let cText = Array.from(cell.childNodes).map(serializeNode).join("").trim();
-                        cText = cText.replace(/\r?\n+/g, " ").replace(/\|/g, "\\|");
+                        let cText = Array.from(cell.childNodes).map(serializeNode).join("");
+                        cText = cText.replace(/^[ \t\r\n]+|[ \t\r\n]+$/g, "");
+                        // v4.0.0 保留表格单元格内的软换行 (<br>)，不再压缩坍塌成单行空格！
+                        cText = cText.replace(/\r?\n+/g, "<br>").replace(/\|/g, "\\|");
                         return cText || " ";
                     });
                     
@@ -5903,10 +6106,12 @@ function htmlToSafeMarkdown(html) {
             }
 
             if (tag === "div" || tag === "section" || tag === "article") {
-                const inner = Array.from(node.childNodes).map(serializeNode).join("");
+                let inner = Array.from(node.childNodes).map(serializeNode).join("");
                 if (!inner.trim()) {
                     return "\n";
                 }
+                // 去除 Chrome contenteditable 在非空 <div> 末尾附带的单个占位 <br> 换行，防止保存后产生多余空行
+                inner = inner.replace(/\n$/, "");
                 return `\n${inner}`;
             }
 
@@ -5946,19 +6151,35 @@ function htmlToSafeMarkdown(html) {
 
             if (tag === "code") result = `\`${result}\``;
             
-            if (tag === "mark" || (node.style && node.style.backgroundColor && !["transparent", "rgba(0, 0, 0, 0)", "inherit", "initial"].includes(node.style.backgroundColor.trim().toLowerCase()))) {
-                result = `==${result}==`;
-            }
-            
+            // v4.0.0 精准处理文字颜色（杜绝把 <mark> 默认深字色反复包装成无限嵌套 <span style="color:rgb(133, 77, 14)">！）
             let color = "";
             if (tag === "font" && node.color) {
-                color = node.color;
+                color = rgbToHex(node.color);
             } else if (node.style && node.style.color) {
-                color = node.style.color;
+                const cLower = node.style.color.trim().toLowerCase();
+                if (cLower && !["transparent", "inherit", "initial", "currentcolor"].includes(cLower)) {
+                    const hexColor = rgbToHex(node.style.color);
+                    if (!(tag === "mark" && (hexColor === "#854d0e" || hexColor === "#0f172a"))) {
+                        color = hexColor;
+                    }
+                }
             }
-            
             if (color) {
                 result = `<span style="color:${color}">${result}</span>`;
+            }
+
+            // v4.0.0 完整保留自定义多色荧光高亮 (<mark style="background-color:#hex">) 与默认黄色高亮 (==text==)
+            const rawBg = (node.style && node.style.backgroundColor) ? node.style.backgroundColor.trim().toLowerCase() : "";
+            const hasRealBg = !!(rawBg && !["transparent", "rgba(0, 0, 0, 0)", "inherit", "initial"].includes(rawBg));
+            if (hasRealBg) {
+                const bgHex = rgbToHex(rawBg).toLowerCase();
+                if (bgHex === "#fef08a") {
+                    result = `==${result}==`;
+                } else {
+                    result = `<mark style="background-color:${bgHex}">${result}</mark>`;
+                }
+            } else if (tag === "mark") {
+                result = `==${result}==`;
             }
 
             if (tag === "span" && node.classList && node.classList.contains("font-handwriting")) {
@@ -5981,13 +6202,27 @@ function htmlToSafeMarkdown(html) {
 
 function renderMarkdownToHTML(text) {
     if (!text) return "";
-    let cleaned = cleanHTMLSpill(text);
+
+    // v4.0.0 防爆核心 1：在任何正则处理之前优先抽出并保护 Markdown 图片 ![alt](src)，彻底杜绝多张 Base64 图片末尾的 '==' 误触发 ==高亮== 摧毁整篇笔记！
+    const imageTokens = [];
+    let preText = String(text).replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+        const idx = imageTokens.length;
+        imageTokens.push({ alt: alt.trim(), src: src.trim() });
+        return `___IMG_TOKEN_${idx}___`;
+    });
+
+    // v4.0.0 防爆核心 2：保护 Markdown 表格单元格内部的 <br> 软换行，防止被 cleanHTMLSpill 转成 \n 拆断表格行！
+    preText = preText.replace(/^([ \t]*\|.*\|[ \t]*)$/gm, row => row.replace(/<br\s*\/?>/gi, "___CELL_BR___"));
+
+    let cleaned = cleanHTMLSpill(preText);
     
-    // 保护 <span class="font-handwriting">, <span style="color:..."> 和 <u> 标签不被 escapeHTML 破坏
-    // 我们只替换标签本身，不替换内容，从而完美支持嵌套！
+    // 保护 <mark>, <span class="font-handwriting">, <span style="color:..."> 和 <u> 标签不被 escapeHTML 破坏
     let protectedText = cleaned
+        .replace(/<mark style=["']background-color:\s*([^"'>;]+);?["']?>/gi, '___MARK_START_$1___')
+        .replace(/<mark>/gi, '___MARK_DEFAULT___')
+        .replace(/<\/mark>/gi, '___MARK_END___')
         .replace(/<span class=["']font-handwriting["']>/gi, '___HANDWRITING_START___')
-        .replace(/<span style=["']color:\s*([^"'>]+)["']?>/gi, '___SPAN_START_$1___')
+        .replace(/<span style=["']color:\s*([^"'>;]+);?["']?>/gi, '___SPAN_START_$1___')
         .replace(/<\/span>/gi, '___SPAN_END___')
         .replace(/<u>/gi, '___U_START___')
         .replace(/<\/u>/gi, '___U_END___');
@@ -6057,15 +6292,23 @@ function renderMarkdownToHTML(text) {
         }
 
         const isHeading = /^[ \t]*(#{1,6})\s+(.*)/.exec(line);
+        const isBlockquote = /^[ \t]*&gt;[ \t]?(.*)/.exec(line);
         const isTask = /^[ \t]*(?:[•·▪⁃‣\-\*][ \t]+)?\[([ xX])\][ \t]+(.*)/.exec(line);
-        const isBullet = !isTask && !isHeading && /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
-        const isOrdered = !isHeading && /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
+        const isBullet = !isTask && !isHeading && !isBlockquote && /^[ \t]*[•·▪⁃‣\-\*][ \t]+(.*)/.exec(line);
+        const isOrdered = !isHeading && !isBlockquote && /^[ \t]*(\d+)\.[ \t]+(.*)/.exec(line);
 
         if (isHeading) {
             if (inUl) { listProcessed.push("</ul>"); inUl = false; }
             if (inOl) { listProcessed.push("</ol>"); inOl = false; }
             const level = isHeading[1].length;
             listProcessed.push(`<h${level} class="note-heading note-h${level}">${isHeading[2]}</h${level}>`);
+            continue;
+        }
+
+        if (isBlockquote) {
+            if (inUl) { listProcessed.push("</ul>"); inUl = false; }
+            if (inOl) { listProcessed.push("</ol>"); inOl = false; }
+            listProcessed.push(`<blockquote class="note-blockquote">${isBlockquote[1]}</blockquote>`);
             continue;
         }
 
@@ -6098,17 +6341,22 @@ function renderMarkdownToHTML(text) {
 
     html = listProcessed.join('\n');
 
-    // 还原 Markdown 其它内联语法
+    // v4.0.0 安全单行内联语法还原：严格禁止跨行匹配 ([^\n])，彻底杜绝零星乘号 * 或 == 跨段落撕裂表格与 DOM！
+    // 同时移除内联 color:#854d0e，彻底终结高亮反复往返嵌套 <span style="color:rgb(133, 77, 14)"> 的恶性膨胀！
     html = html
-        .replace(/==([\s\S]*?)==/g, "<mark style='background:#fef08a; color:#854d0e; padding:0 4px; border-radius:2px;'>$1</mark>")
-        .replace(/\*\*([\s\S]*?)\*\*/g, "<strong>$1</strong>")
-        .replace(/\*([\s\S]*?)\*/g, "<em>$1</em>")
-        .replace(/~~([\s\S]*?)~~/g, "<del>$1</del>")
-        .replace(/`([\s\S]*?)`/g, "<code style='background:rgba(99,102,241,0.15); padding:2px 4px; border-radius:3px; font-family:monospace;'>$1</code>")
+        .replace(/==([^=\n]+?)==/g, '<mark class="note-highlight">$1</mark>')
+        .replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^\s*\n][^*\n]*?[^\s*\n]|[^\s*\n])\*/g, "<em>$1</em>")
+        .replace(/~~([^~\n]+?)~~/g, "<del>$1</del>")
+        .replace(/`([^`\n]+?)`/g, '<code class="note-inline-code">$1</code>')
         .replace(/\n/g, "<br>");
 
-    // 还原受保护的颜色 span、手写体 span 与 u 标签
+    // 还原受保护的多色 mark、颜色 span、手写体 span、u 标签及表格单元格软换行
     html = html
+        .replace(/___CELL_BR___/g, '<br>')
+        .replace(/___MARK_START_(.*?)___/g, '<mark style="background-color:$1">')
+        .replace(/___MARK_DEFAULT___/g, '<mark class="note-highlight">')
+        .replace(/___MARK_END___/g, '</mark>')
         .replace(/~✍️([\s\S]*?)✍️~/g, '<span class="font-handwriting">$1</span>')
         .replace(/___HANDWRITING_START___/g, '<span class="font-handwriting">')
         .replace(/___SPAN_START_(.*?)___/g, '<span style="color:$1">')
@@ -6116,15 +6364,16 @@ function renderMarkdownToHTML(text) {
         .replace(/___U_START___|_U_START_/g, '<u>')
         .replace(/___U_END___|_U_END_/g, '</u>');
 
-    // v3.9.7: Markdown 图片语法解析: ![alt](url)
-    // 渲染为高质感、内嵌式交互图片卡片，彻底避免数十万字符 Base64 源码倾倒给用户
-    html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
-        const cleanSrc = src.replace(/&amp;/g, "&").trim();
-        const cleanAlt = alt.trim();
-        return `<div class="note-embedded-img-wrap" contenteditable="false"><div class="note-embedded-img-box"><img class="note-embedded-img" src="${cleanSrc}" alt="${cleanAlt || '图片'}" draggable="false" /><div class="note-embedded-img-overlay"><span class="note-img-zoom-tip">🔍 点击放大查看高清大图</span></div></div><div class="note-img-caption">${cleanAlt || '图片'}</div></div>`;
+    // v4.0.0 还原提前保护的 Markdown 图片卡片（Base64 100% 免疫任何内联符号污染！）
+    html = html.replace(/___IMG_TOKEN_(\d+)___/g, (match, idxStr) => {
+        const tok = imageTokens[parseInt(idxStr, 10)];
+        if (!tok) return "";
+        const cleanSrc = tok.src.replace(/"/g, "&quot;");
+        const cleanAlt = escapeHTML(tok.alt || "图片");
+        return `<div class="note-embedded-img-wrap" contenteditable="false"><div class="note-embedded-img-box"><img class="note-embedded-img" src="${cleanSrc}" alt="${cleanAlt}" draggable="false" /><div class="note-embedded-img-overlay"><span class="note-img-zoom-tip">🔍 点击放大查看高清大图</span></div></div><div class="note-img-caption">${cleanAlt}</div></div>`;
     });
 
-    // 清理 <br> 紧随 list 与 table 标签以及图片、标题后的多余换行
+    // 清理 <br> 紧随 list、table、blockquote 以及图片、标题后的多余换行
     html = html
         .replace(/<\/ul><br>/gi, "</ul>")
         .replace(/<\/ol><br>/gi, "</ol>")
@@ -6133,6 +6382,8 @@ function renderMarkdownToHTML(text) {
         .replace(/<ol><br>/gi, "<ol>")
         .replace(/<\/table><br>/gi, "</table>")
         .replace(/<br><table/gi, "<table")
+        .replace(/<\/blockquote><br>/gi, "</blockquote>")
+        .replace(/<br><blockquote/gi, "<blockquote")
         .replace(/<\/div><br>/gi, "</div>")
         .replace(/<br><div class="note-embedded-img-wrap"/gi, '<div class="note-embedded-img-wrap"')
         .replace(/<\/h[1-6]><br>/gi, match => match.slice(0, 5))
@@ -6173,20 +6424,8 @@ function renderEditor() {
         // 2. 绑定当前编辑器实际承载的节点 ID
         editorActiveNodeId = selectedNode.id;
 
-        // 自动净化清洗之前残留的 HTML 污染与残余标记
-        let cleanContent = cleanHTMLSpill(selectedNode.content || "");
-        
-        // v3.9.7 核心自愈：若标题在 content 开头重复出现（如历史遗留的 # 标题），自动剔除开头的冗余标题，保证笔记区域纯净
-        const trimmedPlain = stripFormattingToPlainText(selectedNode.label || "").trim();
-        if (trimmedPlain) {
-            const escapedPlain = trimmedPlain.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const titleRegex = new RegExp(`^#{1,2}\\s+${escapedPlain}\\s*\\n+`, "i");
-            cleanContent = cleanContent.replace(titleRegex, "");
-        }
-        if (cleanContent.trim() === trimmedPlain || cleanContent.trim() === `# ${trimmedPlain}`) {
-            cleanContent = "";
-        }
-        selectedNode.content = cleanContent;
+        // v4.0.0 纯函数化渲染原则：绝不在 renderEditor 中暴力删改用户的 selectedNode.content！
+        const cleanContent = selectedNode.content || "";
 
         if (titleInput && (isNodeSwitched || document.activeElement !== titleInput)) {
             titleInput.value = stripFormattingToPlainText(selectedNode.label);
@@ -6195,9 +6434,10 @@ function renderEditor() {
         if (titleInput) titleInput.disabled = false;
         if (mdTextarea && (isNodeSwitched || document.activeElement !== mdTextarea)) {
             mdTextarea.value = cleanContent;
+            isMdTextareaDirty = false;
         }
 
-        // v3.9.12 核心修复：当切换节点 (isNodeSwitched 为 true) 时，必须无条件把目标节点的最新渲染 HTML 灌入 richEditor！
+        // v3.9.12 / v4.0.0 核心修复：当切换节点 (isNodeSwitched 为 true) 时，必须无条件把目标节点的最新渲染 HTML 灌入 richEditor！
         // 唯有在编辑同一个节点且正聚焦输入时，才保持 DOM 不动以保留光标位置！
         const isRichFocused = richEditor && (document.activeElement === richEditor || richEditor.contains(document.activeElement));
         if (richEditor && (isNodeSwitched || !isRichFocused)) {
@@ -6206,6 +6446,7 @@ function renderEditor() {
                 renderedHtml += "<div><br></div>";
             }
             richEditor.innerHTML = renderedHtml;
+            isRichEditorDirty = false;
         }
         if (previewPanel) {
             previewPanel.innerHTML = renderMarkdownToHTML(cleanContent);
@@ -6234,10 +6475,7 @@ function renderEditor() {
         if (editorActiveNodeId) {
             commitCurrentEditorToSelectedNode();
         }
-        editorActiveNodeId = null;
-        window._lastActiveTableCell = null;
-        window._lastActiveTableTr = null;
-        window._lastActiveTable = null;
+        resetEditorBindingState();
         titleInput.value = "未选择节点";
         titleInput.disabled = true;
         mdTextarea.value = "";
@@ -7024,10 +7262,14 @@ function applyParsedBackupData(parsed, fileName = "") {
         const targetActiveId = parsed.activeMapId || (mapsManifest[0] ? mapsManifest[0].id : "map_default");
         loadMapData(targetActiveId);
     } else if (parsed.nodes) {
+        resetEditorBindingState();
+        selectedLink = null;
         nodes = parsed.nodes;
         links = parsed.links || [];
         inkStrokes = Array.isArray(parsed.inkStrokes) ? parsed.inkStrokes : [];
         sanitizeGraph();
+        selectedNode = nodes[0] || null;
+        selectedNodeIds = selectedNode ? new Set([selectedNode.id]) : new Set();
         allMapsMemoryCache[activeMapId] = { nodes, links: cleanLinks(), flowStream, inkStrokes };
     }
 
@@ -7734,8 +7976,11 @@ function switchActiveMap(mapId) {
     allMapsMemoryCache[activeMapId] = currentData;
     safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
 
-    // 加载新图谱
+    // 加载新图谱（并重置图谱专属撤销历史栈，杜绝在图谱 B 按 Ctrl+Z 误还原图谱 A！）
     loadMapData(mapId);
+    historyStack = [];
+    historyRedoStack = [];
+    pushHistory();
 
     // 刷新全套视图
     if (layoutMode === "tree") tidyLayout();
@@ -8536,11 +8781,13 @@ function deleteSelectedLink() {
     const tId = cleanNodeId(selectedLink.target);
 
     if (selectedLink.type === "relation") {
-        links = links.filter(l => !(l.type === "relation" && ((cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId) || (cleanNodeId(l.source) === tId && cleanNodeId(l.target) === sId))));
+        links = links.filter(l => !(l.type === "relation" && cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId));
     } else {
         const child = nodes.find(n => n.id === tId);
         if (child && child.parentId === sId) {
             child.parentId = null;
+            delete child.edgeLabel;
+            delete child.arrowStyle;
         }
     }
     selectedLink = null;
@@ -8552,26 +8799,74 @@ function deleteSelectedLink() {
     showToast("✂️ 已删除箭头连线（两端卡片已保留）");
 }
 
-// 一键反转当前选中箭头的父子方向
+// 一键反转当前选中箭头的方向（完整支持树状父子箭头与关系箭头，100% 保留箭头样式与关系词！）
 function reverseSelectedLink() {
     if (!selectedLink) return;
     const sId = cleanNodeId(selectedLink.source);
     const tId = cleanNodeId(selectedLink.target);
-    const oldParent = nodes.find(n => n.id === sId);
-    const oldChild = nodes.find(n => n.id === tId);
-    if (!oldParent || !oldChild) return;
+    const oldSrc = nodes.find(n => n.id === sId);
+    const oldTgt = nodes.find(n => n.id === tId);
+    if (!oldSrc || !oldTgt) return;
 
-    if (oldChild.parentId === oldParent.id) {
-        oldChild.parentId = oldParent.parentId;
-        oldParent.parentId = oldChild.id;
-        oldChild.collapsed = false;
-        selectedLink = { source: oldChild, target: oldParent };
+    if (selectedLink.type === "relation") {
+        const rel = (links || []).find(l => l && l.type === "relation" && cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId);
+        if (rel) {
+            rel.source = tId;
+            rel.target = sId;
+            selectedLink = {
+                source: oldTgt,
+                target: oldSrc,
+                type: "relation",
+                label: rel.label || "",
+                arrowStyle: rel.arrowStyle || "dashed"
+            };
+            sanitizeGraph();
+            updateD3Graph();
+            renderPositions();
+            updateFloatingActionBarsPosition();
+            scheduleSaveGraph(true);
+            showToast(`⇄ 已反转关系箭头：【${oldTgt.label}】 ➔ 【${oldSrc.label}】`);
+        }
+        return;
+    }
+
+    if (oldTgt.parentId === oldSrc.id) {
+        const edgeStyle = oldTgt.arrowStyle;
+        const edgeLabel = oldTgt.edgeLabel;
+        const upperStyle = oldSrc.arrowStyle;
+        const upperLabel = oldSrc.edgeLabel;
+
+        oldTgt.parentId = oldSrc.parentId;
+        oldSrc.parentId = oldTgt.id;
+        oldTgt.collapsed = false;
+
+        if (edgeStyle) oldSrc.arrowStyle = edgeStyle;
+        else delete oldSrc.arrowStyle;
+        if (edgeLabel) oldSrc.edgeLabel = edgeLabel;
+        else delete oldSrc.edgeLabel;
+
+        if (oldTgt.parentId) {
+            if (upperStyle) oldTgt.arrowStyle = upperStyle;
+            else delete oldTgt.arrowStyle;
+            if (upperLabel) oldTgt.edgeLabel = upperLabel;
+            else delete oldTgt.edgeLabel;
+        } else {
+            delete oldTgt.arrowStyle;
+            delete oldTgt.edgeLabel;
+        }
+
+        selectedLink = {
+            source: oldTgt,
+            target: oldSrc,
+            arrowStyle: edgeStyle || "solid",
+            label: edgeLabel || ""
+        };
         sanitizeGraph();
         updateD3Graph();
         renderPositions();
         updateFloatingActionBarsPosition();
         scheduleSaveGraph(true);
-        showToast(`⇄ 已反转箭头方向：【${oldChild.label}】(父) ➔ 【${oldParent.label}】(子)`);
+        showToast(`⇄ 已反转箭头方向：【${oldTgt.label}】(父) ➔ 【${oldSrc.label}】(子)`);
     }
 }
 
@@ -9513,6 +9808,7 @@ function toggleNthTaskInText(text, taskIdx, isChecked, isHtmlLabel = false) {
 
 // 4. 在画布卡片上直接点击第 N 个复选框时，实时切换 [ ] 与 [x] 状态
 function toggleNthTaskCheckboxInNode(node, taskIdx, isChecked) {
+    node = resolveAuthoritativeNode(node);
     if (!node) return;
     let label = node.label || "";
     let content = node.content || "";
@@ -9522,13 +9818,11 @@ function toggleNthTaskCheckboxInNode(node, taskIdx, isChecked) {
 
     if (!resLabel.changed && !resContent.changed) return;
 
-    node.label = resLabel.text;
-    node.content = resContent.text || node.label.replace(/<br\s*\/?>/gi, "\n");
+    if (resLabel.changed) node.label = resLabel.text;
+    if (resContent.changed) node.content = resContent.text;
 
     refreshNodeStyles();
-    if (selectedNode && selectedNode.id === node.id) {
-        renderEditor();
-    }
+    syncEditorDOMFromModel(node);
     scheduleSaveGraph(true);
 }
 
@@ -10511,11 +10805,14 @@ function insertNodeOnSelectedLink() {
     const midX = Math.round(((Number.isFinite(sourceNode.x) ? sourceNode.x : 350) + (Number.isFinite(targetNode.x) ? targetNode.x : 650)) / 2);
     const midY = Math.round(((Number.isFinite(sourceNode.y) ? sourceNode.y : 320) + (Number.isFinite(targetNode.y) ? targetNode.y : 320)) / 2);
 
+    commitCurrentEditorToSelectedNode();
+    const preservedStyle = selectedLink.arrowStyle || targetNode.arrowStyle || activeArrowStyle || "solid";
     const midNode = {
         id: newId,
         label: `过渡节点 ${nodes.length + 1}`,
         parentId: sourceNode.id,
-        content: `过渡节点 ${nodes.length + 1}`,
+        content: "",
+        arrowStyle: preservedStyle,
         createdAt: Math.max(1000, getNodeCreatedTime(targetNode) - 200),
         order: nodes.length,
         x: midX,
@@ -10525,12 +10822,13 @@ function insertNodeOnSelectedLink() {
     };
 
     if (selectedLink.type === "relation") {
-        links = links.filter(l => !(l.type === "relation" && (
-            (cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId) ||
-            (cleanNodeId(l.source) === tId && cleanNodeId(l.target) === sId)
-        )));
+        links = links.filter(l => !(l.type === "relation" && cleanNodeId(l.source) === sId && cleanNodeId(l.target) === tId));
+        if (isNodeDescendantOf(sourceNode.id, targetNode.id)) {
+            sourceNode.parentId = null;
+        }
     }
     targetNode.parentId = newId;
+    targetNode.arrowStyle = preservedStyle;
     nodes.push(midNode);
 
     selectedLink = null;
@@ -12466,27 +12764,31 @@ function handleTablePasteEvent(e) {
             // 依据所在容器触发数据持久化与双向同步
             if (inRichEditor && selectedNode && editorActiveNodeId === selectedNode.id) {
                 selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
+                isRichEditorDirty = false;
                 const mdEl = document.getElementById("md-textarea");
-                if (mdEl) mdEl.value = selectedNode.content;
+                if (mdEl) {
+                    mdEl.value = selectedNode.content;
+                    isMdTextareaDirty = false;
+                }
+                refreshNodeStyles();
                 scheduleSaveGraph(true);
             } else if (activeInlineBody) {
                 const grp = activeInlineBody.closest(".node-group");
-                const d = grp ? d3.select(grp).datum() : selectedNode;
+                const d = resolveAuthoritativeNode(grp ? d3.select(grp).datum() : selectedNode, grp);
                 if (d) {
                     const tableWrap = activeInlineBody.querySelector(".canvas-card-table-wrap") || activeInlineBody.querySelector("table.canvas-card-table");
                     const tableNode = tableWrap ? (tableWrap.matches("table.canvas-card-table") ? tableWrap : (tableWrap.querySelector("table.canvas-card-table") || tableWrap)) : table;
                     const tableMd = htmlToSafeMarkdown(tableNode.outerHTML || "");
-                    const titleRow = activeInlineBody.querySelector(".canvas-card-title-row");
-                    const titleText = titleRow ? titleRow.textContent.trim() : d.label;
-                    d.content = `# ${titleText}\n\n${tableMd}`;
-                    if (richEditorEl && selectedNode && selectedNode.id === d.id && editorActiveNodeId === d.id) {
-                        richEditorEl.innerHTML = renderMarkdownToHTML(d.content);
-                    }
+                    // v4.0.0 精准替换表格块，100% 保留卡片的所有前后正文与标题！
+                    d.content = replaceTableInNoteContent(d.content, tableMd);
+                    syncEditorDOMFromModel(d);
                     scheduleSaveGraph(true);
                 }
             } else if (selectedNode && editorActiveNodeId === selectedNode.id) {
                 if (richEditorEl && richEditorEl.contains(table)) {
                     selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
+                    isRichEditorDirty = false;
+                    refreshNodeStyles();
                 }
                 scheduleSaveGraph(true);
             }
@@ -12509,8 +12811,13 @@ function handleTablePasteEvent(e) {
 
             if (inRichEditor && selectedNode && editorActiveNodeId === selectedNode.id) {
                 selectedNode.content = htmlToSafeMarkdown(richEditorEl.innerHTML);
+                isRichEditorDirty = false;
                 const mdEl = document.getElementById("md-textarea");
-                if (mdEl) mdEl.value = selectedNode.content;
+                if (mdEl) {
+                    mdEl.value = selectedNode.content;
+                    isMdTextareaDirty = false;
+                }
+                refreshNodeStyles();
                 scheduleSaveGraph(true);
             } else if (activeInlineBody) {
                 const grp = activeInlineBody.closest(".node-group");

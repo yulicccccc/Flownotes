@@ -1,9 +1,15 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v3.9.13)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v4.0.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Core Integrity Fortress Architecture & 30-Scenario Automated Regression Gate (v4.0.0 四大核心引擎全链路加固与自动化回归堡垒)**:
+  - **Title / Node Strict Isolation**: `sanitizeGraph` 仅恢复 `...` 截断标题绝不劫持正常标题；`replaceTableInNoteContent` 与 `updateImageAltInNoteContent` 原地局部替换，彻底废除删光笔记 `# H1-H4` 标题的暴力正则；`renderEditor` 保持纯只读投影；画布复选框通过 `_lastRenderedTargetHTML` 缓存与单次 `change` 事件杜绝 DOM 抖动吞点击与双重翻转；
+  - **Note Details Dirty-Flag & Multi-Map/Undo Fortress**: 全通道脏标记 (`isTitleInputDirty` / `isRichEditorDirty` / `isMdTextareaDirty`) 杜绝未编辑 DOM 反向覆写；所见即所得与 Markdown 原码切换无缝提交同步；跨节点表格工具栏严格隔离；`resetEditorBindingState` 与图谱专属 `historyStack` 保障多图谱切换（含同名 `root_1`）、云拉取与 Undo/Redo 100% 精确绑定活体节点；IME `compositionend` 严格限定作用域；
+  - **Arrows / Links & D3 Live Datum Fortress**: `getLinkCoords` 实时解析活体节点坐标绝不飞向 `(0,0)`；`refreshNodeStyles` 全量重绑子交互元素活体引用；`reverseSelectedLink` 同时支持树状（保留 `arrowStyle`/`edgeLabel`）与关系箭头（有向 `relation:s->t`）；`deleteSelectedLink` 清理残留元数据；`endPortConnectDrag` 过滤隐藏节点；`isNodeDescendantOf` 具备防环路 `visited` 守卫；
+  - **Formatting Lossless Round-Trip Fortress**: `renderMarkdownToHTML` 优先抽离保护 Base64 图片免疫 `==` 高亮破坏；消除 `<mark>` 无限嵌套字色膨胀与 CSS `!important` 颜色霸权；单行内联正则防止零星 `*` 撕裂表格；`serializeCardLabelFromHTML` 全复合格式无损叠加；表格单元格 `<br>` 软换行与 `blockquote` 双向无损；画布卡片未划词格式化智能回落整卡生效；
+  - **Permanent Fortress Regression Suite (`tests/fortress_regression.py` + `AGENTS.md`)**: 30 项真实 Chromium Playwright 自动化测试作为发布硬门槛，杜绝一切回归。
 - **Permanent Handwriting Typography & Anti-Title-Wipe Engine (v3.9.13 永久手写体字形保持体系与标题纯文本防冲刷引擎)**:
   - **根除变手写体失效与“过一会儿变回印刷体”恶疾**: 彻底修复因 `commitCurrentEditorToSelectedNode()` 将 `#title-input` 中剥除格式后的无标签纯文本盲目写回卡片 `targetNode.label`，导致卡片手写体与富文本标签在 360ms 自动保存后被瞬间抹杀的恶疾；
   - **脏标记防护 (`isTitleInputDirty`)**: 引入状态追踪，仅当用户手动在 `#title-input` 中键入时才允许更新 `targetNode.label`，其余情况绝对禁止冲刷富文本卡片；
