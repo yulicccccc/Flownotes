@@ -7919,12 +7919,17 @@ function triggerAutoGhSync() {
 }
 
 function handleExportObsidian() {
-    const exportBundle = { version: "FlowNotes-1.0", nodes: nodes.map(n => ({ id: n.id, label: n.label, content: n.content, tags: [] })) };
-    const blob = new Blob([JSON.stringify(exportBundle, null, 2)], { type: "application/json" });
+    commitCurrentEditorToSelectedNode();
+    const exportBundle = getFullBackupPayload();
+    if (typeof recordLocalIdbSnapshot === "function") {
+        recordLocalIdbSnapshot(exportBundle, true);
+    }
+    const blob = new Blob([JSON.stringify(exportBundle, null, 2)], { type: "application/json;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     a.download = "obsidian_graph_backup.json";
     a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
     document.getElementById("exportModal").style.display = "flex";
 }
 
