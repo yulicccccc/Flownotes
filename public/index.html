@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v4.0.0)</title>
+    <title>FlowNotes — 空间自由思维沙盘与动态脑图系统 (v4.1.0)</title>
     <meta name="description" content="流动心流捕获、空间自由白板、动态跟随箭头、Markdown 深度编辑与 AI 助手于一体的个人知识工作台。">
     <meta name="theme-color" content="#f8fafc">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -650,6 +650,25 @@
                         <button class="btn btn-success" id="btnCloudPull" style="flex:1; min-width:180px; padding:10px 14px; font-weight:600; background:#10b981; border-color:#059669; color:#fff; display:flex; align-items:center; justify-content:center; gap:6px;">
                             <span>📥 iPad端：一键从云端拉取</span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- 模块 1.5：🕰️ 备份时光机 & 防丢历史版本库 (v4.1.0) -->
+                <div class="cloud-sync-card" style="background:rgba(16, 185, 129, 0.06); border:1px solid rgba(16, 185, 129, 0.28); border-radius:12px; padding:14px 16px; margin-bottom:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                        <h4 style="margin:0; font-size:14px; color:#10b981; display:flex; align-items:center; gap:6px;">
+                            <span>🕰️ 备份时光机 &amp; 防丢历史版本库 (云端 15 版本 + 历史峰值 + 本机快照)</span>
+                        </h4>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btnRefreshBackupHistory" style="font-size:11.5px; padding:4px 10px;">🔄 刷新版本库</button>
+                            <button type="button" class="btn btn-primary btn-sm" id="btnDownloadFullBackupNow" style="font-size:11.5px; padding:4px 10px;">⬇️ 立即导出全量 JSON 备份</button>
+                        </div>
+                    </div>
+                    <p style="font-size:12px; color:var(--text-secondary); margin:0 0 10px 0; line-height:1.45;">
+                        每次云端写入前自动留档快照，并永久锁定卡片数<b>历史峰值</b>；本机 IndexedDB 同步保留最近 10 个本地快照，支持一键回滚或下载 JSON 备份。
+                    </p>
+                    <div id="backupTimeMachineList" style="max-height:210px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; padding-right:2px;">
+                        <div style="font-size:12px; color:var(--text-muted); padding:10px; text-align:center;">正在扫描云端与本机历史快照...</div>
                     </div>
                 </div>
 

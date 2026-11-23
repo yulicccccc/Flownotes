@@ -306,6 +306,7 @@ function flushPendingSave() {
     }
     const shouldRecord = pendingHistoryRecord;
     pendingHistoryRecord = false;
+    if (!isStorageHydrated && currentMapLoadedFromDefaultFallback) return;
     saveGraphToStorage(shouldRecord);
 }
 
@@ -425,7 +426,7 @@ function getNodePos(idOrObj, axis) {
 
 // --- 初始化系统 ---
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[FlowNotes] v4.0.0 loaded — Core Integrity Fortress Engine (Atomic Title/Note Isolation, Live Arrow Engine & Lossless Formatting)"); // console.log("[FlowNotes] v3.9.12 loaded — Ironclad Node Isolation Engine & Zero Cross-Contamination Guard"); // console.log("[FlowNotes] v3.9.11 loaded — OneNote/Excel Grade Smart Table Paste Engine & Lossless Tabular Matrix Ingestion"); // console.log("[FlowNotes] v3.9.10 loaded — Faux-Bold Rendering Engine & Robust Word Selection Bold Engine"); // console.log("[FlowNotes] v3.9.9 loaded — Paragraph Paste Linebreak Preservation & Lossless Markdown Serialization Engine"); // console.log("[FlowNotes] v3.9.8 loaded — Default Light Theme & Persistent Theme Management Engine"); // console.log("[FlowNotes] v3.9.7 loaded — Rich Editor Markdown Image Rendering & Anti-Base64 Dump Engine");
+    console.log("[FlowNotes] v4.1.0 loaded — Ironclad Multi-Layer Backup Vault & Zero-Data-Loss Engine");
     initTheme();
     initStorage();
     initD3Mindmap();
@@ -499,6 +500,78 @@ let mapsManifest = [];
 let activeMapId = "map_default";
 let expandedTreeNodes = new Set();
 let organizerTreeFilter = "";
+let isStorageHydrated = false;
+let currentMapLoadedFromDefaultFallback = false;
+
+function isDefaultDemoNodes(nodeList) {
+    if (!Array.isArray(nodeList) || nodeList.length === 0) return true;
+    if (nodeList.length <= DEFAULT_NODES.length) {
+        const defIds = new Set(DEFAULT_NODES.map(n => n.id));
+        if (nodeList.every(n => defIds.has(n.id))) return true;
+    }
+    return false;
+}
+
+function countBundleTotalNodes(bundle) {
+    if (!bundle || typeof bundle !== "object") return 0;
+    if (bundle.allMapsData && typeof bundle.allMapsData === "object") {
+        const counted = new Set();
+        let total = 0;
+        Object.keys(bundle.allMapsData).forEach(k => {
+            const md = bundle.allMapsData[k];
+            if (md && Array.isArray(md.nodes)) {
+                total += md.nodes.length;
+                counted.add(k);
+            }
+        });
+        if (Array.isArray(bundle.mapsManifest)) {
+            bundle.mapsManifest.forEach(m => {
+                if (m && m.id && !counted.has(m.id)) {
+                    total += (m.nodeCount || 0);
+                }
+            });
+        }
+        return total;
+    }
+    if (Array.isArray(bundle.mapsManifest)) {
+        return bundle.mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0);
+    }
+    return Array.isArray(bundle.nodes) ? bundle.nodes.length : 0;
+}
+
+async function recordLocalIdbSnapshot(bundlePayload, forceRecord = false) {
+    try {
+        if (!bundlePayload || typeof FlowNotesIDB === "undefined") return;
+        const totalNodes = countBundleTotalNodes(bundlePayload);
+        if (totalNodes <= DEFAULT_NODES.length && isDefaultDemoNodes(nodes)) return;
+
+        const nowMs = bundlePayload.updatedAtMs || Date.now();
+        const prevPeak = await FlowNotesIDB.get("flownotes_local_peak_backup");
+        const prevPeakCount = prevPeak ? countBundleTotalNodes(prevPeak) : 0;
+        if (totalNodes >= prevPeakCount && totalNodes > 0) {
+            await FlowNotesIDB.set("flownotes_local_peak_backup", bundlePayload);
+        }
+
+        let ring = await FlowNotesIDB.get("flownotes_local_history_ring");
+        if (!Array.isArray(ring)) ring = [];
+        const top = ring[0];
+        const topCount = top ? (top.totalNodes || countBundleTotalNodes(top.bundle)) : -1;
+        const elapsed = nowMs - (top ? (top.updatedAtMs || 0) : 0);
+        if (forceRecord || !top || topCount !== totalNodes || elapsed >= 30000) {
+            ring.unshift({
+                id: `local_snap_${nowMs}`,
+                updatedAtMs: nowMs,
+                totalNodes: totalNodes,
+                totalMaps: Array.isArray(bundlePayload.mapsManifest) ? bundlePayload.mapsManifest.length : 1,
+                bundle: bundlePayload
+            });
+            ring = ring.slice(0, 10);
+            await FlowNotesIDB.set("flownotes_local_history_ring", ring);
+        }
+    } catch (e) {
+        console.warn("[FlowNotes] recordLocalIdbSnapshot error:", e);
+    }
+}
 
 const ONENOTE_SECTION_COLORS = [
     "#38bdf8", // 亮天蓝
@@ -625,31 +698,72 @@ function initStorage() {
 
     // 异步从高容量 IndexedDB 恢复（如果贴了大量图片超出 localStorage 5MB 上限，IndexedDB 依然保留 100% 完整数据）
     FlowNotesIDB.get("flownotes_full_bundle").then(bundle => {
-        if (!bundle || !bundle.mapsManifest) return;
-        const lsUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
-        const idbUpdatedMs = bundle.updatedAtMs || 0;
-        if (idbUpdatedMs >= lsUpdatedMs && bundle.allMapsData) {
-            allMapsMemoryCache = { ...allMapsMemoryCache, ...bundle.allMapsData };
-            if (bundle.notebooksManifest && Array.isArray(bundle.notebooksManifest)) {
-                notebooksManifest = bundle.notebooksManifest;
-                safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+        try {
+            if (bundle && bundle.mapsManifest) {
+                const lsUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
+                const idbUpdatedMs = bundle.updatedAtMs || 0;
+
+                if (bundle.allMapsData) {
+                    Object.keys(bundle.allMapsData).forEach(mId => {
+                        const idbMap = bundle.allMapsData[mId];
+                        const memMap = allMapsMemoryCache[mId];
+                        const idbHasReal = idbMap && Array.isArray(idbMap.nodes) && idbMap.nodes.length > 0 && !isDefaultDemoNodes(idbMap.nodes);
+                        const memMissingOrDemo = !memMap || !Array.isArray(memMap.nodes) || memMap.nodes.length === 0 || isDefaultDemoNodes(memMap.nodes);
+                        if (!memMap || idbUpdatedMs >= lsUpdatedMs || (memMissingOrDemo && idbHasReal)) {
+                            allMapsMemoryCache[mId] = idbMap;
+                        }
+                    });
+                }
+
+                if ((idbUpdatedMs >= lsUpdatedMs || notebooksManifest.length <= 1) && Array.isArray(bundle.notebooksManifest) && bundle.notebooksManifest.length > 0) {
+                    notebooksManifest = bundle.notebooksManifest;
+                    safeLocalStorageSet("flownotes_notebooks_manifest", JSON.stringify(notebooksManifest));
+                }
+                if ((idbUpdatedMs >= lsUpdatedMs || sectionsManifest.length === 0) && Array.isArray(bundle.sectionsManifest) && bundle.sectionsManifest.length > 0) {
+                    sectionsManifest = bundle.sectionsManifest;
+                    safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
+                }
+                if (idbUpdatedMs >= lsUpdatedMs || (mapsManifest.length <= 1 && isDefaultDemoNodes(nodes) && bundle.mapsManifest.length >= 1)) {
+                    mapsManifest = bundle.mapsManifest;
+                    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+                }
+
+                const nextActiveId = (idbUpdatedMs > lsUpdatedMs && bundle.activeMapId) ? bundle.activeMapId : activeMapId;
+                const activeIdbData = bundle.allMapsData && bundle.allMapsData[nextActiveId];
+                const idbHasBetterActive = activeIdbData && Array.isArray(activeIdbData.nodes) && activeIdbData.nodes.length > 0 && (
+                    currentMapLoadedFromDefaultFallback ||
+                    (isDefaultDemoNodes(nodes) && !isDefaultDemoNodes(activeIdbData.nodes)) ||
+                    (activeIdbData.nodes.length > nodes.length && isDefaultDemoNodes(nodes))
+                );
+                const shouldReloadActive = (idbUpdatedMs >= lsUpdatedMs) || currentMapLoadedFromDefaultFallback || idbHasBetterActive;
+
+                if (shouldReloadActive && allMapsMemoryCache[nextActiveId]) {
+                    activeMapId = nextActiveId;
+                    loadMapData(activeMapId);
+                    updateCurrentMapBadge();
+                    historyStack = [];
+                    historyRedoStack = [];
+                    pushHistory();
+                    if (typeof svg !== "undefined" && svg) {
+                        if (layoutMode === "tree") tidyLayout();
+                        else updateD3Graph();
+                        renderPositions();
+                        renderAll();
+                        renderEditor();
+                        renderOrganizerUI();
+                    }
+                }
             }
-            if (bundle.sectionsManifest && Array.isArray(bundle.sectionsManifest)) {
-                sectionsManifest = bundle.sectionsManifest;
-                safeLocalStorageSet("flownotes_sections_manifest", JSON.stringify(sectionsManifest));
-            }
-            if (idbUpdatedMs > lsUpdatedMs) {
-                mapsManifest = bundle.mapsManifest;
-                activeMapId = bundle.activeMapId || activeMapId;
-                loadMapData(activeMapId);
-    updateCurrentMapBadge();
-                if (layoutMode === "tree") tidyLayout();
-                else updateD3Graph();
-                renderPositions();
-                renderAll();
-                renderOrganizerUI();
+        } catch (e) {
+            console.warn("[FlowNotes] IndexedDB hydration error:", e);
+        } finally {
+            isStorageHydrated = true;
+            if (typeof autoHealWipedExcalidrawMaps === "function") {
+                autoHealWipedExcalidrawMaps();
             }
         }
+    }).catch(() => {
+        isStorageHydrated = true;
     });
 }
 
@@ -668,7 +782,8 @@ function loadMapData(mapId) {
         }
     }
 
-    if (data) {
+    if (data && Array.isArray(data.nodes)) {
+        currentMapLoadedFromDefaultFallback = false;
         nodes = data.nodes || [];
         links = data.links || [];
         flowStream = data.flowStream || [];
@@ -676,9 +791,10 @@ function loadMapData(mapId) {
         allMapsMemoryCache[mapId] = data;
         sanitizeGraph();
     } else {
-        nodes = [...DEFAULT_NODES];
-        links = [...DEFAULT_LINKS];
-        flowStream = [...DEFAULT_FLOW_STREAM];
+        currentMapLoadedFromDefaultFallback = true;
+        nodes = DEFAULT_NODES.map(n => ({ ...n }));
+        links = DEFAULT_LINKS.map(l => ({ ...l }));
+        flowStream = DEFAULT_FLOW_STREAM.map(f => ({ ...f }));
         inkStrokes = [];
         sanitizeGraph();
     }
@@ -691,13 +807,25 @@ function loadMapData(mapId) {
 function saveGraphToStorage(recordHistory = true) {
     if (recordHistory) pushHistory();
 
+    // 防护：IndexedDB 异步加载尚未完成时若画布仍是临时默认兜底数据，严禁覆盖持久化存储或触发云端推送
+    if (!isStorageHydrated && currentMapLoadedFromDefaultFallback) {
+        updateCurrentMapBadge();
+        renderOrganizerUI();
+        return;
+    }
+
+    if (!isDefaultDemoNodes(nodes)) {
+        currentMapLoadedFromDefaultFallback = false;
+    }
+
     const nowMs = Date.now();
     safeLocalStorageSet("flownotes_local_updated_ms", String(nowMs));
 
+    const cleanLks = cleanLinks();
     // 1. 保存当前激活图谱的数据（内存缓存 + localStorage + IndexedDB 大容量双保险）
     const currentData = {
         nodes: nodes,
-        links: cleanLinks(),
+        links: cleanLks,
         flowStream: flowStream,
         inkStrokes: inkStrokes
     };
@@ -706,7 +834,7 @@ function saveGraphToStorage(recordHistory = true) {
 
     // 兼顾向后兼容
     safeLocalStorageSet("obsidian_nodes", JSON.stringify(nodes));
-    safeLocalStorageSet("obsidian_links", JSON.stringify(cleanLinks()));
+    safeLocalStorageSet("obsidian_links", JSON.stringify(cleanLks));
 
     // 2. 更新当前图谱在 Manifest 中的元数据 (卡片数、修改时间)
     const targetMap = mapsManifest.find(m => m.id === activeMapId);
@@ -716,15 +844,23 @@ function saveGraphToStorage(recordHistory = true) {
         safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
     }
 
-    // 3. 异步写入高容量 IndexedDB（突破 5MB 限制，支持无限贴图与 OneNote 3级树状层级）
-    FlowNotesIDB.set("flownotes_full_bundle", {
+    // 3. 异步写入高容量 IndexedDB（突破 5MB 限制 + 本机历史快照环与峰值库）
+    const filteredMapsData = {};
+    mapsManifest.forEach(m => {
+        if (m && m.id && allMapsMemoryCache[m.id]) {
+            filteredMapsData[m.id] = allMapsMemoryCache[m.id];
+        }
+    });
+    const bundlePayload = {
         updatedAtMs: nowMs,
         activeMapId: activeMapId,
         notebooksManifest: notebooksManifest,
         sectionsManifest: sectionsManifest,
         mapsManifest: mapsManifest,
-        allMapsData: allMapsMemoryCache
-    });
+        allMapsData: filteredMapsData
+    };
+    FlowNotesIDB.set("flownotes_full_bundle", bundlePayload);
+    recordLocalIdbSnapshot(bundlePayload);
 
     updateCurrentMapBadge();
     renderOrganizerUI();
@@ -4792,9 +4928,12 @@ function initEvents() {
     document.getElementById("closeModalBtn").addEventListener("click", () => document.getElementById("exportModal").style.display = "none");
     document.getElementById("confirmExportBtn").addEventListener("click", () => document.getElementById("exportModal").style.display = "none");
 
-    // 跨设备云同步弹窗 (v3.8.0 统一双引擎：Cloudflare 极速免配 + GitHub Gist 归档)
+    // 跨设备云同步弹窗 (v3.8.0 统一双引擎：Cloudflare 极速免配 + GitHub Gist 归档 + v4.1.0 时光机)
     const openGhModal = () => {
         refreshCfSyncModalStatus();
+        if (typeof refreshBackupTimeMachineUI === "function") {
+            refreshBackupTimeMachineUI();
+        }
         document.getElementById("ghSyncModal").style.display = "flex";
     };
     document.getElementById("ghSyncBtn").addEventListener("click", openGhModal);
@@ -4808,6 +4947,10 @@ function initEvents() {
     if (btnCloudPush) btnCloudPush.addEventListener("click", () => pushToCloudSync(false));
     const btnCloudPull = document.getElementById("btnCloudPull");
     if (btnCloudPull) btnCloudPull.addEventListener("click", () => pullFromCloudSync(false));
+    const btnRefreshBackupHistory = document.getElementById("btnRefreshBackupHistory");
+    if (btnRefreshBackupHistory) btnRefreshBackupHistory.addEventListener("click", () => refreshBackupTimeMachineUI());
+    const btnDownloadFullBackupNow = document.getElementById("btnDownloadFullBackupNow");
+    if (btnDownloadFullBackupNow) btnDownloadFullBackupNow.addEventListener("click", () => downloadFullBackupJson());
 
     document.getElementById("saveGhSettingsBtn").addEventListener("click", saveGhSettings);
     document.getElementById("autoCreateGistBtn").addEventListener("click", autoCreateGhGist);
@@ -6756,6 +6899,9 @@ function getFullBackupPayload() {
                 try { allMapsData[m.id] = JSON.parse(raw); } catch (e) {}
             }
         }
+        if (allMapsData[m.id] && Array.isArray(allMapsData[m.id].nodes)) {
+            m.nodeCount = allMapsData[m.id].nodes.length;
+        }
     });
     allMapsData[activeMapId] = {
         nodes: nodes,
@@ -6766,11 +6912,11 @@ function getFullBackupPayload() {
         pomoSettings: (window.pomoSettings) ? window.pomoSettings : JSON.parse(localStorage.getItem("flownotes_pomo_settings") || "{}")
     };
     allMapsMemoryCache[activeMapId] = allMapsData[activeMapId];
-
-    const totalNodes = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0) || nodes.length;
+    const activeManifest = mapsManifest.find(m => m.id === activeMapId);
+    if (activeManifest) activeManifest.nodeCount = nodes.length;
 
     return {
-        version: "FlowNotes-MultiMap-3.8.0",
+        version: "FlowNotes-MultiMap-4.1.0",
         updatedAtMs: Date.now(),
         activeMapId: activeMapId,
         notebooksManifest: notebooksManifest,
@@ -6789,23 +6935,49 @@ function getFullBackupPayload() {
 
 let lastCloudflareSyncTimestamp = 0;
 
-async function pushToCloudSync(silent = false) {
+async function pushToCloudSync(silent = false, forceOverwrite = false) {
     const nowMs = Date.now();
+    // 绝对防覆写防线：启动未完成或当前仅处于默认演示模板时，绝不静默向云端推送覆盖真实笔记
+    if (silent && (!isStorageHydrated || currentMapLoadedFromDefaultFallback)) {
+        return false;
+    }
+    if (silent && mapsManifest.length <= 1 && isDefaultDemoNodes(nodes)) {
+        return false;
+    }
     // 防抖与冷却：自动静默推送时，若 5 秒内刚推送过则跳过
     if (silent && (nowMs - lastCloudflareSyncTimestamp < 5000)) {
         return;
     }
 
-    const totalCards = mapsManifest.reduce((acc, m) => acc + (m.nodeCount || 0), 0) || nodes.length;
+    const payload = getFullBackupPayload();
+    if (forceOverwrite) {
+        payload.forceOverwrite = true;
+    }
+    const totalCards = countBundleTotalNodes(payload) || nodes.length;
     updateSyncStatusUI("busy", `🔄 正在推送到 Cloudflare 云端... (${totalCards}张卡片)`);
 
     try {
-        const payload = getFullBackupPayload();
         const res = await fetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json; charset=utf-8" },
             body: JSON.stringify(payload)
         });
+
+        if (res.status === 409) {
+            const errData = await res.json().catch(() => ({}));
+            const existN = errData.existingNodes || "?";
+            const incN = errData.incomingNodes ?? totalCards;
+            updateSyncStatusUI("warn", `🛡️ 云端防误删熔断已拦截 (${existN} vs ${incN})`);
+            if (silent) {
+                showToast(`🛡️ 防误删熔断：云端现有 ${existN} 张卡片，已阻止被 ${incN} 张卡片自动覆盖！可在“云同步 -> 时光机”查看`, 6000);
+                return false;
+            }
+            const ok = confirm(`⚠️ 云端防误删熔断警报！\n\n云端当前安全存有 ${existN} 张卡片，而本次待推送的数据只有 ${incN} 张卡片（数量骤降超过 50%）。\n\n为防止误删丢失一周成果，系统已自动拦截此次覆盖！强烈建议点【取消】，然后从“云同步 -> 备份时光机”拉取历史或峰值版本。\n\n若你确定要强制覆盖云端，请点【确定】。`);
+            if (ok) {
+                return await pushToCloudSync(false, true);
+            }
+            return false;
+        }
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const result = await res.json();
@@ -6817,9 +6989,12 @@ async function pushToCloudSync(silent = false) {
 
         updateSyncStatusUI("ok", `🟢 已同步云端 (${totalCards}卡片 | ${nowStr})`);
         refreshCfSyncModalStatus();
+        if (typeof refreshBackupTimeMachineUI === "function") {
+            refreshBackupTimeMachineUI();
+        }
 
         if (!silent) {
-            showToast(`🚀 成功推送至云端！共 ${totalCards} 张卡片，iPad 现已可秒级拉取！`);
+            showToast(`🚀 成功推送至云端并已生成快照保护！共 ${totalCards} 张卡片`);
         }
 
         // 如果用户也配置了 GitHub，后台顺带备份至 Gist
@@ -6884,7 +7059,10 @@ async function refreshCfSyncModalStatus() {
             const meta = await res.json();
             if (meta && meta.exists) {
                 const dateStr = meta.updatedAtMs ? new Date(meta.updatedAtMs).toLocaleTimeString('zh-CN', { hour12: false }) : "近期";
-                statusTextEl.innerHTML = `<span style="color:#10b981">🟢 云端已有备份</span> (共 <b>${meta.totalNodes || 0}</b> 张卡片 / <b>${meta.totalMaps || 1}</b> 个图谱)`;
+                const peakText = (meta.peakNodes && meta.peakNodes > (meta.totalNodes || 0))
+                    ? ` | 🏆 历史峰值 <b>${meta.peakNodes}</b> 张`
+                    : "";
+                statusTextEl.innerHTML = `<span style="color:#10b981">🟢 云端已有备份</span> (共 <b>${meta.totalNodes || 0}</b> 张卡片 / <b>${meta.totalMaps || 1}</b> 个图谱${peakText})`;
                 if (timeTextEl) timeTextEl.textContent = `备份时间: ${dateStr}`;
                 return meta;
             }
@@ -6895,6 +7073,208 @@ async function refreshCfSyncModalStatus() {
         statusTextEl.innerHTML = `<span style="color:#ef4444">⚠️ 云端网络检测中</span>`;
     }
     return null;
+}
+
+function downloadFullBackupJson(customPayload = null, filenamePrefix = "FlowNotes_FullBackup") {
+    const payload = customPayload || getFullBackupPayload();
+    const d = new Date(payload.updatedAtMs || Date.now());
+    const pad = n => String(n).padStart(2, "0");
+    const stamp = `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const totalCards = countBundleTotalNodes(payload);
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${filenamePrefix}_${totalCards}cards_${stamp}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    showToast(`💾 已导出完整全量备份 JSON（共 ${totalCards} 张卡片）`);
+}
+
+function restoreFromSnapshotPayload(payload, label = "历史版本") {
+    if (!payload || (!payload.mapsManifest && !payload.nodes && !payload.allMapsData)) {
+        showToast("❌ 该快照数据不完整，无法恢复");
+        return false;
+    }
+    const targetCards = countBundleTotalNodes(payload);
+    if (!confirm(`确定要恢复【${label}】吗？\n\n该版本包含 ${targetCards} 张卡片。当前工作台将被此版本替换（恢复前系统会自动保留一份当前本机快照）。`)) {
+        return false;
+    }
+    if (typeof recordLocalIdbSnapshot === "function") {
+        recordLocalIdbSnapshot(getFullBackupPayload(), true);
+    }
+    applyParsedBackupData(payload);
+    const nowStr = new Date().toLocaleTimeString('zh-CN', { hour12: false });
+    updateSyncStatusUI("ok", `⏪ 已回滚快照 (${targetCards}卡片 | ${nowStr})`);
+    refreshCfSyncModalStatus();
+    refreshBackupTimeMachineUI();
+    showToast(`⏪ 已成功恢复【${label}】(共 ${targetCards} 张卡片)！`);
+    return true;
+}
+
+async function refreshBackupTimeMachineUI() {
+    const listEl = document.getElementById("backupTimeMachineList");
+    if (!listEl) return;
+    listEl.innerHTML = `<div style="font-size:12px; color:var(--text-muted); padding:10px; text-align:center;">🔄 正在读取云端与本机时光机版本库...</div>`;
+
+    const entries = [];
+    const formatSnapTime = (ms) => {
+        if (!ms) return "未知时间";
+        try {
+            return new Date(ms).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+        } catch (_) {
+            return String(ms);
+        }
+    };
+
+    const [cloudResult, localPeak, localRing] = await Promise.all([
+        fetch("/api/sync?history=1&ts=" + Date.now(), { cache: "no-store" })
+            .then(r => (r.ok ? r.json() : null))
+            .catch(() => null),
+        typeof FlowNotesIDB !== "undefined" ? FlowNotesIDB.get("flownotes_local_peak_backup").catch(() => null) : Promise.resolve(null),
+        typeof FlowNotesIDB !== "undefined" ? FlowNotesIDB.get("flownotes_local_history_ring").catch(() => null) : Promise.resolve(null)
+    ]);
+
+    if (cloudResult) {
+        if (cloudResult.peak && (cloudResult.peak.totalNodes || 0) > 0) {
+            entries.push({
+                tag: "🏆 云端历史最高卡片峰值备份",
+                source: "cloud",
+                key: "flownotes_peak_backup",
+                updatedAtMs: cloudResult.peak.updatedAtMs || 0,
+                totalNodes: cloudResult.peak.totalNodes || 0,
+                totalMaps: cloudResult.peak.totalMaps || 1,
+                clientSource: cloudResult.peak.clientSource || "",
+                accent: "#f59e0b"
+            });
+        }
+        if (Array.isArray(cloudResult.history)) {
+            cloudResult.history.forEach((snap, idx) => {
+                if (!snap || !snap.key) return;
+                entries.push({
+                    tag: `☁️ 云端历史快照 #${idx + 1}`,
+                    source: "cloud",
+                    key: snap.key,
+                    updatedAtMs: snap.updatedAtMs || 0,
+                    totalNodes: snap.totalNodes || 0,
+                    totalMaps: snap.totalMaps || 1,
+                    clientSource: snap.clientSource || "",
+                    accent: "#38bdf8"
+                });
+            });
+        }
+    }
+
+    if (localPeak && countBundleTotalNodes(localPeak) > 0) {
+        entries.push({
+            tag: "💻 本机 IndexedDB 峰值备份",
+            source: "local",
+            payload: localPeak,
+            updatedAtMs: localPeak.updatedAtMs || 0,
+            totalNodes: countBundleTotalNodes(localPeak),
+            totalMaps: Array.isArray(localPeak.mapsManifest) ? localPeak.mapsManifest.length : 1,
+            clientSource: "本机",
+            accent: "#10b981"
+        });
+    }
+
+    if (Array.isArray(localRing)) {
+        localRing.forEach((item, idx) => {
+            if (!item || !item.bundle) return;
+            entries.push({
+                tag: `💻 本机历史快照 #${idx + 1}`,
+                source: "local",
+                payload: item.bundle,
+                updatedAtMs: item.updatedAtMs || item.bundle.updatedAtMs || 0,
+                totalNodes: item.totalNodes || countBundleTotalNodes(item.bundle),
+                totalMaps: item.totalMaps || (Array.isArray(item.bundle.mapsManifest) ? item.bundle.mapsManifest.length : 1),
+                clientSource: "本机",
+                accent: "#94a3b8"
+            });
+        });
+    }
+
+    listEl.innerHTML = "";
+    if (entries.length === 0) {
+        listEl.innerHTML = `<div style="font-size:12px; color:var(--text-muted); padding:10px; text-align:center;">⚪ 暂无可回滚的历史快照，完成一次保存或云端推送后将自动建档。</div>`;
+        return;
+    }
+
+    const resolveEntryPayload = async (entry) => {
+        if (entry.payload) return entry.payload;
+        const res = await fetch(`/api/sync?snapshot=${encodeURIComponent(entry.key)}&ts=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+    };
+
+    entries.forEach((entry) => {
+        const row = document.createElement("div");
+        row.style.cssText = "display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; background:rgba(148,163,184,0.1); border:1px solid rgba(148,163,184,0.22); flex-wrap:wrap;";
+
+        const info = document.createElement("div");
+        info.style.cssText = "display:flex; flex-direction:column; gap:2px; min-width:190px; flex:1;";
+        const titleLine = document.createElement("div");
+        titleLine.style.cssText = "font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px; color:var(--text-primary);";
+        const tagSpan = document.createElement("span");
+        tagSpan.style.color = entry.accent;
+        tagSpan.textContent = entry.tag;
+        const countBadge = document.createElement("span");
+        countBadge.style.cssText = "font-size:11px; padding:1px 6px; border-radius:999px; background:rgba(16,185,129,0.15); color:#10b981;";
+        countBadge.textContent = `${entry.totalNodes} 卡片 / ${entry.totalMaps} 图谱`;
+        titleLine.appendChild(tagSpan);
+        titleLine.appendChild(countBadge);
+
+        const timeLine = document.createElement("div");
+        timeLine.style.cssText = "font-size:11px; color:var(--text-muted);";
+        timeLine.textContent = `时间: ${formatSnapTime(entry.updatedAtMs)}${entry.clientSource ? ` · 来源: ${entry.clientSource}` : ""}`;
+
+        info.appendChild(titleLine);
+        info.appendChild(timeLine);
+
+        const actions = document.createElement("div");
+        actions.style.cssText = "display:flex; gap:6px; align-items:center;";
+
+        const btnRestore = document.createElement("button");
+        btnRestore.type = "button";
+        btnRestore.className = "btn btn-primary btn-sm";
+        btnRestore.style.cssText = "font-size:11.5px; padding:4px 9px;";
+        btnRestore.textContent = "⏪ 一键恢复此版本";
+        btnRestore.addEventListener("click", async () => {
+            btnRestore.disabled = true;
+            btnRestore.textContent = "⏳ 加载中...";
+            try {
+                const payload = await resolveEntryPayload(entry);
+                restoreFromSnapshotPayload(payload, `${entry.tag} (${entry.totalNodes} 卡片)`);
+            } catch (err) {
+                showToast(`❌ 读取快照失败: ${err.message}`);
+            } finally {
+                btnRestore.disabled = false;
+                btnRestore.textContent = "⏪ 一键恢复此版本";
+            }
+        });
+
+        const btnDl = document.createElement("button");
+        btnDl.type = "button";
+        btnDl.className = "btn btn-secondary btn-sm";
+        btnDl.style.cssText = "font-size:11.5px; padding:4px 9px;";
+        btnDl.textContent = "⬇️ 下载 JSON";
+        btnDl.addEventListener("click", async () => {
+            btnDl.disabled = true;
+            try {
+                const payload = await resolveEntryPayload(entry);
+                downloadFullBackupJson(payload, entry.source === "cloud" ? "FlowNotes_CloudSnap" : "FlowNotes_LocalSnap");
+            } catch (err) {
+                showToast(`❌ 导出快照失败: ${err.message}`);
+            } finally {
+                btnDl.disabled = false;
+            }
+        });
+
+        actions.appendChild(btnRestore);
+        actions.appendChild(btnDl);
+        row.appendChild(info);
+        row.appendChild(actions);
+        listEl.appendChild(row);
+    });
 }
 
 let lastGhPatchTimestamp = 0;
@@ -7017,10 +7397,9 @@ async function pushToGhGist(silent = false) {
 }
 
 // --- v3.4.0 Excalidraw 格式与思维导图导入引擎 ---
-function importExcalidrawFile(parsed, fileName = "") {
+function convertExcalidrawToFlowNotes(parsed, fileName = "") {
     if (!parsed || !Array.isArray(parsed.elements)) {
-        showToast("❌ 非有效的 Excalidraw 格式文件");
-        return false;
+        return null;
     }
 
     const elements = parsed.elements.filter(el => !el.isDeleted);
@@ -7062,14 +7441,10 @@ function importExcalidrawFile(parsed, fileName = "") {
                 }
             }
 
-            const isSoftWrapped = !!(el.customData && el.customData.softWrapped);
             const isHandwriting = !!(el.customData && el.customData.fontStyle === "handwriting") ||
                 (el.fontFamily === 4) ||
                 (styledContent && styledContent.includes("font-handwriting"));
             const fontStyle = isHandwriting ? "handwriting" : null;
-            const preferredW = (el.customData && typeof el.customData.preferredWidth === "number")
-                ? el.customData.preferredWidth
-                : (isSoftWrapped ? Math.round((el.width || 240) + 38) : null);
             const customW = null; // v3.5.8 文本卡片默认自然流式自适应包裹，仅当用户显式拖拽调整手柄时才锁定固定宽度
             const customFont = (typeof el.fontSize === "number" && el.fontSize >= 20 && el.fontSize <= 64) ? el.fontSize : null;
 
@@ -7173,6 +7548,18 @@ function importExcalidrawFile(parsed, fileName = "") {
         }
     });
 
+    return { mapTitle, nodes: importedNodes, links: importedLinks };
+}
+
+function importExcalidrawFile(parsed, fileName = "") {
+    const converted = convertExcalidrawToFlowNotes(parsed, fileName);
+    if (!converted) {
+        showToast("❌ 非有效的 Excalidraw 格式文件");
+        return false;
+    }
+    const { mapTitle, nodes: importedNodes, links: importedLinks } = converted;
+    const nowTs = Date.now();
+
     if (importedNodes.length === 0) {
         showToast("⚠️ 该 Excalidraw 文件未包含可提取的文本或图片卡片");
         return false;
@@ -7202,14 +7589,16 @@ function importExcalidrawFile(parsed, fileName = "") {
     allMapsMemoryCache[newMapId] = newMapData;
     safeLocalStorageSet(`flownotes_map_data_${newMapId}`, JSON.stringify(newMapData));
 
-    FlowNotesIDB.set("flownotes_full_bundle", {
+    const bundlePayload = {
         updatedAtMs: nowTs,
         activeMapId: newMapId,
         notebooksManifest: notebooksManifest,
         sectionsManifest: sectionsManifest,
         mapsManifest: mapsManifest,
         allMapsData: allMapsMemoryCache
-    });
+    };
+    FlowNotesIDB.set("flownotes_full_bundle", bundlePayload);
+    recordLocalIdbSnapshot(bundlePayload, true);
 
     switchActiveMap(newMapId);
     setTimeout(() => {
@@ -7218,6 +7607,70 @@ function importExcalidrawFile(parsed, fileName = "") {
     }, 180);
 
     return true;
+}
+
+let _autoHealedExcalidrawAttempted = false;
+async function autoHealWipedExcalidrawMaps() {
+    if (_autoHealedExcalidrawAttempted) return;
+    const targets = mapsManifest.filter(m => {
+        if (!m || !m.title) return false;
+        const isExTitle = m.title.includes("Excalidraw") || m.title.includes("AI Biologist");
+        if (!isExTitle) return false;
+        const memData = allMapsMemoryCache[m.id];
+        const mapNodes = (m.id === activeMapId) ? nodes : (memData && memData.nodes);
+        return isDefaultDemoNodes(mapNodes);
+    });
+    if (targets.length === 0) return;
+    _autoHealedExcalidrawAttempted = true;
+
+    try {
+        const res = await fetch("/1.excalidraw", { cache: "no-store" });
+        if (!res.ok) return;
+        const parsed = await res.json();
+        const converted = convertExcalidrawToFlowNotes(parsed, "1.excalidraw");
+        if (!converted || !converted.nodes || converted.nodes.length === 0) return;
+
+        let changedActive = false;
+        targets.forEach(m => {
+            const oldData = allMapsMemoryCache[m.id] || {};
+            const rebuiltNodes = converted.nodes.map(n => ({ ...n }));
+            const rebuiltLinks = converted.links.map(l => ({ ...l }));
+            allMapsMemoryCache[m.id] = {
+                nodes: rebuiltNodes,
+                links: rebuiltLinks,
+                flowStream: Array.isArray(oldData.flowStream) ? oldData.flowStream : [],
+                inkStrokes: Array.isArray(oldData.inkStrokes) ? oldData.inkStrokes : []
+            };
+            m.nodeCount = rebuiltNodes.length;
+            safeLocalStorageSet(`flownotes_map_data_${m.id}`, JSON.stringify(allMapsMemoryCache[m.id]));
+            if (m.id === activeMapId) {
+                nodes = rebuiltNodes;
+                links = rebuiltLinks;
+                sanitizeGraph();
+                changedActive = true;
+            }
+        });
+
+        safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+        if (changedActive) {
+            currentMapLoadedFromDefaultFallback = false;
+            selectedNode = nodes[0] || null;
+            selectedNodeIds = selectedNode ? new Set([selectedNode.id]) : new Set();
+            updateCurrentMapBadge();
+            if (typeof svg !== "undefined" && svg) {
+                if (layoutMode === "tree") tidyLayout();
+                else updateD3Graph();
+                renderPositions();
+                renderAll();
+                renderEditor();
+                renderOrganizerUI();
+            }
+        }
+        saveGraphToStorage(false);
+        showToast(`🛠️ 检测到【${targets[0].title}】退化为默认模板，已自动从底层底稿恢复 ${converted.nodes.length} 张卡片！`, 5500);
+    } catch (e) {
+        console.warn("[FlowNotes] autoHealWipedExcalidrawMaps failed:", e);
+    }
 }
 
 function loadDemoExcalidrawMap(sourceName = "1.pdf") {
@@ -7300,14 +7753,26 @@ function applyParsedBackupData(parsed, fileName = "") {
     }
 
     const stampMs = parsed.updatedAtMs || Date.now();
-    FlowNotesIDB.set("flownotes_full_bundle", {
+    safeLocalStorageSet("flownotes_local_updated_ms", String(stampMs));
+    mapsManifest.forEach(m => {
+        if (allMapsMemoryCache[m.id] && Array.isArray(allMapsMemoryCache[m.id].nodes)) {
+            m.nodeCount = allMapsMemoryCache[m.id].nodes.length;
+        }
+    });
+    safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));
+    isStorageHydrated = true;
+    currentMapLoadedFromDefaultFallback = isDefaultDemoNodes(nodes);
+
+    const bundlePayload = {
         updatedAtMs: stampMs,
         activeMapId: activeMapId,
         notebooksManifest: notebooksManifest,
         sectionsManifest: sectionsManifest,
         mapsManifest: mapsManifest,
         allMapsData: allMapsMemoryCache
-    });
+    };
+    FlowNotesIDB.set("flownotes_full_bundle", bundlePayload);
+    recordLocalIdbSnapshot(bundlePayload, true);
 
     if (layoutMode === "tree") tidyLayout();
     else updateD3Graph();
@@ -7412,6 +7877,7 @@ let lastCloudflareCheckMs = 0;
 
 // v3.8.0 跨设备开机/切回窗口自动 Cloudflare 极速云端新版本检测（iPad 首次打开自动秒拉取电脑笔记）
 async function autoCheckCloudSync(silent = true) {
+    if (!isStorageHydrated) return;
     const now = Date.now();
     if (now - lastCloudflareCheckMs < 12000) return; // 12秒冷却防频繁请求
     lastCloudflareCheckMs = now;
@@ -7426,7 +7892,7 @@ async function autoCheckCloudSync(silent = true) {
         const lastKnownCfMs = parseInt(localStorage.getItem("flownotes_last_cf_sync_ts") || "0", 10);
         const localUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
 
-        const isDefaultInitialState = (mapsManifest.length <= 1 && nodes.length <= 4 && (!lastKnownCfMs || (nodes[0] && (nodes[0].id === "root_1" || nodes[0].label === "核心概念"))));
+        const isDefaultInitialState = (mapsManifest.length <= 1 && isDefaultDemoNodes(nodes) && (!lastKnownCfMs || meta.totalNodes > nodes.length));
 
         // 如果本设备是初始状态（例如 iPad 首次打开），或者云端有新更新且本地无冲突修改：
         if (isDefaultInitialState || (cloudStampMs > lastKnownCfMs + 1000 && localUpdatedMs <= lastKnownCfMs + 1000)) {
@@ -7966,15 +8432,17 @@ function switchActiveMap(mapId) {
     if (mapId === activeMapId) return;
     flushPendingSave();
 
-    // 先保存当前激活图谱的数据
-    const currentData = {
-        nodes: nodes,
-        links: cleanLinks(),
-        flowStream: flowStream,
-        inkStrokes: inkStrokes
-    };
-    allMapsMemoryCache[activeMapId] = currentData;
-    safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
+    // 先保存当前激活图谱的数据（若尚未完成 IDB 恢复且处于默认兜底状态则严禁覆盖真实图谱）
+    if (!(!isStorageHydrated && currentMapLoadedFromDefaultFallback)) {
+        const currentData = {
+            nodes: nodes,
+            links: cleanLinks(),
+            flowStream: flowStream,
+            inkStrokes: inkStrokes
+        };
+        allMapsMemoryCache[activeMapId] = currentData;
+        safeLocalStorageSet(`flownotes_map_data_${activeMapId}`, JSON.stringify(currentData));
+    }
 
     // 加载新图谱（并重置图谱专属撤销历史栈，杜绝在图谱 B 按 Ctrl+Z 误还原图谱 A！）
     loadMapData(mapId);
@@ -8051,6 +8519,11 @@ function deleteMap(mapId) {
     if (!target) return;
 
     if (!confirm(`确定要彻底删除思维沙盘 [[${target.title}]] 吗？此操作无法撤销。`)) return;
+
+    // 删除前强制留存一张本地时光机快照，防止手滑误删整张脑图
+    if (typeof recordLocalIdbSnapshot === "function") {
+        recordLocalIdbSnapshot(getFullBackupPayload(), true);
+    }
 
     mapsManifest = mapsManifest.filter(m => m.id !== mapId);
     safeLocalStorageSet("flownotes_maps_manifest", JSON.stringify(mapsManifest));

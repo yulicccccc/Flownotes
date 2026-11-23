@@ -1,10 +1,11 @@
 """
 FlowNotes Fortress Regression Test Suite
-Covers all 4 core pillars:
+Covers all 5 core pillars:
   1. Title / Node Card Isolation & Integrity
   2. Note Details Editor Persistence, Isolation, Mode Switching & Undo/Redo
   3. Arrows / Links Geometry, Direction, Reversal, Deletion, Port Drag & Cycle Safety
   4. Formatting Round-Trip (Bold, Colors, Highlights, Handwriting, Base64 Images, Tables, Linebreaks, Blockquotes)
+  5. Multi-Layer Backup Vault, IndexedDB >5MB Hydration & Anti-Wipe Circuit Breakers
 
 Run: python tests/fortress_regression.py
 """
@@ -43,6 +44,8 @@ def reset_app_state(page, test_nodes, test_links=None, select_idx=0):
     page.evaluate(
         """({testNodes, testLinks, selectIdx}) => {
             if (typeof resetEditorBindingState === "function") resetEditorBindingState();
+            isStorageHydrated = true;
+            currentMapLoadedFromDefaultFallback = false;
             nodes = JSON.parse(JSON.stringify(testNodes));
             links = JSON.parse(JSON.stringify(testLinks));
             historyStack = [];
@@ -839,6 +842,144 @@ def run_all_tests():
             }""")
             assert res["defTheme"] == "light" and res["afterToggle"] == "dark" and res["backToLight"] == "light", f"Theme regression: {res}"
         run_case("T4.11 Default Light Theme & persistent light <-> dark toggle work cleanly", t4_11)
+
+        # =====================================================================
+        # PILLAR 5: Multi-Layer Backup Vault & Zero-Data-Loss Protection (T5.1 - T5.2)
+        # =====================================================================
+        def t5_1():
+            # Simulate >5MB localStorage quota overflow:
+            # flownotes_map_data_<mapId> missing from localStorage, lsUpdatedMs === idbUpdatedMs,
+            # while IndexedDB holds 163 real nodes!
+            page.evaluate("""async () => {
+                // Prevent old test state's beforeunload flushPendingSave from overwriting our simulated IDB fixture
+                isStorageHydrated = false;
+                currentMapLoadedFromDefaultFallback = true;
+                const bigNodes = [];
+                for (let i = 0; i < 163; i++) {
+                    bigNodes.push({
+                        id: "big_node_" + i,
+                        label: "Large Card " + i,
+                        parentId: i === 0 ? null : "big_node_0",
+                        content: "Detail content for " + i,
+                        x: 200 + (i % 10) * 140,
+                        y: 160 + Math.floor(i / 10) * 90,
+                        fx: 200 + (i % 10) * 140,
+                        fy: 160 + Math.floor(i / 10) * 90
+                    });
+                }
+                const stamp = 1795098536879;
+                const manifest = [{ id: "map_big_quota", title: "Big Over5MB Map", icon: "🧠", nodeCount: 163, notebookId: "nb_default", sectionId: "sec_default" }];
+                localStorage.setItem("flownotes_maps_manifest", JSON.stringify(manifest));
+                localStorage.setItem("flownotes_active_map_id", "map_big_quota");
+                localStorage.setItem("flownotes_local_updated_ms", String(stamp));
+                localStorage.removeItem("flownotes_map_data_map_big_quota");
+                await FlowNotesIDB.set("flownotes_full_bundle", {
+                    updatedAtMs: stamp,
+                    activeMapId: "map_big_quota",
+                    notebooksManifest: [{ id: "nb_default", title: "NB", icon: "📔" }],
+                    sectionsManifest: [{ id: "sec_default", notebookId: "nb_default", title: "Sec", color: "#38bdf8", order: 0 }],
+                    mapsManifest: manifest,
+                    allMapsData: {
+                        map_big_quota: { nodes: bigNodes, links: [], flowStream: [], inkStrokes: [] }
+                    }
+                });
+            }""")
+            page.reload(wait_until="domcontentloaded")
+            page.wait_for_selector("#graph-svg")
+            page.wait_for_function("() => isStorageHydrated === true && nodes.length === 163", timeout=6000)
+            # Trigger flushPendingSave() and verify 163 nodes remain intact in both memory & IndexedDB
+            res = page.evaluate("""async () => {
+                flushPendingSave();
+                const bundle = await FlowNotesIDB.get("flownotes_full_bundle");
+                return {
+                    count: nodes.length,
+                    firstId: nodes[0] ? nodes[0].id : null,
+                    hydrated: isStorageHydrated,
+                    fallbackFlag: currentMapLoadedFromDefaultFallback,
+                    idbCount: bundle && bundle.allMapsData && bundle.allMapsData.map_big_quota ? bundle.allMapsData.map_big_quota.nodes.length : -1
+                };
+            }""")
+            assert res["count"] == 163 and res["firstId"] == "big_node_0", f"IDB recovery failed! {res}"
+            assert res["hydrated"] and not res["fallbackFlag"], f"Hydration flags invalid! {res}"
+            assert res["idbCount"] == 163, f"IDB was overwritten during flush! {res}"
+        run_case("T5.1 IndexedDB >5MB quota fallback recovers full 163 cards even when idbUpdatedMs === lsUpdatedMs", t5_1)
+
+        def t5_2():
+            # Verify local peak backup, rolling local history ring, and client/server 409 anti-wipe shrink guard
+            def handle_sync_route(route):
+                if route.request.method == "POST":
+                    route.fulfill(
+                        status=409,
+                        content_type="application/json",
+                        body='{"error":"CLOUD_SHRINK_PROTECTED","existingNodes":163,"incomingNodes":12,"message":"熔断拦截"}'
+                    )
+                elif "history=1" in route.request.url:
+                    route.fulfill(
+                        status=200,
+                        content_type="application/json",
+                        body='{"peak":{"totalNodes":163,"updatedAtMs":1795000000000,"totalMaps":2},"history":[]}'
+                    )
+                else:
+                    route.continue_()
+
+            page.route("**/api/sync*", handle_sync_route)
+            res = page.evaluate("""async () => {
+                await FlowNotesIDB.set("flownotes_local_peak_backup", null);
+                await FlowNotesIDB.set("flownotes_local_history_ring", []);
+                allMapsMemoryCache = {};
+                isStorageHydrated = true;
+                currentMapLoadedFromDefaultFallback = false;
+                activeMapId = "map_ring_test";
+                mapsManifest = [{ id: "map_ring_test", title: "Ring Test", nodeCount: 12, notebookId: "nb_default", sectionId: "sec_default" }];
+                nodes = [];
+                for (let i = 0; i < 12; i++) {
+                    nodes.push({ id: "r_" + i, label: "Card " + i, parentId: i === 0 ? null : "r_0", content: "Body " + i, x: 200 + i * 20, y: 200 });
+                }
+                links = [];
+                saveGraphToStorage(false);
+                // Allow async IndexedDB snapshot writer to settle
+                await new Promise(r => setTimeout(r, 250));
+                const peak = await FlowNotesIDB.get("flownotes_local_peak_backup");
+                const ring = await FlowNotesIDB.get("flownotes_local_history_ring");
+
+                // 1) Test 409 shrink guard handling when silent push hits 409 from server
+                lastCloudflareSyncTimestamp = 0;
+                localStorage.setItem("flownotes_last_cf_sync_ts", "111");
+                const push409Result = await pushToCloudSync(true);
+                const cfTsAfter409 = localStorage.getItem("flownotes_last_cf_sync_ts");
+
+                // 2) Test silent default-demo guard blocks pushing 4 default cards even without force
+                const prevNodes = nodes;
+                const prevManifest = mapsManifest;
+                nodes = DEFAULT_NODES.map(n => ({ ...n }));
+                mapsManifest = [{ id: "map_default", title: "默认", nodeCount: 4 }];
+                const demoBlocked = await pushToCloudSync(true);
+                nodes = prevNodes;
+                mapsManifest = prevManifest;
+
+                // 3) Open Time-Machine modal and verify entries render visibly
+                document.getElementById("ghSyncModal").style.display = "flex";
+                await refreshBackupTimeMachineUI();
+                const tmText = document.getElementById("backupTimeMachineList")?.innerText || "";
+                document.getElementById("ghSyncModal").style.display = "none";
+
+                return {
+                    peakNodes: peak ? countBundleTotalNodes(peak) : 0,
+                    ringLen: Array.isArray(ring) ? ring.length : 0,
+                    ringTopNodes: Array.isArray(ring) && ring[0] ? ring[0].totalNodes : 0,
+                    push409Result,
+                    cfTsAfter409,
+                    demoBlocked,
+                    hasPeakInTm: tmText.includes("163") && tmText.includes("12")
+                };
+            }""")
+            page.unroute("**/api/sync*")
+            assert res["peakNodes"] == 12, f"Local peak IDB backup missing/wrong: {res}"
+            assert res["ringLen"] >= 1 and res["ringTopNodes"] == 12, f"Local history ring failed: {res}"
+            assert res["push409Result"] is False and res["cfTsAfter409"] == "111", f"409 circuit breaker handling failed: {res}"
+            assert res["demoBlocked"] is False, f"Default demo guard failed: {res}"
+            assert res["hasPeakInTm"], f"Time-Machine UI missing expected snapshots: {res}"
+        run_case("T5.2 Local IndexedDB Peak/History Ring, 409 shrink circuit breaker & Time-Machine UI", t5_2)
 
         browser.close()
 

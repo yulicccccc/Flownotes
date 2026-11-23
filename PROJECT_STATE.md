@@ -1,9 +1,16 @@
-# Project State: FlowNotes (v4.0.0)
+# Project State: FlowNotes (v4.1.0)
 
 ## Current Version & Status
-- **Current Version**: `v4.0.0`
-- **Permanent Quality Gate**: `python -u tests/fortress_regression.py` (30/30 Playwright Chromium tests passing, enforced via `AGENTS.md`)
+- **Current Version**: `v4.1.0`
+- **Permanent Quality Gate**: `python -u tests/fortress_regression.py` (32/32 Playwright Chromium tests passing, enforced via `AGENTS.md`)
 - **Latest Releases**:
+  - `v4.1.0`:
+    - **Ironclad Multi-Layer Backup Vault & Zero-Data-Loss Engine**:
+      - 修复 `initStorage()` IndexedDB >5MB 恢复条件漏网 (`idbUpdatedMs >= lsUpdatedMs` + `currentMapLoadedFromDefaultFallback` + `isStorageHydrated` 水合锁)，彻底防止 4 张默认演示卡片覆写 IndexedDB 与云端；
+      - `functions/api/sync.js` 升级为企业级防丢保险库：精确多图谱卡片计数、HTTP 409 断崖暴跌覆盖熔断（>50% 自动拦截）、云端 15 版本滚动历史快照 (`flownotes_history_index` / `flownotes_snap_*`) 与不朽历史峰值备份 (`flownotes_peak_backup`)；
+      - `public/app.js` 增加本机 IndexedDB 10 版本快照环与峰值库、`deleteMap` 前强制快照、Excalidraw 底稿自动自愈 (`autoHealWipedExcalidrawMaps`)、静默防默认模板推送拦截与全量 JSON 导出 (`downloadFullBackupJson`)；
+      - `public/index.html` 云同步弹窗内置「🕰️ 备份时光机 & 防丢历史版本库」，支持一键恢复云端/本机峰值与历史快照；
+      - `tests/fortress_regression.py` 扩充 `T5.1`、`T5.2`（共 32 项自动化回归）。
   - `v4.0.0`:
     - **Core Integrity Fortress Architecture (四大核心引擎全链路加固与 30 场景自动化回归堡垒)**:
       - **Title/Node Isolation**: 修复 `sanitizeGraph` 正文劫持标题、表格/图片编辑删光 `# H1-H4` 标题、多行标题捏造幽灵正文、复选框 DOM 抖动吞点击与双重触发；

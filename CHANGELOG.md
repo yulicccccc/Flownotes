@@ -2,6 +2,32 @@
 
 本项目遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/) 规范与 [Semantic Versioning](https://semver.org/lang/zh-CN/) 语义化版本号。
 
+## 🚀 [v4.1.0] - 2026-11-23
+
+### 🛡️ 永不丢笔记多层级保险库、超 5MB IndexedDB 恢复修复与云端/本机时光机引擎 (Ironclad Multi-Layer Backup Vault & Zero-Data-Loss Engine)
+针对因笔记贴图体积超过 `localStorage` 5MB 硬上限时触发的「IndexedDB `>` 严格不等号跳过恢复 + 默认演示模板 6 秒后静默覆盖云端」灾难性 Bug，构建五重防丢装甲与可交互时光机版本库：
+
+#### 1. 彻底根除 >5MB IndexedDB 恢复竞态与默认模板覆盖恶疾 (`public/app.js`)
+- **修复 `idbUpdatedMs >= lsUpdatedMs` 恢复漏网 Bug**：修正原 `if (idbUpdatedMs > lsUpdatedMs)` 因正常保存时时间戳相等或 `ls` 领先数毫秒而跳过从 IndexedDB 恢复画布的致命缺陷；只要检测到 `localStorage` 缺失大体积图谱数据、`currentMapLoadedFromDefaultFallback` 为真或 IndexedDB 中存在更完整图谱，无条件强制加载 IndexedDB 完整节点恢复画布。
+- **启动水合锁 (`isStorageHydrated` & `currentMapLoadedFromDefaultFallback`)**：在 IndexedDB 异步恢复彻底完成前，严禁 `flushPendingSave()`、`saveGraphToStorage()`、`switchActiveMap()` 与 `pushToCloudSync(true)` 将临时兜底的 4 张默认演示卡片写入 IndexedDB、覆盖 `localStorage` 或推送到云端。
+- **Excalidraw / AI Biologist 底稿自动自愈 (`autoHealWipedExcalidrawMaps`)**：启动时若检测到 `Excalidraw` / `AI Biologist` 导图被历史旧版意外洗成了 4 张默认教学卡片，自动从 `/1.excalidraw` 无损重建 63 张核心卡片并保留 OneNote 局部富文本配色。
+
+#### 2. Cloudflare 服务端防误删熔断器 + 15 版本滚动快照 + 不朽历史峰值库 (`functions/api/sync.js`)
+- **精准全图谱节点计数 (`computePayloadStats`)**：精确统计 `allMapsData` 中所有思维图谱的真实卡片总数，杜绝旧版清单字段失真。
+- **防断崖暴跌覆盖熔断 (`HTTP 409 CLOUD_SHRINK_PROTECTED`)**：当云端已存有 `>= 8` 张卡片，而新推送卡片数骤降超过 **50%** 且未携带强制确认标识时，服务端直接拦截拒绝写入并返回 `409`；前端静默同步立即停止并发出保护警告，手动推送需二次弹窗确认才放行。
+- **15 版本云端滚动时光机 (`flownotes_history_index` & `flownotes_snap_*`)**：每次云端覆盖前自动将上一版归档为独立时间戳快照（保留最近 15 个版本），任何误操作均可秒级回滚。
+- **不朽历史峰值保险库 (`flownotes_peak_backup`)**：永久单独锁定并保存「历史最多卡片数」的峰值版本，永远不会被后续少卡片版本覆盖。
+
+#### 3. 本机 IndexedDB 10 版本快照环 & 删图谱前自动留档 (`public/app.js`)
+- **本机峰值与 10 版本滚动环 (`recordLocalIdbSnapshot`)**：每次有效保存自动维护本机 `flownotes_local_peak_backup` 与 10 版本 `flownotes_local_history_ring`；在执行 `deleteMap()` 删除页面或回滚版本前强制加存当前快照，防止手滑误删。
+
+#### 4. 云同步弹窗内置「🕰️ 备份时光机 & 防丢历史版本库」与全量 JSON 导出 (`public/index.html` & `public/app.js`)
+- **可视化时光机版本列表 (`#backupTimeMachineList`)**：一键同时列出「🏆 云端峰值备份」、「☁️ 云端最近 15 个历史快照」、「💻 本机 IndexedDB 峰值与 10 个本地快照」，每条均支持 **[⏪ 一键恢复此版本]** 与 **[⬇️ 下载 JSON]**。
+- **一键导出真全量备份 (`downloadFullBackupJson`)**：在云同步弹窗顶部新增 `⬇️ 立即导出全量 JSON 备份`，完整导出全部多图谱、连线、树状分区与番茄钟证据库。
+
+#### 5. 回归堡垒门禁扩充至 32 项 (`tests/fortress_regression.py`)
+- 新增 `T5.1`（模拟超 5MB `localStorage` 丢失 + 同时间戳下从 IndexedDB 无损恢复 163 张卡片且防覆盖）与 `T5.2`（本机峰值/历史环、409 防误删熔断、默认模板静默推送拦截与时光机渲染）。
+
 ## 🚀 [v4.0.0] - 2026-11-19
 
 ### 🏰 核心数据契约重构、四大引擎全链路加固与 30 场景自动化回归堡垒 (Core Integrity Fortress Architecture)

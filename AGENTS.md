@@ -7,7 +7,7 @@ Before modifying ANY code in this repository, every agent MUST obey these non-ne
   ```powershell
   python -u tests/fortress_regression.py
   ```
-- **ALL 30/30 tests MUST PASS with 0 page errors** before committing, pushing, or deploying.
+- **ALL 32/32 tests MUST PASS with 0 page errors** before committing, pushing, or deploying.
 - Whenever a new bug is reported, add a regression test to `tests/fortress_regression.py` FIRST so it reproduces the bug, then fix the root cause and verify 100% pass.
 
 ## 2. Four Sacred Data & Rendering Invariants

@@ -1,9 +1,14 @@
-# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v4.0.0)
+# FlowNotes — 空间自由思维沙盘与动态脑图系统 (v4.1.0)
 
 ## Goal
 A full-featured Spatial Sensemaking & Dynamic Mindmap personal knowledge system (FlowNotes) deployed on Cloudflare Pages, replacing OneNote and XMind for non-linear spatial thinking without Microsoft account lock-in. Supports freeform 2D spatial dumping ("放到一坨"), direct on-canvas rich text cards (inline 🔴 red, 🟠 orange, 🟡 yellow, 🟢 green, 🔵 blue, 🟣 purple fonts, and 📸 screenshots), sticky tracking directional arrow links (`Tab` child, `Enter` sibling, drag-to-connect, and `L` key with "默认先 make 的是父"), mindmap fold/unfold on arrow-connected nodes, zero-config Cloudflare Edge two-way sync, GitHub Gist anti-loss version control, and automated one-way sync to Obsidian.
 
 ## Finalized & Locked Features
+- **Ironclad Multi-Layer Backup Vault & Zero-Data-Loss Architecture (v4.1.0 永不丢笔记多层级保险库、超 5MB IndexedDB 恢复与云端/本机时光机引擎)**:
+  - **Root-Cause Hydration & Anti-Default-Overwrite Fortress (`public/app.js`)**: 修复 `idbUpdatedMs === lsUpdatedMs` 导致大于 5MB 图谱无法从 IndexedDB 恢复画布的致命竞态；引入 `isStorageHydrated` 与 `currentMapLoadedFromDefaultFallback` 双重水合锁，IndexedDB 未水合前严禁 `flushPendingSave()` / `saveGraphToStorage()` / `switchActiveMap()` / `pushToCloudSync(true)` 覆写持久化数据或推送默认 4 卡模板；新增 `autoHealWipedExcalidrawMaps()` 从 `/1.excalidraw` 自动修复退化底稿；
+  - **Cloudflare Server-Side Vault & Anti-Wipe Circuit Breaker (`functions/api/sync.js`)**: 精确多图谱计数 `computePayloadStats`；内置 `HTTP 409 CLOUD_SHRINK_PROTECTED` 防断崖暴跌覆盖熔断（云端 >=8 卡且骤降 >50% 时默认拒绝覆盖，除非手动确认 `forceOverwrite`）；自动维护云端 15 版本滚动历史快照 (`flownotes_history_index` / `flownotes_snap_*`) 与不朽历史峰值保险库 (`flownotes_peak_backup`)，提供 `?history=1` 与 `?snapshot=` 恢复接口；
+  - **Local IndexedDB Peak & 10-Version Snapshot Ring + Time-Machine UI (`public/index.html` & `public/app.js`)**: 本机维护 `flownotes_local_peak_backup` 与 10 版本 `flownotes_local_history_ring`（`deleteMap` 前强制留档）；在云同步弹窗内置 `#backupTimeMachineList` 时光机与 `downloadFullBackupJson()` 全量 JSON 导出；
+  - **32-Test Fortress Gate (`tests/fortress_regression.py` + `AGENTS.md`)**: 扩充 `T5.1`、`T5.2`，全部 32 项自动化回归测试通过方可提交部署。
 - **Core Integrity Fortress Architecture & 30-Scenario Automated Regression Gate (v4.0.0 四大核心引擎全链路加固与自动化回归堡垒)**:
   - **Title / Node Strict Isolation**: `sanitizeGraph` 仅恢复 `...` 截断标题绝不劫持正常标题；`replaceTableInNoteContent` 与 `updateImageAltInNoteContent` 原地局部替换，彻底废除删光笔记 `# H1-H4` 标题的暴力正则；`renderEditor` 保持纯只读投影；画布复选框通过 `_lastRenderedTargetHTML` 缓存与单次 `change` 事件杜绝 DOM 抖动吞点击与双重翻转；
   - **Note Details Dirty-Flag & Multi-Map/Undo Fortress**: 全通道脏标记 (`isTitleInputDirty` / `isRichEditorDirty` / `isMdTextareaDirty`) 杜绝未编辑 DOM 反向覆写；所见即所得与 Markdown 原码切换无缝提交同步；跨节点表格工具栏严格隔离；`resetEditorBindingState` 与图谱专属 `historyStack` 保障多图谱切换（含同名 `root_1`）、云拉取与 Undo/Redo 100% 精确绑定活体节点；IME `compositionend` 严格限定作用域；
