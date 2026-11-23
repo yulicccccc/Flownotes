@@ -6940,6 +6940,8 @@ function getFullBackupPayload() {
 }
 
 let lastCloudflareSyncTimestamp = 0;
+let _lastPushShrinkPromptKey = "";
+let _lastPullShrinkPromptKey = "";
 
 async function pushToCloudSync(silent = false, forceOverwrite = false) {
     const nowMs = Date.now();
@@ -6973,15 +6975,18 @@ async function pushToCloudSync(silent = false, forceOverwrite = false) {
             const errData = await res.json().catch(() => ({}));
             const existN = errData.existingNodes || "?";
             const incN = errData.incomingNodes ?? totalCards;
+            const diffN = (typeof existN === "number" && typeof incN === "number") ? (existN - incN) : "?";
             updateSyncStatusUI("warn", `🛡️ 云端防误删熔断已拦截 (${existN} vs ${incN})`);
-            if (silent) {
-                showToast(`🛡️ 防误删熔断：云端现有 ${existN} 张卡片，已阻止被 ${incN} 张卡片自动覆盖！可在“云同步 -> 时光机”查看`, 6000);
-                return false;
+            const promptKey = `${existN}->${incN}`;
+            if (!silent || _lastPushShrinkPromptKey !== promptKey) {
+                _lastPushShrinkPromptKey = promptKey;
+                const ok = confirm(`⚠️ 云端覆盖确认（防丢护盾）！\n\n云端当前安全存有 ${existN} 张卡片，而本次待推送的本地数据只有 ${incN} 张（相差 ${diffN} 张，超过 10 张安全阈值）。\n\n• 点击【取消】：安全保留云端 ${existN} 张卡片（推荐先从“云同步 -> 拉取 / 备份时光机”核对）；\n• 点击【确定】：确认用本地 ${incN} 张卡片覆盖云端（原云端版本仍会自动存入时光机历史快照）。`);
+                if (ok) {
+                    _lastPushShrinkPromptKey = "";
+                    return await pushToCloudSync(false, true);
+                }
             }
-            const ok = confirm(`⚠️ 云端防误删熔断警报！\n\n云端当前安全存有 ${existN} 张卡片，而本次待推送的数据只有 ${incN} 张卡片（数量骤降超过 50%）。\n\n为防止误删丢失一周成果，系统已自动拦截此次覆盖！强烈建议点【取消】，然后从“云同步 -> 备份时光机”拉取历史或峰值版本。\n\n若你确定要强制覆盖云端，请点【确定】。`);
-            if (ok) {
-                return await pushToCloudSync(false, true);
-            }
+            showToast(`🛡️ 防误删护盾已拦截：云端现有 ${existN} 张卡片，已阻止被 ${incN} 张卡片覆盖！`, 6000);
             return false;
         }
 
@@ -7031,6 +7036,28 @@ async function pullFromCloudSync(silent = false) {
             updateSyncStatusUI("warn", "⚠️ 云端暂无备份", "请先在电脑端点击【一键推送到云端】");
             if (!silent) showToast("⚠️ 云端暂无备份数据，请先在电脑端点击【一键推送到云端】");
             return false;
+        }
+
+        // 双向防误删保护：若本机卡片数比云端多出超过 10 张，覆盖前必须弹窗询问用户！
+        const localTotalNodes = countBundleTotalNodes({ allMapsData: allMapsMemoryCache, mapsManifest }) || nodes.length;
+        const cloudTotalNodes = countBundleTotalNodes(data);
+        const pullDiff = localTotalNodes - cloudTotalNodes;
+        if (!isDefaultDemoNodes(nodes) && pullDiff > 10) {
+            const pullKey = `${localTotalNodes}->${cloudTotalNodes}`;
+            if (silent && _lastPullShrinkPromptKey === pullKey) {
+                return false;
+            }
+            _lastPullShrinkPromptKey = pullKey;
+            const ok = confirm(`⚠️ 拉取覆盖确认（防丢护盾）！\n\n你本机当前存有 ${localTotalNodes} 张卡片，而云端版本只有 ${cloudTotalNodes} 张（本机比云端多 ${pullDiff} 张，超过 10 张安全阈值）。\n\n• 点击【取消】：安全保留本机 ${localTotalNodes} 张卡片（推荐先点“推送到云端”同步）；\n• 点击【确定】：确认用云端 ${cloudTotalNodes} 张卡片覆盖本机（覆盖前会自动在本机时光机留存当前快照）。`);
+            if (!ok) {
+                updateSyncStatusUI("warn", `🛡️ 已拦截拉取覆盖 (本机 ${localTotalNodes} vs 云端 ${cloudTotalNodes})`);
+                showToast(`🛡️ 已取消拉取覆盖，本机 ${localTotalNodes} 张卡片完好保留！`, 5000);
+                return false;
+            }
+            _lastPullShrinkPromptKey = "";
+            if (typeof recordLocalIdbSnapshot === "function") {
+                recordLocalIdbSnapshot(getFullBackupPayload(), true);
+            }
         }
 
         applyParsedBackupData(data);

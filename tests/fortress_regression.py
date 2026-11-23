@@ -919,6 +919,12 @@ def run_all_tests():
                         content_type="application/json",
                         body='{"peak":{"totalNodes":163,"updatedAtMs":1795000000000,"totalMaps":2},"history":[]}'
                     )
+                elif route.request.method == "GET":
+                    route.fulfill(
+                        status=200,
+                        content_type="application/json",
+                        body='{"version":"FlowNotes-MultiMap-4.1.0","updatedAtMs":1795000000000,"nodes":[{"id":"c1","label":"Only One"}],"mapsManifest":[{"id":"m1","title":"Small","nodeCount":1}],"allMapsData":{"m1":{"nodes":[{"id":"c1","label":"Only One"}],"links":[]}}}'
+                    )
                 else:
                     route.continue_()
 
@@ -944,9 +950,15 @@ def run_all_tests():
 
                 // 1) Test 409 shrink guard handling when silent push hits 409 from server
                 lastCloudflareSyncTimestamp = 0;
+                _lastPushShrinkPromptKey = "";
                 localStorage.setItem("flownotes_last_cf_sync_ts", "111");
                 const push409Result = await pushToCloudSync(true);
                 const cfTsAfter409 = localStorage.getItem("flownotes_last_cf_sync_ts");
+
+                // 1b) Test pull >10 card diff guard blocks overwriting 12 local nodes with 1 cloud node when user cancels
+                _lastPullShrinkPromptKey = "";
+                const pullBlockedResult = await pullFromCloudSync(false);
+                const nodesAfterPullCancel = nodes.length;
 
                 // 2) Test silent default-demo guard blocks pushing 4 default cards even without force
                 const prevNodes = nodes;
@@ -969,6 +981,8 @@ def run_all_tests():
                     ringTopNodes: Array.isArray(ring) && ring[0] ? ring[0].totalNodes : 0,
                     push409Result,
                     cfTsAfter409,
+                    pullBlockedResult,
+                    nodesAfterPullCancel,
                     demoBlocked,
                     hasPeakInTm: tmText.includes("163") && tmText.includes("12")
                 };
@@ -977,6 +991,7 @@ def run_all_tests():
             assert res["peakNodes"] == 12, f"Local peak IDB backup missing/wrong: {res}"
             assert res["ringLen"] >= 1 and res["ringTopNodes"] == 12, f"Local history ring failed: {res}"
             assert res["push409Result"] is False and res["cfTsAfter409"] == "111", f"409 circuit breaker handling failed: {res}"
+            assert res["pullBlockedResult"] is False and res["nodesAfterPullCancel"] == 12, f"Pull >10 diff guard failed: {res}"
             assert res["demoBlocked"] is False, f"Default demo guard failed: {res}"
             assert res["hasPeakInTm"], f"Time-Machine UI missing expected snapshots: {res}"
         run_case("T5.2 Local IndexedDB Peak/History Ring, 409 shrink circuit breaker & Time-Machine UI", t5_2)

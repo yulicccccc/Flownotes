@@ -119,14 +119,17 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // 2. 服务端防误删 / 断崖暴跌熔断器 (HTTP 409 Conflict)
+    // 2. 服务端防误删 / 卡片差大于 10 或骤降 >50% 熔断器 (HTTP 409 Conflict)
     const existingNodes = existingMeta ? (existingMeta.totalNodes || 0) : 0;
-    if (existingNodes >= 8 && incomingTotalNodes < existingNodes * 0.5 && !forceOverwrite) {
+    const nodeDiff = existingNodes - incomingTotalNodes;
+    const isLargeDrop = nodeDiff > 10 || (existingNodes >= 8 && incomingTotalNodes < existingNodes * 0.5);
+    if (isLargeDrop && !forceOverwrite) {
       return new Response(JSON.stringify({
         error: 'CLOUD_SHRINK_PROTECTED',
         existingNodes,
         incomingNodes: incomingTotalNodes,
-        message: `云端防误删熔断：云端已有 ${existingNodes} 张卡片，拒绝被 ${incomingTotalNodes} 张卡片自动覆盖`
+        diff: nodeDiff,
+        message: `云端防误删熔断：云端已有 ${existingNodes} 张卡片，本次仅有 ${incomingTotalNodes} 张（减少 ${nodeDiff} 张，超过 10 张安全阈值），已拦截自动覆盖`
       }), {
         status: 409,
         headers: CORS_HEADERS
