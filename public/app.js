@@ -486,11 +486,11 @@ function initPwaAndLifecycleSync() {
         autoCheckCloudSync(true);
     });
 
-    // 启动后 800ms 自动检测云端是否有其他设备（手机/平板/电脑）推送的更新版本
+    // 启动后 250ms 自动检测云端是否有其他设备推送的更新版本或本地兜底恢复
     setTimeout(() => {
         autoCheckCloudGist(true);
         autoCheckCloudSync(true);
-    }, 800);
+    }, 250);
 }
 
 // --- OneNote 3级树状层级全局状态管理 (v3.5.0) ---
@@ -758,9 +758,15 @@ function initStorage() {
             console.warn("[FlowNotes] IndexedDB hydration error:", e);
         } finally {
             isStorageHydrated = true;
-            if (typeof autoHealWipedExcalidrawMaps === "function") {
-                autoHealWipedExcalidrawMaps();
-            }
+            const runPostHydrationSync = async () => {
+                if (typeof autoCheckCloudSync === "function") {
+                    await autoCheckCloudSync(true);
+                }
+                if (typeof autoHealWipedExcalidrawMaps === "function") {
+                    autoHealWipedExcalidrawMaps();
+                }
+            };
+            runPostHydrationSync();
         }
     }).catch(() => {
         isStorageHydrated = true;
@@ -7892,10 +7898,15 @@ async function autoCheckCloudSync(silent = true) {
         const lastKnownCfMs = parseInt(localStorage.getItem("flownotes_last_cf_sync_ts") || "0", 10);
         const localUpdatedMs = parseInt(localStorage.getItem("flownotes_local_updated_ms") || "0", 10);
 
+        const localTotalNodes = countBundleTotalNodes({ allMapsData: allMapsMemoryCache, mapsManifest }) || nodes.length;
         const isDefaultInitialState = (mapsManifest.length <= 1 && isDefaultDemoNodes(nodes) && (!lastKnownCfMs || meta.totalNodes > nodes.length));
+        const isWipedOrDemoLocal = (
+            (isDefaultDemoNodes(nodes) && meta.totalNodes > localTotalNodes) ||
+            (localTotalNodes <= 10 && meta.totalNodes >= localTotalNodes * 2 && cloudStampMs > lastKnownCfMs)
+        );
 
-        // 如果本设备是初始状态（例如 iPad 首次打开），或者云端有新更新且本地无冲突修改：
-        if (isDefaultInitialState || (cloudStampMs > lastKnownCfMs + 1000 && localUpdatedMs <= lastKnownCfMs + 1000)) {
+        // 如果本设备是初始状态、局部退化为默认模板，或者云端有新更新且本地无冲突修改：
+        if (isDefaultInitialState || isWipedOrDemoLocal || (cloudStampMs > lastKnownCfMs + 1000 && localUpdatedMs <= lastKnownCfMs + 1000)) {
             console.log("[FlowNotes] 发现 Cloudflare 云端有更新备份，自动无感同步...");
             const ok = await pullFromCloudSync(true);
             if (ok) {
